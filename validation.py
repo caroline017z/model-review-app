@@ -44,3 +44,65 @@ def validate_project(proj_data, benchmarks):
             })
 
     return findings, state
+
+
+def summarize_findings(findings):
+    """Build a compact status summary from row-level findings."""
+    summary = {"total": 0, "ok": 0, "warning": 0, "low": 0, "high": 0}
+    for item in findings or []:
+        summary["total"] += 1
+        status = str(item.get("Status", "")).upper()
+        if status == "OK":
+            summary["ok"] += 1
+        elif status == "WARNING":
+            summary["warning"] += 1
+        elif status == "LOW":
+            summary["low"] += 1
+        elif status == "HIGH":
+            summary["high"] += 1
+    return summary
+
+
+def build_assumption_alignment(proj_data, benchmarks):
+    """
+    Create structured output that highlights where inputs diverge from base assumptions.
+    Returns a dict with summary totals and sorted exceptions for quick M&A bid triage.
+    """
+    findings, _ = validate_project(proj_data, benchmarks)
+    summary = summarize_findings(findings)
+
+    exceptions = []
+    for item in findings:
+        status = item.get("Status")
+        if status not in {"LOW", "HIGH", "WARNING"}:
+            continue
+        min_val = item.get("Min")
+        max_val = item.get("Max")
+        value = item.get("Value")
+        if value is None:
+            variance = None
+        elif status == "LOW":
+            variance = value - min_val
+        elif status == "HIGH":
+            variance = value - max_val
+        else:
+            variance = None
+
+        exceptions.append({
+            "Category": item.get("Category"),
+            "Check": item.get("Check"),
+            "Status": status,
+            "Value": value,
+            "Expected Min": min_val,
+            "Expected Max": max_val,
+            "Variance": variance,
+            "Row": item.get("Row"),
+            "Note": item.get("Note"),
+        })
+
+    exceptions.sort(key=lambda x: (x["Category"] or "", x["Check"] or ""))
+    return {
+        "summary": summary,
+        "exceptions": exceptions,
+        "findings": findings,
+    }

@@ -24,12 +24,12 @@ from utils import (
     fmt_val, fmt_delta, style_field_header, style_delta, style_flag, style_warn, style_status,
 )
 from data_loader import load_pricing_model, get_projects, get_ops_sandbox, load_data_room
-from validation import validate_project
+from validation import validate_project, summarize_findings, build_assumption_alignment
 from benchmark_store import load_overrides, save_overrides, delete_overrides, apply_overrides
 from charts import build_capex_waterfall, build_value_driver_chart, build_delta_chart, build_sensitivity_tornado
 from comparison import (
     build_comparison_table, compute_portfolio_wtd_avg,
-    render_bible_section, render_market_card,
+    render_bible_section, render_market_card, build_iteration_summary,
 )
 from xlsx_export import generate_comparison_xlsx, generate_multi_project_xlsx, build_export_rows
 from pptx_export import generate_pptx
@@ -183,6 +183,11 @@ def render_sidebar():
 
         bench_on = st.checkbox("Benchmark Tuning", value=False, key="bench_toggle")
         if bench_on:
+            bench_note = st.text_input(
+                "Benchmark change note",
+                key="bench_note",
+                help="Required when modifying benchmark bounds (for audit trail).",
+            )
             # Show count of custom-tuned benchmarks
             if overrides:
                 st.caption(f"{len(overrides)} benchmark(s) custom-tuned")
@@ -208,7 +213,10 @@ def render_sidebar():
                 cur = overrides.get(override_key, {})
                 if cur.get("min") != new_min or cur.get("max") != new_max:
                     overrides[override_key] = {"min": new_min, "max": new_max}
-                    save_overrides(overrides)
+                    if bench_note.strip():
+                        save_overrides(overrides, note=f"{override_key}: {bench_note.strip()}")
+                    else:
+                        st.warning("Add a benchmark change note to save updates.")
                 st.caption(f"Unit: {spec['unit']}  |  Row: {spec['row']}")
 
             # Reset button
@@ -450,6 +458,10 @@ def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, 
         {kpi_card("Matched", str(len(common)), "By project name", "pass" if common else "teal")}
     </div>
     """, unsafe_allow_html=True)
+    st.caption(
+        f"Comparison metadata — Generated: {pd.Timestamp.utcnow().strftime('%Y-%m-%d %H:%M UTC')} | "
+        f"{m1_label}: {model_file.name if model_file else 'N/A'} | {m2_label}: {'loaded' if m2_projects else 'not loaded'}"
+    )
 
     st.markdown('<div class="section-hdr">Project Selection</div>', unsafe_allow_html=True)
     sel_c1, sel_c2 = st.columns(2)
@@ -489,6 +501,22 @@ def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, 
         st.dataframe(
             df_display.style.map(style_field_header, subset=["Field"]).map(style_delta, subset=["Delta (units)", "Delta (%)"]),
             use_container_width=True, hide_index=True, height=500)
+        focus_rows = [33, 38, 39, 157, 118, 119, 121, 122, 123, 124, 126, 129, 143, 158, 228, 240, 296]
+        st.markdown('<div class="section-hdr">Iteration Snapshot (M&A Focus)</div>', unsafe_allow_html=True)
+        iter_df = build_iteration_summary(data1, data2, focus_rows)
+        st.dataframe(
+            iter_df[["Row", "Field", "Model 1", "Model 2", "Delta", "Delta %", "Direction"]]
+            .style.map(style_field_header, subset=["Field"]).map(style_delta, subset=["Delta", "Delta %"]),
+            use_container_width=True,
+            hide_index=True,
+            height=360,
+        )
+        top5 = iter_df[iter_df["_delta_raw"].notna()].copy()
+        top5["_abs_delta"] = top5["_delta_raw"].abs()
+        top5 = top5.sort_values("_abs_delta", ascending=False).head(5)
+        if not top5.empty:
+            st.caption("Top 5 iteration moves by absolute delta.")
+            st.dataframe(top5[["Field", "Delta", "Direction"]], use_container_width=True, hide_index=True)
         key_rows = [38, 33, 11, 12, 14, 118, 119, 122, 157, 158, 160, 216, 597, 602]
         delta_bars = []
         for _, row in df_comp.iterrows():
@@ -639,7 +667,13 @@ def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, 
 
     dl1, dl2, dl3 = st.columns(3)
     with dl1:
-        st.markdown("**Excel (Variance + Full sheets)**")
+        st.markdown("**Excel Download**")
+        excel_include_variance = st.checkbox("Include variance sheet(s)", value=True, key="xl_inc_var")
+        excel_include_full = st.checkbox("Include full comparison sheet(s)", value=True, key="xl_inc_full")
+        excel_include_summary = st.checkbox("Include summary sheet (multi-project)", value=True, key="xl_inc_sum")
+        if not (excel_include_variance or excel_include_full or excel_include_summary):
+            st.caption("At least one component is required. Defaulting to summary.")
+            excel_include_summary = True
         if compare_mode == "Group (weighted avg)" and anchor_sel:
             a_projs = {k: v for k, v in active1.items() if v["name"] in anchor_sel}
             c_projs = {k: v for k, v in active2.items() if v["name"] in comp_sel} if all_names_2 else {}
@@ -649,7 +683,11 @@ def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, 
             xl_label2 = f"{m2_label} (Wtd Avg)" if c_avg else "\u2014"
             export_rows = build_export_rows(a_avg, c_avg if c_avg else None, xl_label1, xl_label2)
             xl_title = f"{m1_label} vs {m2_label} \u2014 Group Comparison"
-            xlsx_buf = generate_comparison_xlsx(export_rows, xl_label1, xl_label2, xl_title)
+            xlsx_buf = generate_comparison_xlsx(
+                export_rows, xl_label1, xl_label2, xl_title,
+                include_variance_sheet=excel_include_variance,
+                include_full_sheet=excel_include_full,
+            )
             xl_filename = f"38DN_Comparison_{first_anchor.replace(' ', '_')}.xlsx"
         else:
             # Individual mode: collect all matched projects for multi-project export
@@ -664,7 +702,12 @@ def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, 
                     projects_data.append((pn, d1, d2))
                 xl_label1, xl_label2 = m1_label, m2_label
                 xl_title = f"{m1_label} vs {m2_label} \u2014 {len(matched_for_export)} Projects"
-                xlsx_buf = generate_multi_project_xlsx(projects_data, xl_label1, xl_label2, xl_title)
+                xlsx_buf = generate_multi_project_xlsx(
+                    projects_data, xl_label1, xl_label2, xl_title,
+                    include_summary_sheet=excel_include_summary,
+                    include_variance_sheet=excel_include_variance,
+                    include_full_sheet=excel_include_full,
+                )
                 xl_filename = f"38DN_Comparison_Multi_{len(matched_for_export)}proj.xlsx"
             else:
                 # Single project (or no match) - original behaviour
@@ -674,7 +717,11 @@ def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, 
                 xl_label1, xl_label2 = m1_label, m2_label if c_data else "\u2014"
                 export_rows = build_export_rows(a_data, c_data if c_data else None, xl_label1, xl_label2)
                 xl_title = f"{first_anchor} \u2014 {m1_label} vs {m2_label}"
-                xlsx_buf = generate_comparison_xlsx(export_rows, xl_label1, xl_label2, xl_title)
+                xlsx_buf = generate_comparison_xlsx(
+                    export_rows, xl_label1, xl_label2, xl_title,
+                    include_variance_sheet=excel_include_variance,
+                    include_full_sheet=excel_include_full,
+                )
                 xl_filename = f"38DN_Comparison_{first_anchor.replace(' ', '_')}.xlsx"
 
         st.download_button(
@@ -685,8 +732,13 @@ def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, 
         )
 
     with dl2:
-        st.markdown("**PowerPoint (summary + category slides)**")
+        st.markdown("**PowerPoint Download**")
         cmp_bible = st.checkbox("Include Bible comparison", value=False, key="cmp_bible")
+        ppt_include_summary = st.checkbox("Include summary slide", value=True, key="ppt_inc_summary")
+        ppt_include_categories = st.checkbox("Include category slides", value=True, key="ppt_inc_categories")
+        if not (ppt_include_summary or ppt_include_categories):
+            st.caption("At least one content component is required. Defaulting to summary slide.")
+            ppt_include_summary = True
         anchor_data = all_names_1[first_anchor]["data"] if first_anchor in all_names_1 else {}
         comp_data_pptx = all_names_2.get(first_anchor, {})
         comp_data_pptx = comp_data_pptx.get("data") if isinstance(comp_data_pptx, dict) and "data" in comp_data_pptx else comp_data_pptx
@@ -697,6 +749,8 @@ def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, 
             m1_label=m1_label, m2_label=m2_label,
             compare_bible=cmp_bible,
             compare_model=bool(comp_data_pptx),
+            include_summary_slide=ppt_include_summary,
+            include_category_slides=ppt_include_categories,
         )
         st.download_button(
             label="\u2B07 Download .pptx", data=buf,
@@ -745,9 +799,11 @@ def tab_review(m1_projects, m1_ops, m1_label, m2_label, model_file, model_file_2
         return
 
     all_findings = {}
+    all_alignment = {}
     for col_idx, proj in selected.items():
         findings, state = validate_project(proj["data"], BIBLE_BENCHMARKS)
         all_findings[proj["name"]] = {"findings": findings, "state": state, "data": proj["data"]}
+        all_alignment[proj["name"]] = build_assumption_alignment(proj["data"], BIBLE_BENCHMARKS)
 
     total_mw = sum(safe_float(p["data"].get(11)) or 0 for p in selected.values())
     avg_npp = [v for v in (safe_float(p["data"].get(38)) for p in selected.values()) if v is not None and v != 0]
@@ -756,6 +812,22 @@ def tab_review(m1_projects, m1_ops, m1_label, m2_label, model_file, model_file_2
     tw = sum(1 for af in all_findings.values() for f in af["findings"] if f["Status"] == "WARNING")
 
     st.markdown(f'<div class="kpi-row">{kpi_card("Active Projects", str(len(selected)), f"{len(inactive)} inactive", "accent")}{kpi_card("Portfolio Size", f"{total_mw:.1f} MW", "Total MWDC", "accent")}{kpi_card("Avg NPP", fmt_dollar_w(sum(avg_npp) / len(avg_npp) if avg_npp else None), "$/W", "accent")}{kpi_card("Checks Passed", f"{tc - tf - tw}/{tc}", "", "pass" if tf == 0 else "fail")}{kpi_card("Flags", str(tf), f"{tw} missing", "fail" if tf else "pass")}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-hdr">Investment Memo Snapshot</div>', unsafe_allow_html=True)
+    snap_rows = []
+    for project_name, payload in all_alignment.items():
+        sm = summarize_findings(payload["findings"])
+        snap_rows.append({
+            "Project": project_name,
+            "Checks": sm["total"],
+            "OK": sm["ok"],
+            "Flags": sm["low"] + sm["high"],
+            "Missing": sm["warning"],
+            "Critical Breaches": ", ".join(
+                f"{e['Check']} ({e['Status']})"
+                for e in payload["exceptions"][:3]
+            ) if payload["exceptions"] else "—",
+        })
+    st.dataframe(pd.DataFrame(snap_rows), use_container_width=True, hide_index=True)
 
     # Project summary table
     st.markdown('<div class="section-hdr">Project Summary</div>', unsafe_allow_html=True)

@@ -262,7 +262,8 @@ def write_comparison_sheet(ws, comp_rows, label1, label2, title, variance_only=F
     return current_row
 
 
-def generate_comparison_xlsx(comp_data, label1, label2, title="Model Comparison"):
+def generate_comparison_xlsx(comp_data, label1, label2, title="Model Comparison",
+                             include_variance_sheet=True, include_full_sheet=True):
     """Generate a branded Excel workbook with Variance and Full sheets.
 
     Args:
@@ -274,16 +275,26 @@ def generate_comparison_xlsx(comp_data, label1, label2, title="Model Comparison"
     """
     wb = openpyxl.Workbook()
 
-    # Sheet 1: Variance (only differences)
-    ws_var = wb.active
-    ws_var.title = "Variance"
-    write_comparison_sheet(ws_var, comp_data, label1, label2,
-                           f"{title} \u2014 Variance Only", variance_only=True)
+    # Ensure at least one output sheet
+    if not include_variance_sheet and not include_full_sheet:
+        include_full_sheet = True
 
-    # Sheet 2: Full (all rows)
-    ws_full = wb.create_sheet("Full Comparison")
-    write_comparison_sheet(ws_full, comp_data, label1, label2,
-                           f"{title} \u2014 Full Inputs", variance_only=False)
+    active_ws = wb.active
+    first_sheet_written = False
+
+    if include_variance_sheet:
+        ws_var = active_ws if not first_sheet_written else wb.create_sheet("Variance")
+        ws_var.title = "Variance"
+        write_comparison_sheet(ws_var, comp_data, label1, label2,
+                               f"{title} \u2014 Variance Only", variance_only=True)
+        first_sheet_written = True
+
+    if include_full_sheet:
+        ws_full = active_ws if not first_sheet_written else wb.create_sheet("Full Comparison")
+        ws_full.title = "Full Comparison"
+        write_comparison_sheet(ws_full, comp_data, label1, label2,
+                               f"{title} \u2014 Full Inputs", variance_only=False)
+        first_sheet_written = True
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -358,7 +369,9 @@ _SUMMARY_METRICS = [
 ]
 
 
-def generate_multi_project_xlsx(projects_data, label1, label2, title="Multi-Project Comparison"):
+def generate_multi_project_xlsx(projects_data, label1, label2, title="Multi-Project Comparison",
+                                include_summary_sheet=True, include_variance_sheet=True,
+                                include_full_sheet=True):
     """Generate a branded Excel workbook with a Summary sheet and per-project Variance/Full sheets.
 
     Args:
@@ -369,6 +382,10 @@ def generate_multi_project_xlsx(projects_data, label1, label2, title="Multi-Proj
     Returns: BytesIO buffer
     """
     wb = openpyxl.Workbook()
+
+    # Ensure at least one selected output
+    if not include_summary_sheet and not include_variance_sheet and not include_full_sheet:
+        include_summary_sheet = True
 
     # ---- Sheet 1: Summary ----
     ws_sum = wb.active
@@ -384,14 +401,11 @@ def generate_multi_project_xlsx(projects_data, label1, label2, title="Multi-Proj
     ws_sum["B2"].alignment = ALIGN_LEFT
 
     # Build header columns: B=Project, then for each metric: label1, label2
-    headers = ["Project"]
     col_idx = 2  # start at C
     metric_col_pairs = []  # list of (col_letter_1, col_letter_2) for each metric
     for _, metric_label in _SUMMARY_METRICS:
         c1 = get_column_letter(col_idx)
         c2 = get_column_letter(col_idx + 1)
-        headers.append(f"{metric_label} ({label1})")
-        headers.append(f"{metric_label} ({label2})")
         metric_col_pairs.append((c1, c2))
         # Set column widths
         ws_sum.column_dimensions[c1].width = 18.0
@@ -455,22 +469,25 @@ def generate_multi_project_xlsx(projects_data, label1, label2, title="Multi-Proj
 
     ws_sum.freeze_panes = "C5"
 
+    if not include_summary_sheet:
+        wb.remove(ws_sum)
+
     # ---- Per-project sheets ----
     for proj_name, d1, d2 in projects_data:
         export_rows = build_export_rows(d1, d2, label1, label2)
         proj_title = f"{proj_name} \u2014 {label1} vs {label2}"
 
-        # Variance sheet
-        var_name = _truncate_sheet_name(proj_name, "Var")
-        ws_var = wb.create_sheet(var_name)
-        write_comparison_sheet(ws_var, export_rows, label1, label2,
-                               f"{proj_title} \u2014 Variance Only", variance_only=True)
+        if include_variance_sheet:
+            var_name = _truncate_sheet_name(proj_name, "Var")
+            ws_var = wb.create_sheet(var_name)
+            write_comparison_sheet(ws_var, export_rows, label1, label2,
+                                   f"{proj_title} \u2014 Variance Only", variance_only=True)
 
-        # Full sheet
-        full_name = _truncate_sheet_name(proj_name, "Full")
-        ws_full = wb.create_sheet(full_name)
-        write_comparison_sheet(ws_full, export_rows, label1, label2,
-                               f"{proj_title} \u2014 Full Inputs", variance_only=False)
+        if include_full_sheet:
+            full_name = _truncate_sheet_name(proj_name, "Full")
+            ws_full = wb.create_sheet(full_name)
+            write_comparison_sheet(ws_full, export_rows, label1, label2,
+                                   f"{proj_title} \u2014 Full Inputs", variance_only=False)
 
     buf = io.BytesIO()
     wb.save(buf)

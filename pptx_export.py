@@ -368,7 +368,8 @@ def build_comparison_rows(proj1_data, proj2_data, m1_label, m2_label, rows_to_in
 
 
 def generate_pptx(proj_name, proj1_data, proj2_data, m1_label, m2_label,
-                  compare_bible=False, compare_model=False, bible_data=None):
+                  compare_bible=False, compare_model=False, bible_data=None,
+                  include_summary_slide=True, include_category_slides=True):
     """Generate a branded 38DN PowerPoint with comparison analysis.
 
     Returns: BytesIO buffer containing the PPTX file.
@@ -427,10 +428,11 @@ def generate_pptx(proj_name, proj1_data, proj2_data, m1_label, m2_label,
     add_footer(slide)
 
     # ===================== SUMMARY SLIDE =====================
-    slide = prs.slides.add_slide(blank_layout)
-    add_decorative_bars(slide)
-    add_title(slide, "SUMMARY \u2014 KEY DRIVERS")
-    add_subtitle(slide, f"{proj_name} | {' | '.join(parts)}")
+    if include_summary_slide:
+        slide = prs.slides.add_slide(blank_layout)
+        add_decorative_bars(slide)
+        add_title(slide, "SUMMARY \u2014 KEY DRIVERS")
+        add_subtitle(slide, f"{proj_name} | {' | '.join(parts)}")
 
     # Build summary of key metrics
     key_outputs = [32, 33, 38, 39]  # Dev Fee, FMV, NPP
@@ -438,117 +440,117 @@ def generate_pptx(proj_name, proj1_data, proj2_data, m1_label, m2_label,
     summary_rows_list = build_comparison_rows(proj1_data, proj2_data, m1_label, m2_label,
                                               rows_to_include=key_outputs + key_inputs)
 
-    # Filter to rows that actually have deltas
-    summary_with_delta = [r for r in summary_rows_list if r.get("_delta_raw") is not None and r["_delta_raw"] != 0]
-    summary_no_change = [r for r in summary_rows_list if r.get("_delta_raw") is not None and r["_delta_raw"] == 0]
-
-    headers = ["Field", m1_label, m2_label, "Delta", "\u0394 %"]
-
-    table_rows = []
-    # Show outputs first (Dev Fee, FMV, NPP)
-    for row in summary_rows_list:
-        if int(row["Row"]) in key_outputs:
-            pct = row.get("_pct_raw")
-            styles = {}
-            hc = heat_color(pct)
-            if hc:
-                styles[3] = {"fill": hc}
-                styles[4] = {"fill": hc}
-            if row.get("_delta_raw") is not None and row["_delta_raw"] < 0:
-                styles[3] = {**styles.get(3, {}), "color": RED}
-                styles[4] = {**styles.get(4, {}), "color": RED}
-            table_rows.append({
-                "Field": row["Field"], m1_label: row[m1_label], m2_label: row[m2_label],
-                "Delta": row["Delta"], "\u0394 %": row["\u0394 %"],
-                "_styles": {0: {"bold": True, "fill": NAVY2, "color": WHITE}, **styles},
-            })
-
-    # Then key inputs with changes
-    for row in summary_with_delta:
-        if int(row["Row"]) not in key_outputs:
-            pct = row.get("_pct_raw")
-            styles = {}
-            hc = heat_color(pct)
-            if hc:
-                styles[3] = {"fill": hc}
-                styles[4] = {"fill": hc}
-            if row["_delta_raw"] < 0:
-                styles[3] = {**styles.get(3, {}), "color": RED}
-                styles[4] = {**styles.get(4, {}), "color": RED}
-            table_rows.append({
-                "Field": row["Field"], m1_label: row[m1_label], m2_label: row[m2_label],
-                "Delta": row["Delta"], "\u0394 %": row["\u0394 %"],
-                "_styles": styles,
-            })
-
-    if table_rows:
-        add_table(slide, headers, table_rows,
-                  col_widths=[3500000, 2500000, 2500000, 2000000, 1700000])
-
-    add_footer(slide)
-
-    # ===================== CATEGORY SLIDES =====================
-    categories_order = ["System Details", "CapEx", "OpEx", "Timing", "Rates", "Incentives & Tax", "Other"]
-
-    all_comp_rows = build_comparison_rows(proj1_data, proj2_data, m1_label, m2_label)
-
-    for cat in categories_order:
-        cat_rows_nums = CATEGORY_ROWS.get(cat, None)
-
-        if cat == "Other":
-            # Everything not in other categories
-            cat_data = [r for r in all_comp_rows if int(r["Row"]) not in _CATEGORIZED
-                        and int(r["Row"]) not in [32, 33, 38, 39]]
-        else:
-            if not cat_rows_nums:
-                continue
-            cat_data = [r for r in all_comp_rows if int(r["Row"]) in cat_rows_nums]
-
-        # Only include rows that have data or differences
-        cat_data_filtered = [r for r in cat_data
-                             if r[m1_label] != "\u2014" or r[m2_label] != "\u2014"]
-
-        if not cat_data_filtered:
-            continue
-
-        slide = prs.slides.add_slide(blank_layout)
-        add_decorative_bars(slide)
-        add_title(slide, f"{cat.upper()} INPUTS")
-        add_subtitle(slide, proj_name)
+    if include_summary_slide:
+        # Filter to rows that actually have deltas
+        summary_with_delta = [r for r in summary_rows_list if r.get("_delta_raw") is not None and r["_delta_raw"] != 0]
+        headers = ["Field", m1_label, m2_label, "Delta", "\u0394 %"]
 
         table_rows = []
-        for row in cat_data_filtered:
-            pct = row.get("_pct_raw")
-            styles = {}
-            hc = heat_color(pct)
-            if hc:
-                styles[4] = {"fill": hc}
-                styles[5] = {"fill": hc}
-            if row.get("_delta_raw") is not None and row["_delta_raw"] < 0:
-                styles[4] = {**styles.get(4, {}), "color": RED}
-                styles[5] = {**styles.get(5, {}), "color": RED}
+        # Show outputs first (Dev Fee, FMV, NPP)
+        for row in summary_rows_list:
+            if int(row["Row"]) in key_outputs:
+                pct = row.get("_pct_raw")
+                styles = {}
+                hc = heat_color(pct)
+                if hc:
+                    styles[3] = {"fill": hc}
+                    styles[4] = {"fill": hc}
+                if row.get("_delta_raw") is not None and row["_delta_raw"] < 0:
+                    styles[3] = {**styles.get(3, {}), "color": RED}
+                    styles[4] = {**styles.get(4, {}), "color": RED}
+                table_rows.append({
+                    "Field": row["Field"], m1_label: row[m1_label], m2_label: row[m2_label],
+                    "Delta": row["Delta"], "\u0394 %": row["\u0394 %"],
+                    "_styles": {0: {"bold": True, "fill": NAVY2, "color": WHITE}, **styles},
+                })
 
-            table_rows.append({
-                "Row": row["Row"], "Field": row["Field"],
-                m1_label: row[m1_label], m2_label: row[m2_label],
-                "Delta": row["Delta"], "\u0394 %": row["\u0394 %"],
-                "_styles": styles,
-            })
+        # Then key inputs with changes
+        for row in summary_with_delta:
+            if int(row["Row"]) not in key_outputs:
+                pct = row.get("_pct_raw")
+                styles = {}
+                hc = heat_color(pct)
+                if hc:
+                    styles[3] = {"fill": hc}
+                    styles[4] = {"fill": hc}
+                if row["_delta_raw"] < 0:
+                    styles[3] = {**styles.get(3, {}), "color": RED}
+                    styles[4] = {**styles.get(4, {}), "color": RED}
+                table_rows.append({
+                    "Field": row["Field"], m1_label: row[m1_label], m2_label: row[m2_label],
+                    "Delta": row["Delta"], "\u0394 %": row["\u0394 %"],
+                    "_styles": styles,
+                })
 
-        # Paginate if too many rows (max ~18 per slide)
-        max_per_slide = 18
-        for page_start in range(0, len(table_rows), max_per_slide):
-            page_rows = table_rows[page_start:page_start + max_per_slide]
-            if page_start > 0:
-                slide = prs.slides.add_slide(blank_layout)
-                add_decorative_bars(slide)
-                add_title(slide, f"{cat.upper()} INPUTS (CONT.)")
-                add_subtitle(slide, proj_name)
+        if table_rows:
+            add_table(slide, headers, table_rows,
+                      col_widths=[3500000, 2500000, 2500000, 2000000, 1700000])
 
-            add_table(slide, ["Row", "Field", m1_label, m2_label, "Delta", "\u0394 %"],
-                      page_rows,
-                      col_widths=[700000, 3200000, 2300000, 2300000, 1900000, 1800000])
-            add_footer(slide)
+        add_footer(slide)
+
+    # ===================== CATEGORY SLIDES =====================
+    if include_category_slides:
+        categories_order = ["System Details", "CapEx", "OpEx", "Timing", "Rates", "Incentives & Tax", "Other"]
+
+        all_comp_rows = build_comparison_rows(proj1_data, proj2_data, m1_label, m2_label)
+
+        for cat in categories_order:
+            cat_rows_nums = CATEGORY_ROWS.get(cat, None)
+
+            if cat == "Other":
+                # Everything not in other categories
+                cat_data = [r for r in all_comp_rows if int(r["Row"]) not in _CATEGORIZED
+                            and int(r["Row"]) not in [32, 33, 38, 39]]
+            else:
+                if not cat_rows_nums:
+                    continue
+                cat_data = [r for r in all_comp_rows if int(r["Row"]) in cat_rows_nums]
+
+            # Only include rows that have data or differences
+            cat_data_filtered = [r for r in cat_data
+                                 if r[m1_label] != "\u2014" or r[m2_label] != "\u2014"]
+
+            if not cat_data_filtered:
+                continue
+
+            slide = prs.slides.add_slide(blank_layout)
+            add_decorative_bars(slide)
+            add_title(slide, f"{cat.upper()} INPUTS")
+            add_subtitle(slide, proj_name)
+
+            table_rows = []
+            for row in cat_data_filtered:
+                pct = row.get("_pct_raw")
+                styles = {}
+                hc = heat_color(pct)
+                if hc:
+                    styles[4] = {"fill": hc}
+                    styles[5] = {"fill": hc}
+                if row.get("_delta_raw") is not None and row["_delta_raw"] < 0:
+                    styles[4] = {**styles.get(4, {}), "color": RED}
+                    styles[5] = {**styles.get(5, {}), "color": RED}
+
+                table_rows.append({
+                    "Row": row["Row"], "Field": row["Field"],
+                    m1_label: row[m1_label], m2_label: row[m2_label],
+                    "Delta": row["Delta"], "\u0394 %": row["\u0394 %"],
+                    "_styles": styles,
+                })
+
+            # Paginate if too many rows (max ~18 per slide)
+            max_per_slide = 18
+            for page_start in range(0, len(table_rows), max_per_slide):
+                page_rows = table_rows[page_start:page_start + max_per_slide]
+                if page_start > 0:
+                    slide = prs.slides.add_slide(blank_layout)
+                    add_decorative_bars(slide)
+                    add_title(slide, f"{cat.upper()} INPUTS (CONT.)")
+                    add_subtitle(slide, proj_name)
+
+                add_table(slide, ["Row", "Field", m1_label, m2_label, "Delta", "\u0394 %"],
+                          page_rows,
+                          col_widths=[700000, 3200000, 2300000, 2300000, 1900000, 1800000])
+                add_footer(slide)
 
     # ===================== Save to buffer =====================
     buf = io.BytesIO()

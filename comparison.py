@@ -137,3 +137,46 @@ def render_market_card(cfg):
     lines.append(f"**REC Rate:** {'$' + str(rec) + '/MWh' if isinstance(rec, (int, float)) else str(rec)}")
     lines.append(f"**REC Term:** {cfg.get('rec_term', '')} yrs | **Post-REC:** ${cfg.get('post_rec', 0)}/MWh for {cfg.get('post_rec_term', '')} yrs")
     return "\n\n".join(lines)
+
+
+def build_iteration_summary(proj1_data, proj2_data, focus_rows):
+    """
+    Compare two model iterations on selected key rows.
+    Returns absolute/percent delta plus directionality for decision-ready output.
+    """
+    # For M&A pricing review, lower values are favorable for costs/risk factors.
+    lower_is_better_rows = {
+        118, 119, 121, 122, 123, 124, 126, 129, 143, 158, 228, 240, 296
+    }
+    # Higher values are favorable for valuation / return metrics.
+    higher_is_better_rows = {33, 38, 39, 157}
+
+    results = []
+    for row in focus_rows:
+        label = INPUT_ROW_LABELS.get(row, OUTPUT_ROWS.get(row, f"Row {row}"))
+        v1 = safe_float(proj1_data.get(row)) if proj1_data else None
+        v2 = safe_float(proj2_data.get(row)) if proj2_data else None
+        delta = (v2 - v1) if (v1 is not None and v2 is not None) else None
+        pct_delta = (delta / abs(v1)) if (delta is not None and v1 not in (None, 0)) else None
+
+        if delta is None:
+            direction = "N/A"
+        elif row in lower_is_better_rows:
+            direction = "Improved" if delta < 0 else "Worsened" if delta > 0 else "Unchanged"
+        elif row in higher_is_better_rows:
+            direction = "Improved" if delta > 0 else "Worsened" if delta < 0 else "Unchanged"
+        else:
+            direction = "Changed" if delta != 0 else "Unchanged"
+
+        results.append({
+            "Row": row,
+            "Field": label,
+            "Model 1": fmt_row_val(v1, row),
+            "Model 2": fmt_row_val(v2, row),
+            "Delta": fmt_delta(delta, row in PCT_ROWS),
+            "Delta %": fmt_delta(pct_delta, pct_fmt=True),
+            "Direction": direction,
+            "_delta_raw": delta,
+        })
+
+    return pd.DataFrame(results)
