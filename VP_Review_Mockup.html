@@ -87,7 +87,9 @@
   }
   .proj-card:hover{border-color:var(--border-strong);}
   .proj-card.selected{border-left-color:var(--teal);background:#fff;box-shadow:0 1px 2px rgba(5,13,37,0.05);}
-  .proj-card .pname{font-weight:700;font-size:12.5px;}
+  .proj-card .pname{font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:6px;}
+  .proj-rank{font-size:9.5px;font-weight:700;color:var(--muted);background:var(--inset);padding:1px 5px;border-radius:3px;letter-spacing:0.02em;}
+  .proj-card.selected .proj-rank{background:rgba(81,132,132,0.18);color:var(--teal-deep);}
   .proj-card .pmeta{font-size:10.5px;color:var(--muted);margin-top:2px;}
   .proj-card .pchips{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap;}
   .micro{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:3px;letter-spacing:0.04em;}
@@ -122,6 +124,8 @@
   .impact-obj .iov{font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;margin-top:1px;}
   .impact-obj .ios{font-size:9.5px;color:var(--muted);margin-top:1px;letter-spacing:0.02em;}
   .impact-obj.bad{border-left:3px solid var(--off);background:#ffffff;}
+  .impact-obj.impact-equity{min-width:134px;}
+  .impact-obj.impact-equity .iov{font-size:18px;}
   .impact-obj.bad .iov{color:var(--off);}
   .deal-header-body{padding:14px 18px;}
   .deal-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;}
@@ -205,19 +209,35 @@
   /* ===== Top-bar mode switching ===== */
   /* Default (Deep-Dive) — show everything. */
   /* Portfolio mode: collapse the deep-dive detail; keep audit strip,
-     project nav, and the heatmap card. */
+     project nav, the portfolio summary table, and the heatmap card. */
+  .card-portfolio-summary { display: none; }
   body.mode-portfolio .deal-header,
   body.mode-portfolio .classify-strip,
-  body.mode-portfolio .panel.center > .card:not(.card-heatmap),
+  body.mode-portfolio .panel.center > .card:not(.card-heatmap):not(.card-portfolio-summary),
   body.mode-portfolio .panel.center > .grid-2 > .card:not(.card-heatmap),
   body.mode-portfolio .panel.right {
     display: none !important;
   }
+  body.mode-portfolio .card-portfolio-summary { display: block !important; }
   body.mode-portfolio .panel.center > .grid-2 {
     grid-template-columns: 1fr !important;
   }
   body.mode-portfolio #heatmapCard .card-body > .plot { height: 520px !important; }
   body.mode-portfolio .layout { grid-template-columns: 280px 1fr !important; }
+
+  /* Portfolio summary table density */
+  .portfolio-summary-tbl th { font-size: 10px; }
+  .portfolio-summary-tbl td { font-size: 11.5px; padding: 10px 12px; }
+  .portfolio-summary-tbl tr { cursor: pointer; }
+  .portfolio-summary-tbl tr:hover td { background: var(--inset); }
+  .portfolio-summary-tbl .rank-cell { font-weight: 700; color: var(--muted); text-align: center; width: 40px; }
+  .portfolio-summary-tbl .verdict-pill {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .portfolio-summary-tbl .verdict-pill.clean  { background: var(--ok-bg);  color: var(--ok); }
+  .portfolio-summary-tbl .verdict-pill.review { background: var(--out-bg); color: var(--out); }
+  .portfolio-summary-tbl .verdict-pill.rework { background: var(--off-bg); color: var(--off); }
 
   /* Reference mode: hide nav + deep-dive, expand the reference panel. */
   body.mode-reference .panel.left,
@@ -295,10 +315,10 @@
 <!-- Audit summary strip -->
 <div class="audit-strip">
   <span class="strip-label">Portfolio Audit</span>
-  <span class="pill off"><span class="num" id="pillOff">0</span> OFF</span>
-  <span class="pill out"><span class="num" id="pillOut">0</span> OUT</span>
-  <span class="pill miss"><span class="num" id="pillMiss">0</span> MISSING</span>
-  <span class="pill rev"><span class="num" id="pillRev">0</span> REVIEW</span>
+  <span class="pill off" title="FAIL — exact-match miss vs bible benchmark"><span class="num" id="pillOff">0</span> FAIL</span>
+  <span class="pill out" title="FLAG — out of tolerance range"><span class="num" id="pillOut">0</span> FLAG</span>
+  <span class="pill miss" title="MISSING — value blank in the model"><span class="num" id="pillMiss">0</span> MISSING</span>
+  <span class="pill rev" title="REVIEW — bible references a sentinel (S-SFA / TBD) or requires reviewer judgment"><span class="num" id="pillRev">0</span> REVIEW</span>
   <div class="strip-divider"></div>
   <span class="pill"><span class="num" id="pillCount">0</span> Projects</span>
   <span class="pill"><span class="num" id="pillMw">0 MW</span> Total DC</span>
@@ -317,8 +337,8 @@
     <input class="nav-search" id="navSearch" placeholder="Search projects…" />
     <div class="filter-row" id="navFilters">
       <span class="chip active" data-filter="all">All</span>
-      <span class="chip" data-filter="OFF">OFF</span>
-      <span class="chip" data-filter="OUT">OUT</span>
+      <span class="chip" data-filter="OFF">FAIL</span>
+      <span class="chip" data-filter="OUT">FLAG</span>
       <span class="chip" data-filter="MISSING">MISSING</span>
       <span class="chip" data-filter="REVIEW">REVIEW</span>
     </div>
@@ -339,15 +359,20 @@
         </div>
         <span class="verdict" id="dealVerdict">REWORK REQUIRED</span>
         <div class="impact-objs">
+          <div class="impact-obj bad impact-equity">
+            <div class="iol">Equity Δ</div>
+            <div class="iov" id="impEquity">($0)</div>
+            <div class="ios">Cumulative $ impact</div>
+          </div>
           <div class="impact-obj bad">
             <div class="iol">IRR Impact</div>
             <div class="iov" id="impIRR">(1.85%)</div>
-            <div class="ios">FMV IRR · OFF findings</div>
+            <div class="ios">FMV IRR</div>
           </div>
           <div class="impact-obj bad">
-            <div class="iol">NPP (Dev. Fee) Impact</div>
+            <div class="iol">NPP Impact</div>
             <div class="iov" id="impNPP">($0.29/W)</div>
-            <div class="ios">Sponsor proceeds · OFF findings</div>
+            <div class="ios">Sponsor proceeds</div>
           </div>
         </div>
       </div>
@@ -411,9 +436,17 @@
             <div id="clsComputed" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;"></div>
           </div>
         </div>
-        <div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 10px;">
+        <div style="padding:8px 14px 4px;">
+          <label style="display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:3px;">
+            Override reason <span style="color:var(--off);">(required)</span>
+          </label>
+          <textarea id="clsReason" rows="2" placeholder="Why is this override correct? e.g. 'Met with sponsor 4/8 — confirmed LMI share is 60% per updated offtake book.'"
+            style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:11.5px;color:var(--text);resize:vertical;background:var(--surface);"></textarea>
+        </div>
+        <div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 10px;align-items:center;">
+          <span id="clsOverrideHint" style="flex:1;font-size:10.5px;color:var(--muted);"></span>
           <button class="btn-tiny" id="clsReset">Reset to bible default</button>
-          <button class="btn-tiny primary" id="clsSave">Apply override &amp; recompute audit</button>
+          <button class="btn-tiny primary" id="clsSave" disabled>Apply override &amp; recompute audit</button>
         </div>
       </details>
     </div>
@@ -464,6 +497,30 @@
     <div class="card">
       <div class="card-h"><h3>25-Year Cash Flow</h3><div class="h-meta">Operating CF + tax benefits + terminal</div></div>
       <div class="card-body"><div id="cashflow" class="plot" style="height:260px;"></div></div>
+    </div>
+
+    <!-- Portfolio mode only: project-level summary table above the heatmap. -->
+    <div class="card card-portfolio-summary" id="portfolioSummaryCard">
+      <div class="card-h">
+        <h3>Portfolio Summary</h3>
+        <div class="h-meta" id="portfolioSummaryMeta">Ranked by absolute equity impact</div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <table class="findings-tbl portfolio-summary-tbl">
+          <thead><tr>
+            <th>Rank</th>
+            <th>Project</th>
+            <th>Developer</th>
+            <th>State · Program</th>
+            <th style="text-align:right;">MW</th>
+            <th style="text-align:center;">Verdict</th>
+            <th style="text-align:right;">Equity Δ</th>
+            <th style="text-align:right;">FAIL</th>
+            <th style="text-align:right;">FLAG</th>
+          </tr></thead>
+          <tbody id="portfolioSummaryBody"></tbody>
+        </table>
+      </div>
     </div>
 
     <div class="grid-2">
@@ -689,12 +746,11 @@ function renderFindings(p){
     return;
   }
   body.innerHTML = p.findings.map(f=>{
-    // Delta cell: f.delta is numeric and f.deltaUnit is a short unit code from
-    // Python. Escape the unit to keep the block safe against template drift.
-    const unitEsc = _esc(f.deltaUnit||'');
+    // Delta cell: unit-aware formatting. $ units get a $ prefix (both signs);
+    // everything else puts the unit code as a suffix. Old code missed the
+    // $ prefix on the negative path and could double-prefix non-$ units.
     const deltaCell = (f.delta===null) ? '<td class="num-cell" style="color:var(--muted);">missing</td>'
-      : (f.delta<0) ? `<td class="num-cell neg-acct">(${Math.abs(f.delta)}${f.deltaUnit==='$'?'':' '+unitEsc})</td>`
-      : `<td class="num-cell" style="color:var(--text);font-weight:600;">+${f.deltaUnit==='$'?'$':''}${f.delta}${f.deltaUnit==='$'?'':' '+unitEsc}</td>`;
+      : `<td class="num-cell${f.delta<0?' neg-acct':''}" style="${f.delta<0?'':'color:var(--text);font-weight:600;'}">${_fmtDelta(f.delta, f.deltaUnit)}</td>`;
     const impactCell = (f.impact===null) ? '<td class="impact-cell" style="color:var(--muted);">—</td>'
       : `<td class="impact-cell neg-acct">(${fmtMoneyShort(Math.abs(f.impact))})</td>`;
     const statusCls = {OFF:'off',OUT:'out',MISSING:'miss',REVIEW:'rev'}[f.status]||'miss';
@@ -706,7 +762,7 @@ function renderFindings(p){
       <td class="num-cell">${_esc(f.bible??'—')}</td>
       <td class="num-cell"${f.model===null?' style="color:var(--muted);"':''}>${_esc(f.model??'—')}</td>
       ${deltaCell}${impactCell}
-      <td><span class="status-tag ${statusCls}">${_esc(f.status)}</span></td>
+      <td><span class="status-tag ${statusCls}">${_esc(_statusLabel(f.status))}</span></td>
       <td style="font-size:11px;color:var(--muted);">${_esc(f.source)}</td>
       <td><span class="row-action">${action}</span></td>
     </tr>`;
@@ -854,15 +910,39 @@ function recomputeImpactFromClassify(p){
   p.equityK = p.equityKAuto + dEquityK;
 }
 
-// Live sum-warning + summary refresh as user types in mix fields
-['clsLMI','clsResi','clsCom','clsProgram'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', ()=>{
-    const lmi=+document.getElementById('clsLMI').value||0;
-    const resi=+document.getElementById('clsResi').value||0;
-    const com=+document.getElementById('clsCom').value||0;
-    document.getElementById('clsMixWarn').style.display = ((lmi+resi+com)===100) ? 'none' : 'inline';
-  });
+// ===== Classification override: live warnings, required reason, audit log =====
+function _clsBeforeAfterDiff(before, after){
+  const parts = [];
+  if (before.program !== after.program) parts.push('program ' + before.program + '→' + after.program);
+  if (before.state   !== after.state)   parts.push('state ' + before.state + '→' + after.state);
+  const bm = before.mix||[], am = after.mix||[];
+  if (bm[0]!==am[0] || bm[1]!==am[1] || bm[2]!==am[2]) {
+    parts.push('mix ' + (bm.join('/')||'?') + ' → ' + (am.join('/')||'?'));
+  }
+  return parts.join('; ');
+}
+
+function _clsRefreshEnable(){
+  const lmi=+document.getElementById('clsLMI').value||0;
+  const resi=+document.getElementById('clsResi').value||0;
+  const com=+document.getElementById('clsCom').value||0;
+  const sumsOK = (lmi+resi+com)===100;
+  document.getElementById('clsMixWarn').style.display = sumsOK ? 'none' : 'inline';
+  const reason = (document.getElementById('clsReason')||{}).value || '';
+  const btn = document.getElementById('clsSave');
+  const hint = document.getElementById('clsOverrideHint');
+  const reasonOK = reason.trim().length >= 6;
+  if (btn) btn.disabled = !(sumsOK && reasonOK);
+  if (hint) hint.textContent = !sumsOK ? 'Mix must sum to 100%.'
+    : !reasonOK ? 'Override reason required (min 6 chars).'
+    : 'Will log override → Reviewer Notes.';
+}
+
+['clsLMI','clsResi','clsCom','clsProgram','clsReason'].forEach(id=>{
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', _clsRefreshEnable);
 });
+
 document.getElementById('clsSave').addEventListener('click', e=>{
   e.preventDefault();
   const p = PROJECTS[currentIdx];
@@ -871,23 +951,39 @@ document.getElementById('clsSave').addEventListener('click', e=>{
   let state = (p.classify && p.classify.state) || 'IL';
   if(prog==='CSEP') state='NJ';
   else if(prog==='MD-Permanent' || prog==='MD-Pilot') state='MD';
-  // Yield is read-only — keep the model-supplied value
   const yieldKwhPerWp = (p.classify && p.classify.yield) || 1.55;
-  p.classify = {
-    program:  prog,
-    state:    state,
-    bibleKey: bibleKey(state, prog),
+  const before = {
+    program: p.classify && p.classify.program,
+    state:   p.classify && p.classify.state,
+    mix:     (p.classify && p.classify.mix) ? [...p.classify.mix] : [0,0,0],
+  };
+  const after = {
+    program: prog,
+    state:   state,
     mix: [
       parseInt(document.getElementById('clsLMI').value)||0,
       parseInt(document.getElementById('clsResi').value)||0,
       parseInt(document.getElementById('clsCom').value)||0,
     ],
-    yield:    yieldKwhPerWp,
-    manual: true,
   };
+  p.classify = {...after, bibleKey: bibleKey(state, prog), yield: yieldKwhPerWp, manual: true};
   recomputeImpactFromClassify(p);
-  selectProject(currentIdx); // full re-render: header/IRR/NPP/findings/charts
+  // Audit-trail: prepend a timestamped note to Reviewer Notes.
+  const reason = (document.getElementById('clsReason').value || '').trim();
+  const diff = _clsBeforeAfterDiff(before, after) || 'no structural change';
+  const ts = new Date().toISOString().slice(0,16).replace('T',' ');
+  const stamp = '[' + ts + '] Classification override on ' + (p.name||'project') + ': ' + diff + ' — ' + reason;
+  const notes = document.getElementById('reviewerNotes');
+  if (notes) {
+    notes.value = stamp + (notes.value ? '\n' + notes.value : '');
+    document.getElementById('notesCount').textContent = notes.value.length;
+  }
+  // Clear reason for the next potential override.
+  document.getElementById('clsReason').value = '';
+  _clsRefreshEnable();
+  selectProject(currentIdx);
 });
+
 document.getElementById('clsReset').addEventListener('click', e=>{
   e.preventDefault();
   const p = PROJECTS[currentIdx];
@@ -896,6 +992,7 @@ document.getElementById('clsReset').addEventListener('click', e=>{
   if(p.nppPerWAuto!==undefined) p.nppPerW = p.nppPerWAuto;
   if(p.equityKAuto!==undefined) p.equityK = p.equityKAuto;
   selectProject(currentIdx);
+  _clsRefreshEnable();
 });
 
 // ---- wrapped EPC breakdown ----
@@ -948,6 +1045,11 @@ function selectProject(idx){
   document.getElementById('dealSub').textContent   = p.sub;
   document.getElementById('impIRR').innerHTML = p.irrPct<0 ? '('+(-p.irrPct).toFixed(2)+'%)' : p.irrPct.toFixed(2)+'%';
   document.getElementById('impNPP').innerHTML = p.nppPerW<0 ? '($'+(-p.nppPerW).toFixed(2)+'/W)' : '$'+p.nppPerW.toFixed(2)+'/W';
+  // Equity impact — absolute $ is the go/no-go number in an IC pack.
+  const eqEl = document.getElementById('impEquity');
+  if (eqEl) eqEl.innerHTML = p.equityK<0
+    ? '('+fmtMoneyShort(Math.abs(p.equityK*1000)).replace('$','$')+')'
+    : (p.equityK>0 ? fmtMoneyShort(p.equityK*1000) : '$0');
   // Verdict
   const v = document.getElementById('dealVerdict');
   v.textContent = p.verdict;
@@ -967,6 +1069,7 @@ function selectProject(idx){
   renderClassify(p);
   renderWrappedEpc(p);
   renderReferences(p);
+  if (typeof _clsRefreshEnable === 'function') _clsRefreshEnable();
   // Charts
   if(typeof Plotly!=='undefined'){ renderCharts(p); }
   // Sidebar selection
@@ -1035,8 +1138,8 @@ function projChipsHTML(p){
   const top = uniq.slice(0,4);
   if(top.length===0) return '<span class="micro ok">CLEAN</span>';
   const clsMap = {OFF:'off', OUT:'out', REVIEW:'rev', MISSING:'miss'};
-  const tagMap = {OFF:' OFF', OUT:' OUT', REVIEW:' REV', MISSING:''};
-  return top.map(s=>'<span class="micro '+(clsMap[s.status]||'miss')+'">'+s.code+(tagMap[s.status]||'')+'</span>').join('');
+  const tagMap = {OFF:' FAIL', OUT:' FLAG', REVIEW:' REV', MISSING:''};
+  return top.map(s=>'<span class="micro '+(clsMap[s.status]||'miss')+'">'+_esc(s.code)+(tagMap[s.status]||'')+'</span>').join('');
 }
 
 let _navFilter = 'all';   // 'all' | 'OFF' | 'OUT' | 'MISSING' | 'REVIEW'
@@ -1054,6 +1157,22 @@ function _projMatchesSearch(p){
 
 function _esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
+// Audit status — internal codes map to human-facing display labels. Keeping
+// the raw codes stable lets the bible-audit engine and all downstream Python
+// continue to speak OFF/OUT unchanged.
+const STATUS_LABELS = {OFF:'FAIL', OUT:'FLAG', MISSING:'MISSING', REVIEW:'REVIEW'};
+function _statusLabel(code){ return STATUS_LABELS[code] || code || ''; }
+
+// Format a signed numeric delta with its unit code. $ units prefix; others suffix.
+function _fmtDelta(val, unit){
+  const u = (unit||'').toString().trim();
+  const mag = Math.abs(val);
+  const body = u === '$' ? '$' + mag : (mag + (u ? ' ' + _esc(u) : ''));
+  if (val < 0) return '(' + body + ')';
+  const prefix = u === '$' ? '+$' : '+';
+  return prefix + (u === '$' ? mag : mag + (u ? ' ' + _esc(u) : ''));
+}
+
 function renderProjectList(){
   const host = document.getElementById('projList');
   const empty = document.getElementById('projEmpty');
@@ -1062,17 +1181,22 @@ function renderProjectList(){
   const filtered = PROJECTS
     .map((p,i)=>({p,i}))
     .filter(({p})=>_projMatchesFilter(p) && _projMatchesSearch(p));
+  // Sort by worst-first (largest |equityK|). Within ties, keep original order.
+  filtered.sort((a,b)=>Math.abs(b.p.equityK||0) - Math.abs(a.p.equityK||0));
   if(!filtered.length){
     host.innerHTML='';
     if(empty){ empty.style.display='block'; empty.innerHTML='No projects match the current filter.'; }
     projCards=[]; return;
   }
   if(empty) empty.style.display='none';
-  host.innerHTML = filtered.map(({p,i})=>{
+  host.innerHTML = filtered.map(({p,i}, rank)=>{
     const meta = p.sub || '';
     const dc = (p.kpis && p.kpis.dc && p.kpis.dc!=='—') ? p.kpis.dc+' MW' : '';
+    // Tiny rank badge — only for projects with a non-zero equity impact.
+    const rankBadge = (p.equityK && Math.abs(p.equityK) > 0)
+      ? '<span class="proj-rank">#'+(rank+1)+'</span>' : '';
     return '<div class="proj-card" data-idx="'+i+'">'
-      + '<div class="pname">'+_esc(p.name||'Unnamed')+'</div>'
+      + '<div class="pname">'+rankBadge+_esc(p.name||'Unnamed')+'</div>'
       + '<div class="pmeta">'+_esc(meta+(dc?' — '+dc:''))+'</div>'
       + '<div class="pchips">'+projChipsHTML(p)+'</div>'
       + '</div>';
@@ -1084,10 +1208,77 @@ function renderProjectList(){
     if(origIdx===currentIdx) el.classList.add('selected');
   });
   // If the currently-selected project is no longer in the filtered set,
-  // promote the first visible project so the center panel stays in sync.
+  // promote the worst visible project so the center panel stays in sync.
   if(!filtered.some(({i})=>i===currentIdx)){
     selectProject(filtered[0].i);
   }
+}
+
+// ===== Portfolio Summary table (portfolio mode) =====
+function renderPortfolioSummary(){
+  const body = document.getElementById('portfolioSummaryBody');
+  const meta = document.getElementById('portfolioSummaryMeta');
+  if(!body) return;
+  if(!PROJECTS.length){
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted);font-style:italic;">No projects loaded.</td></tr>';
+    if(meta) meta.textContent = 'Ranked by absolute equity impact';
+    return;
+  }
+  const ranked = PROJECTS.map((p,i)=>({p,i})).sort((a,b)=>Math.abs(b.p.equityK||0)-Math.abs(a.p.equityK||0));
+  const totalEquity = ranked.reduce((s,{p})=>s+(p.equityK||0), 0);
+  const totalMw = ranked.reduce((s,{p})=>{
+    const dc = parseFloat(p.kpis && p.kpis.dc);
+    return s + (isFinite(dc) ? dc : 0);
+  }, 0);
+  if(meta){
+    const totalHTML = (totalEquity<0?'('+fmtMoneyShort(Math.abs(totalEquity*1000))+')':fmtMoneyShort(totalEquity*1000));
+    meta.innerHTML = ranked.length + ' projects · ' + totalMw.toFixed(1) + ' MWdc · portfolio equity Δ ' + totalHTML;
+  }
+  body.innerHTML = ranked.map(({p,i}, rank)=>{
+    const devRow = (p.references && p.references.bibleHeader) || '';
+    // Pull developer from sub when present ("Lightstar · IL Ameren · ABP")
+    const developer = (p.sub||'').split(' · ')[0] || '—';
+    const stateProgram = (p.sub||'').split(' · ').slice(1).join(' · ') || '—';
+    const dcStr = (p.kpis && p.kpis.dc && p.kpis.dc !== '—') ? p.kpis.dc : '—';
+    const verdict = p.verdict || 'REVIEW';
+    const vClass = verdict==='CLEAN' ? 'clean' : (verdict==='REVIEW' ? 'review' : 'rework');
+    const eqK = p.equityK || 0;
+    const eqDisplay = eqK<0
+      ? '<span class="neg-acct">('+fmtMoneyShort(Math.abs(eqK*1000)).replace('$','$')+')</span>'
+      : (eqK>0 ? fmtMoneyShort(eqK*1000) : '$0');
+    const counts = (p.findings||[]).reduce((acc,f)=>{ acc[f.status]=(acc[f.status]||0)+1; return acc; }, {});
+    return '<tr data-idx="'+i+'">'
+      + '<td class="rank-cell">#'+(rank+1)+'</td>'
+      + '<td class="field">'+_esc(p.name||'Unnamed')+'</td>'
+      + '<td>'+_esc(developer)+'</td>'
+      + '<td>'+_esc(stateProgram)+'</td>'
+      + '<td class="num-cell">'+_esc(dcStr)+'</td>'
+      + '<td style="text-align:center;"><span class="verdict-pill '+vClass+'">'+_esc(verdict)+'</span></td>'
+      + '<td class="num-cell impact-cell'+(eqK<0?' neg':'')+'">'+eqDisplay+'</td>'
+      + '<td class="num-cell">'+(counts.OFF||0)+'</td>'
+      + '<td class="num-cell">'+(counts.OUT||0)+'</td>'
+      + '</tr>';
+  }).join('');
+  // Row click → select project + switch to Deep-Dive.
+  body.querySelectorAll('tr[data-idx]').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const idx = parseInt(row.getAttribute('data-idx'));
+      selectProject(idx);
+      const deepBtn = document.querySelector('#topModes .mode[data-mode="deep"]');
+      if(deepBtn) deepBtn.click();
+    });
+  });
+}
+
+// Default-select the worst project on initial load rather than index 0.
+function _worstProjectIdx(){
+  if(!PROJECTS.length) return 0;
+  let worstIdx = 0, worstMag = -1;
+  PROJECTS.forEach((p,i)=>{
+    const m = Math.abs(p.equityK||0);
+    if(m > worstMag){ worstMag = m; worstIdx = i; }
+  });
+  return worstIdx;
 }
 
 // ===== Top-bar mode switching (Portfolio / Deep-Dive / Reference) =====
@@ -1280,8 +1471,11 @@ function bootCharts(){
 // ===== Boot =====
 renderPortfolio();
 renderProjectList();
+renderPortfolioSummary();
 if(PROJECTS.length){
-  selectProject(0);
+  // Land on the worst-impact project so the reviewer sees the biggest
+  // problem first instead of whatever sits at index 0.
+  selectProject(_worstProjectIdx());
 } else {
   // Empty state: clear center panel placeholders so nothing looks broken
   const dt=document.getElementById('dealTitle'); if(dt) dt.textContent='No projects loaded';
