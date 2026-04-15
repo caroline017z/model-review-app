@@ -29,6 +29,7 @@ _INJECT_RE = re.compile(
 )
 
 # Key input rows in the pricing model — see data_loader.py
+ROW_DEVELOPER = 10
 ROW_DC_MW = 11
 ROW_AC_KW = 12
 ROW_STATE = 18
@@ -761,20 +762,21 @@ def _looks_real(proj: dict) -> bool:
 
 
 def list_candidate_projects(m1_projects: dict) -> list[dict]:
-    """Suggest which project columns belong in the review.
+    """Return every project column that has a real name + DC size.
 
-    A candidate is included when:
-      * row 7 toggle resolves to On, AND
-      * the column has a real project name + non-zero DC size.
+    Each returned dict carries:
+      * id            stable string key for session_state
+      * name          project name
+      * dc            DC size in MW
+      * developer     row-10 developer name (for grouping)
+      * state / utility / program
+      * toggled_on    whether the model's row-7 toggle is On (default suggest)
 
-    Each returned dict carries a stable string `id`, plus name / dc / developer
-    / state / utility / program for the sidebar UI.
+    Active projects (toggled_on=True) are the default review set; inactive
+    ones are still surfaced so the reviewer can opt them in.
     """
     out: list[dict] = []
     for col, proj in _iter_projects(m1_projects):
-        toggled_on = bool(proj.get("toggle", False))
-        if not toggled_on:
-            continue
         if not _looks_real(proj):
             continue
         data = proj.get("data", {}) or {}
@@ -782,9 +784,11 @@ def list_candidate_projects(m1_projects: dict) -> list[dict]:
             "id": str(col),
             "name": str(proj.get("name") or "Unnamed").strip(),
             "dc": round(_num(data.get(ROW_DC_MW)) or 0, 2),
+            "developer": str(data.get(ROW_DEVELOPER) or "").strip(),
             "state": str(data.get(ROW_STATE) or "").strip(),
             "utility": str(data.get(ROW_UTILITY) or "").strip(),
             "program": str(data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip(),
+            "toggled_on": bool(proj.get("toggle", False)),
         })
     return out
 

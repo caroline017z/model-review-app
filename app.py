@@ -381,27 +381,58 @@ def main():
                 expanded=False,
             )
 
-    # Sidebar: let reviewer uncheck any false positives from the suggestion.
+    # Sidebar: let reviewer pick which project columns to review. Active
+    # (row 7 = On) ones default checked; inactive ones are listed below and
+    # default unchecked so the reviewer can opt them in.
     included_ids: set[str] = set()
     if candidates:
+        active = [c for c in candidates if c["toggled_on"]]
+        inactive = [c for c in candidates if not c["toggled_on"]]
+
+        # Group both lists by developer to make opt-in easier.
+        def _grouped(items):
+            buckets: dict[str, list[dict]] = {}
+            for c in items:
+                buckets.setdefault(c["developer"] or "— unspecified —", []).append(c)
+            return sorted(buckets.items(), key=lambda kv: kv[0].lower())
+
+        def _item_label(c):
+            meta = " · ".join([x for x in [c["state"], c["utility"], c["program"]] if x])
+            dc_str = f"{c['dc']:.2f} MW" if c["dc"] else ""
+            tail = " — ".join([x for x in [meta, dc_str] if x])
+            return f"**{c['name']}**" + (f"  \n{tail}" if tail else "")
+
         with st.sidebar:
             st.markdown("---")
             st.markdown("### Projects in review")
-            st.caption(f"{len(candidates)} suggested (row 7 = On, with DC size). Uncheck to exclude.")
-            # Stable key so Streamlit remembers per-project include decisions.
+            active_mw = sum(c["dc"] for c in active)
+            st.caption(
+                f"{len(active)} active · {active_mw:.1f} MWdc  •  "
+                f"{len(inactive)} available (toggle=Off)"
+            )
             model_key = getattr(model_file, "name", None) or m1_label or "model"
-            for c in candidates:
-                sig = f"inc::{model_key}::{c['id']}::{c['name']}"
-                meta = " · ".join([x for x in [c["state"], c["utility"], c["program"]] if x])
-                dc_str = f"{c['dc']:.2f} MW" if c["dc"] else ""
-                tail = " — ".join([x for x in [meta, dc_str] if x])
-                label = f"**{c['name']}**" + (f"  \n{tail}" if tail else "")
-                checked = st.checkbox(label, value=True, key=sig)
-                if checked:
-                    included_ids.add(str(c["id"]))
+
+            for dev, items in _grouped(active):
+                st.markdown(f"**{dev}**")
+                for c in items:
+                    sig = f"inc::{model_key}::{c['id']}::{c['name']}"
+                    checked = st.checkbox(_item_label(c), value=True, key=sig)
+                    if checked:
+                        included_ids.add(str(c["id"]))
+
+            if inactive:
+                with st.expander(f"+ Add off-toggled projects ({len(inactive)})", expanded=False):
+                    for dev, items in _grouped(inactive):
+                        st.markdown(f"**{dev}**")
+                        for c in items:
+                            sig = f"inc::{model_key}::{c['id']}::{c['name']}"
+                            checked = st.checkbox(_item_label(c), value=False, key=sig)
+                            if checked:
+                                included_ids.add(str(c["id"]))
+
             n_included = len(included_ids)
-            if n_included != len(candidates):
-                st.caption(f"→ Reviewing {n_included} of {len(candidates)}.")
+            n_total_mw = sum(c["dc"] for c in candidates if str(c["id"]) in included_ids)
+            st.caption(f"→ Reviewing **{n_included}** project(s) · **{n_total_mw:.1f} MWdc**")
 
     review_projects = filter_projects(merged_projects, included_ids) if candidates else {}
 

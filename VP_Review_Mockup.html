@@ -202,6 +202,34 @@
   .plot{width:100%;}
   .plot-fallback{padding:20px;color:var(--muted);font-size:11px;text-align:center;border:1px dashed var(--border);border-radius:4px;}
 
+  /* ===== Top-bar mode switching ===== */
+  /* Default (Deep-Dive) — show everything. */
+  /* Portfolio mode: collapse the deep-dive detail; keep audit strip,
+     project nav, and the heatmap card. */
+  body.mode-portfolio .deal-header,
+  body.mode-portfolio .classify-strip,
+  body.mode-portfolio .panel.center > .card:not(.card-heatmap),
+  body.mode-portfolio .panel.center > .grid-2 > .card:not(.card-heatmap),
+  body.mode-portfolio .panel.right {
+    display: none !important;
+  }
+  body.mode-portfolio .panel.center > .grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+  body.mode-portfolio #heatmapCard .card-body > .plot { height: 520px !important; }
+  body.mode-portfolio .layout { grid-template-columns: 280px 1fr !important; }
+
+  /* Reference mode: hide nav + deep-dive, expand the reference panel. */
+  body.mode-reference .panel.left,
+  body.mode-reference .panel.center {
+    display: none !important;
+  }
+  body.mode-reference .layout { grid-template-columns: 1fr !important; }
+  body.mode-reference .panel.right { padding: 24px 40px; max-width: 960px; margin: 0 auto; }
+  body.mode-reference .ref-section { margin-bottom: 22px; }
+  body.mode-reference .ref-item { font-size: 13px; padding: 10px 14px; }
+  body.mode-reference .ref-item .rv { font-size: 15px; }
+
   /* ===== Discreet auto-detect classification card ===== */
   .classify-strip{
     display:flex;align-items:center;gap:14px;flex-wrap:wrap;
@@ -251,10 +279,10 @@
 
 <div class="topbar">
   <div class="brand">38<span>°</span>N · VP PRICING REVIEW</div>
-  <div class="modes">
-    <div class="mode">Portfolio</div>
-    <div class="mode active">Project Deep-Dive</div>
-    <div class="mode">Reference</div>
+  <div class="modes" id="topModes">
+    <div class="mode" data-mode="portfolio">Portfolio</div>
+    <div class="mode active" data-mode="deep">Project Deep-Dive</div>
+    <div class="mode" data-mode="reference">Reference</div>
   </div>
   <div class="top-meta">
     <span>Model: <b id="modelName">Lightstar · IL</b></span>
@@ -440,7 +468,7 @@
         <div class="card-h"><h3>Sensitivity — ΔNPP $/W</h3><div class="h-meta">±10% input · model-driven</div></div>
         <div class="card-body"><div id="tornado" class="plot" style="height:260px;"></div></div>
       </div>
-      <div class="card">
+      <div class="card card-heatmap" id="heatmapCard">
         <div class="card-h"><h3>Portfolio Audit Heatmap</h3><div class="h-meta">All projects × bible fields</div></div>
         <div class="card-body"><div id="heatmap" class="plot" style="height:260px;"></div></div>
       </div>
@@ -1049,6 +1077,26 @@ function renderProjectList(){
     selectProject(filtered[0].i);
   }
 }
+
+// ===== Top-bar mode switching (Portfolio / Deep-Dive / Reference) =====
+(function wireTopModes(){
+  const modes = document.getElementById('topModes');
+  if(!modes) return;
+  modes.addEventListener('click', e => {
+    const btn = e.target.closest('.mode');
+    if(!btn) return;
+    modes.querySelectorAll('.mode').forEach(m => m.classList.remove('active'));
+    btn.classList.add('active');
+    const mode = btn.getAttribute('data-mode') || 'deep';
+    document.body.classList.remove('mode-portfolio','mode-deep','mode-reference');
+    document.body.classList.add('mode-' + mode);
+    // Heatmap needs a Plotly.react after its container size changes.
+    if(typeof Plotly !== 'undefined' && PROJECTS.length){
+      setTimeout(() => { try { renderCharts(PROJECTS[currentIdx]); } catch(_){} }, 30);
+    }
+  });
+  document.body.classList.add('mode-deep');
+})();
 
 // ===== Filter chips + search wiring =====
 (function wireNavFilters(){
