@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from bible_audit import audit_project
+from bible_reference import CS_AVERAGE, CS_STATE_OVERRIDES, lookup_market
 
 _TEMPLATE_PATH = Path(__file__).parent / "VP_Review_Mockup.html"
 _INJECT_RE = re.compile(
@@ -35,9 +36,20 @@ ROW_UTILITY = 19
 ROW_PROGRAM_A = 22
 ROW_PROGRAM_B = 21
 ROW_EPC_WRAPPED = 118
+ROW_LNTP = 119
+ROW_CLOSING = 123
 ROW_NPP = 38
 ROW_FMV_IRR = 33
+ROW_UPFRONT = 216
+ROW_INSURANCE = 296
 ROW_ITC_PCT = 597
+ROW_ELIG_COSTS = 602
+
+# Rule-of-thumb: 1 cent/W swing in sponsor proceeds ≈ 0.18% FMV IRR.
+IRR_PCT_PER_CENT = 0.18
+# NPV dampener for multi-year OpEx deltas (rough 7% WACC, 25-yr).
+OPEX_NPV_FACTOR = 0.55
+OPEX_TERM_YEARS = 25
 
 
 def _num(v: Any) -> float | None:
@@ -95,6 +107,211 @@ def _format_cell(v: Any, unit: str = "") -> str:
     return str(v)
 
 
+def _as_fraction(v: Any) -> float | None:
+    """Treat 0.4 and 40 both as 40%."""
+    n = _num(v)
+    if n is None:
+        return None
+    return n if abs(n) <= 1.5 else n / 100.0
+
+
+def _compute_impact(info: dict, data: dict) -> float | None:
+    """Rough dollar impact of a single finding on sponsor proceeds.
+
+    Positive = upside vs bible. Negative = hit vs bible.
+    """
+    exp = _num(info.get("expected"))
+    act = _num(info.get("actual"))
+    if exp is None or act is None:
+        return None
+    unit = (info.get("unit") or "").strip()
+    label = (info.get("label") or "").lower()
+    delta = act - exp
+    dc_mw = _num(data.get(ROW_DC_MW)) or 0
+    if dc_mw <= 0:
+        return None
+    dc_w = dc_mw * 1_000_000
+
+    if unit == "$/W":
+        # Revenue lines (upfront incentive): higher actual = upside
+        if "upfront" in label or "incentive" in label:
+            return delta * dc_w
+        # Cost lines (EPC/LNTP/C&L/IX): higher actual = downside → flip sign
+        return -delta * dc_w
+
+    if unit in ("%", "ratio"):
+        epc = _num(data.get(ROW_EPC_WRAPPED)) or 1.65
+        if "itc" in label or "tax credit" in label:
+            elig = _as_fraction(data.get(ROW_ELIG_COSTS)) or 0.97
+            exp_f = _as_fraction(exp)
+            act_f = _as_fraction(act)
+            if exp_f is None or act_f is None:
+                return None
+            return (act_f - exp_f) * elig * epc * dc_w
+        if "eligible" in label:
+            itc = _as_fraction(data.get(ROW_ITC_PCT)) or 0.40
+            exp_f = _as_fraction(exp)
+            act_f = _as_fraction(act)
+            if exp_f is None or act_f is None:
+                return None
+            return (act_f - exp_f) * itc * epc * dc_w
+        return None
+
+    if unit in ("$/MW/yr", "$/MW-dc/yr"):
+        # OpEx: higher actual = downside → flip sign, amortize over term with NPV dampener
+        return -delta * dc_mw * OPEX_TERM_YEARS * OPEX_NPV_FACTOR
+
+    if unit == "$/kWh":
+        # Rate-level OpEx (cust mgmt). Approximate annual MWh at 1,550 kWh/Wp × DC_MW.
+        annual_mwh = dc_mw * 1_550
+        return -delta * annual_mwh * OPEX_TERM_YEARS * OPEX_NPV_FACTOR
+
+    return None
+
+
+def _roll_up(findings: list[dict], dc_mw: float) -> dict:
+    total = 0.0
+    for f in findings:
+        v = f.get("impact")
+        if isinstance(v, (int, float)):
+            total += v
+    if dc_mw > 0:
+        npp_per_w = total / (dc_mw * 1_000_000)
+    else:
+        npp_per_w = 0.0
+    irr_pct = (npp_per_w / 0.01) * IRR_PCT_PER_CENT
+    return {
+        "nppPerW": round(npp_per_w, 3),
+        "irrPct": round(irr_pct, 2),
+        "equityK": int(round(total / 1000)),
+    }
+
+
+def _fmt_money_short(v: float) -> str:
+    a = abs(v)
+    sign = "(" if v < 0 else ""
+    close = ")" if v < 0 else ""
+    if a >= 1_000_000:
+        return f"{sign}${a/1_000_000:.2f}M{close}"
+    if a >= 1_000:
+        return f"{sign}${a/1_000:.0f}k{close}"
+    return f"{sign}${a:.0f}{close}"
+
+
+def _build_references(proj: dict, audit: dict) -> dict:
+    """Per-project bible/market/opex reference lookup."""
+    data = proj.get("data", {})
+    state = str(audit.get("state") or data.get(ROW_STATE) or "").strip().upper()
+    utility = str(data.get(ROW_UTILITY) or "").strip()
+    program = str(audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip()
+
+    # Bible (cross-market + IL insurance override if applicable)
+    cs = dict(CS_AVERAGE)
+    overrides = CS_STATE_OVERRIDES.get(state) or (CS_STATE_OVERRIDES.get("MD") if state in ("MD", "DE") else {})
+    if overrides:
+        cs = {**cs, **overrides}
+
+    def _cs_item(row: int, pretty: str) -> dict | None:
+        info = cs.get(row)
+        if not info:
+            return None
+        return {
+            "k": pretty,
+            "v": _format_cell(info.get("value"), info.get("unit", "")),
+            "s": _build_tol_note(info),
+        }
+
+    bible_items = [_cs_item(r, p) for r, p in [
+        (ROW_EPC_WRAPPED, "EPC ($/W)"),
+        (ROW_LNTP, "LNTP ($/W)"),
+        (ROW_CLOSING, "Closing & Legal ($/W)"),
+        (ROW_ITC_PCT, "ITC Rate"),
+        (ROW_ELIG_COSTS, "Eligible Costs %"),
+    ]]
+    bible_items = [x for x in bible_items if x]
+
+    # Market
+    market = lookup_market(state, utility, program)
+    market_items: list[dict] = []
+    market_header = f"Market — {state} {utility} {program}".strip()
+    if market:
+        up_val = market.get(ROW_UPFRONT)
+        if up_val is not None:
+            lag = market.get(217)
+            lag_str = f"{int(lag)}-mo lag" if isinstance(lag, (int, float)) and lag else ""
+            incentive_detail = market.get("incentive_detail") or ""
+            sub = lag_str if not incentive_detail else (incentive_detail + (f" · {lag_str}" if lag_str else ""))
+            market_items.append({"k": "Upfront Incentive ($/W)", "v": _format_cell(up_val, "$/W"), "s": sub})
+        rec_rate = market.get("rec_rate")
+        rec_term = market.get("rec_term")
+        if rec_rate is not None:
+            rec_v = f"${rec_rate:,.2f}/MWh" if isinstance(rec_rate, (int, float)) else str(rec_rate)
+            rec_s = f"{rec_term}-yr" if isinstance(rec_term, (int, float)) else (str(rec_term) if rec_term else "")
+            market_items.append({"k": "REC Rate", "v": rec_v, "s": rec_s})
+        if market.get("post_rec_rate") not in (None, 0):
+            prr = market.get("post_rec_rate"); prt = market.get("post_rec_term")
+            market_items.append({
+                "k": "Post-REC Rate",
+                "v": f"${prr:,.2f}/MWh" if isinstance(prr, (int, float)) else str(prr),
+                "s": f"{prt}-yr" if prt else "",
+            })
+        if market.get("rate_curve"):
+            market_items.append({
+                "k": "Rate Curve",
+                "v": str(market["rate_curve"]),
+                "s": str(market.get("rate_source") or ""),
+            })
+        rc_discount = market.get(161)
+        if rc_discount not in (None, 0):
+            market_items.append({
+                "k": "Customer Discount",
+                "v": f"{rc_discount*100:.1f}%" if isinstance(rc_discount, (int, float)) else str(rc_discount),
+                "s": "Applied to rate curve",
+            })
+
+    # OpEx
+    opex_items = []
+    ins = _cs_item(ROW_INSURANCE, "Insurance ($/MW-yr)")
+    if ins:
+        opex_items.append(ins)
+    if market and 240 in market and market[240] not in (None, 0):
+        opex_items.append({
+            "k": "Cust Mgmt ($/kWh)",
+            "v": f"${market[240]:.4f}/kWh",
+            "s": "Market-specific",
+        })
+    if market and market.get("cust_acq_blend") is not None:
+        opex_items.append({
+            "k": "Cust Acquisition (blended)",
+            "v": f"${market['cust_acq_blend']:.4f}/kWh",
+            "s": str(market.get("cust_mix") or ""),
+        })
+
+    return {
+        "bibleHeader": f"Q1 '26 Bible · {state} {utility} {program}".strip(),
+        "bible": bible_items,
+        "marketHeader": market_header if market else f"Market — (no match for {state}/{utility}/{program})",
+        "market": market_items,
+        "marketMatched": bool(market),
+        "opex": opex_items,
+    }
+
+
+def _build_tol_note(info: dict) -> str:
+    tol = info.get("tol")
+    unit = info.get("unit", "")
+    if not tol:
+        return "Exact match" if info.get("tol") == 0 else ""
+    if unit == "$/W":
+        return f"Tol ±${tol:.3f}"
+    if unit in ("%", "ratio"):
+        t = tol * 100 if abs(tol) <= 1 else tol
+        return f"Tol ±{t:.1f}%"
+    if unit in ("$/MW/yr", "$/MW-dc/yr"):
+        return f"Tol ±${tol:,.0f}"
+    return f"Tol ±{tol}"
+
+
 def _verdict_from_summary(summary: dict[str, int]) -> str:
     off = summary.get("OFF", 0)
     out = summary.get("OUT", 0)
@@ -122,7 +339,7 @@ def _derive_sub(proj: dict, audit: dict, label: str) -> str:
     return " · ".join(parts)
 
 
-def _build_findings(audit: dict) -> list[dict]:
+def _build_findings(audit: dict, data: dict) -> list[dict]:
     findings: list[dict] = []
     for row_num, info in audit.get("rows", {}).items():
         status = info.get("status", "OK")
@@ -137,6 +354,7 @@ def _build_findings(audit: dict) -> list[dict]:
         delta_n = None
         if exp_n is not None and act_n is not None:
             delta_n = round(act_n - exp_n, 4)
+        impact = _compute_impact(info, data)
         findings.append({
             "field": str(field_label),
             "short": _short(str(field_label)),
@@ -144,7 +362,7 @@ def _build_findings(audit: dict) -> list[dict]:
             "model": model_str,
             "delta": delta_n,
             "deltaUnit": unit,
-            "impact": None,
+            "impact": round(impact) if isinstance(impact, (int, float)) else None,
             "status": status,
             "source": info.get("source", ""),
         })
@@ -169,19 +387,31 @@ def _build_findings(audit: dict) -> list[dict]:
 
 
 def _build_variance(findings: list[dict]) -> dict:
-    # Sort by severity: OFF first, then OUT, then others; limit to 6
-    order = {"OFF": 0, "OUT": 1, "REVIEW": 2, "MISSING": 3}
-    sliced = sorted(findings, key=lambda f: order.get(f["status"], 9))[:6]
-    if not sliced:
+    """Variance chart: sort by $-impact magnitude, show top 6 in $k."""
+    scored = [f for f in findings if isinstance(f.get("impact"), (int, float))]
+    unscored = [f for f in findings if not isinstance(f.get("impact"), (int, float))]
+    scored.sort(key=lambda f: -abs(f["impact"]))
+    sliced = scored[:6]
+    if not sliced and not unscored:
         return {"labels": ["No findings"], "x": [0], "txt": ["—"], "colors": ["miss"]}
-    # Bar size: placeholder severity weight (we don't have dollar impacts yet)
+    if not sliced:
+        # Fall back to severity view for unscored findings (e.g. MISSING, sentinel)
+        order = {"OFF": 0, "OUT": 1, "REVIEW": 2, "MISSING": 3}
+        unscored.sort(key=lambda f: order.get(f["status"], 9))
+        labels, xs, txts, colors = [], [], [], []
+        for f in unscored[:6]:
+            labels.append(f.get("short") or f["field"][:20])
+            xs.append(0)
+            txts.append(f["status"])
+            c = {"OFF": "off", "OUT": "out"}.get(f["status"], "miss")
+            colors.append(c)
+        return {"labels": labels, "x": xs, "txt": txts, "colors": colors}
     labels, xs, txts, colors = [], [], [], []
-    weight = {"OFF": -100, "OUT": -30, "REVIEW": 0, "MISSING": 0}
     color_map = {"OFF": "off", "OUT": "out", "REVIEW": "miss", "MISSING": "miss"}
     for f in sliced:
         labels.append(f.get("short") or f["field"][:20])
-        xs.append(weight.get(f["status"], 0))
-        txts.append(f["status"])
+        xs.append(round(f["impact"] / 1000, 1))  # $k
+        txts.append(_fmt_money_short(f["impact"]))
         colors.append(color_map.get(f["status"], "miss"))
     return {"labels": labels, "x": xs, "txt": txts, "colors": colors}
 
@@ -236,19 +466,20 @@ def _build_wrapped_epc(audit: dict) -> list[dict]:
 
 
 def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
-    findings = _build_findings(audit)
-    summary = audit.get("summary", {}) or {}
     data = proj.get("data", {})
+    findings = _build_findings(audit, data)
+    summary = audit.get("summary", {}) or {}
     dc_mw = _num(data.get(ROW_DC_MW)) or 0
+    rolled = _roll_up(findings, dc_mw)
     # Scale chart multipliers roughly by project size
     mul = max(0.5, min(3.5, dc_mw / 5.0)) if dc_mw else 1.0
     return {
         "name": proj.get("name") or "Unnamed",
         "sub": _derive_sub(proj, audit, label),
         "verdict": _verdict_from_summary(summary),
-        "irrPct": 0,
-        "nppPerW": 0,
-        "equityK": 0,
+        "irrPct": rolled["irrPct"],
+        "nppPerW": rolled["nppPerW"],
+        "equityK": rolled["equityK"],
         "kpis": _build_kpis(proj, findings),
         "findings": findings,
         "variance": _build_variance(findings),
@@ -257,6 +488,7 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
             "bible": [0.50, 0.70, 1.15, 0.85],
         },
         "wrappedEpcComponents": _build_wrapped_epc(audit),
+        "references": _build_references(proj, audit),
         "cashflowMul": round(mul, 2),
         "tornadoMul": round(mul, 2),
     }

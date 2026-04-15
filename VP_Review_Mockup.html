@@ -41,7 +41,7 @@
   .modes{display:flex;background:rgba(255,255,255,0.05);border-radius:5px;padding:3px;}
   .mode{padding:6px 14px;font-size:11.5px;font-weight:600;border-radius:3px;color:rgba(255,255,255,0.55);cursor:pointer;letter-spacing:0.03em;}
   .mode.active{background:var(--teal);color:#fff;}  /* teal toggle, not white */
-  .top-meta{margin-left:auto;display:flex;gap:18px;font-size:11px;color:rgba(255,255,255,0.55);}
+  .top-meta{margin-left:auto;display:flex;gap:18px;font-size:11px;color:rgba(255,255,255,0.72);}
   .top-meta b{color:#fff;font-weight:600;}
 
   /* ===== Audit summary strip ===== */
@@ -57,10 +57,11 @@
     transition:border-color .12s ease;
   }
   .pill:hover{border-color:var(--border-strong);}
-  .pill .num{font-size:13px;font-weight:700;color:var(--text);}
+  .pill .num{font-size:13px;font-weight:700;color:inherit;}
   .pill.off{background:var(--off-bg);color:var(--off);border-color:rgba(184,50,48,0.2);}
-  .pill.off .num{color:var(--off);}
-  .pill.out .num,.pill.miss .num,.pill.rev .num{color:var(--text);}
+  .pill.out{background:var(--out-bg);color:var(--out);border-color:rgba(81,132,132,0.25);}
+  .pill.miss{background:var(--miss-bg);color:var(--miss);border-color:rgba(125,134,148,0.25);}
+  .pill.rev{background:var(--rev-bg);color:var(--rev);border-color:rgba(29,111,169,0.25);}
   .strip-divider{width:1px;height:22px;background:var(--border);margin:0 6px;}
   .impact{margin-left:auto;font-size:12px;color:var(--text-2);}
   .impact b{color:var(--off);font-weight:700;font-size:13.5px;}
@@ -93,6 +94,7 @@
   .micro.off{background:var(--off-bg);color:var(--off);}
   .micro.out{background:var(--out-bg);color:var(--out);}
   .micro.miss{background:var(--miss-bg);color:var(--miss);}
+  .micro.rev{background:var(--rev-bg);color:var(--rev);}
   .micro.ok{background:var(--ok-bg);color:var(--ok);}
 
   /* ===== Center deep-dive ===== */
@@ -107,23 +109,23 @@
   .deal-title{font-size:19px;font-weight:700;letter-spacing:-0.01em;color:#fff;}
   .deal-sub{color:rgba(255,255,255,0.55);font-size:11.5px;}
   .verdict{
-    padding:4px 11px;border-radius:4px;font-weight:700;font-size:10.5px;
+    padding:5px 11px;border-radius:4px;font-weight:800;font-size:11px;
     text-transform:uppercase;letter-spacing:0.06em;
-    background:rgba(184,50,48,0.18);color:#ff9a98;border:1px solid rgba(255,154,152,0.35);
+    background:rgba(184,50,48,0.28);color:#fff;border:1px solid rgba(255,255,255,0.25);
   }
   .impact-objs{margin-left:auto;display:flex;gap:8px;}
   .impact-obj{
-    background:#ffffff;border:1px solid rgba(255,255,255,0.18);
+    background:#ffffff;border:1px solid rgba(255,255,255,0.22);
     border-radius:5px;padding:7px 13px;min-width:112px;
-    box-shadow:0 1px 2px rgba(0,0,0,0.20);
   }
   .impact-obj .iol{font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);}
   .impact-obj .iov{font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;margin-top:1px;}
   .impact-obj .ios{font-size:9.5px;color:var(--muted);margin-top:1px;letter-spacing:0.02em;}
-  .impact-obj.bad{border-left:2px solid var(--off);background:#ffffff;}
+  .impact-obj.bad{border-left:3px solid var(--off);background:#ffffff;}
   .impact-obj.bad .iov{color:var(--off);}
   .deal-header-body{padding:14px 18px;}
-  .deal-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+  .deal-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;}
+  @media (max-width:1400px){.deal-kpis{grid-template-columns:repeat(3,minmax(0,1fr));}}
   .kpi{background:var(--raised);border:1px solid var(--border);border-radius:5px;padding:10px 12px;border-left:2px solid var(--border);}
   .kpi.k-accent{border-left-color:var(--teal);}
   .kpi.k-off{border-left-color:var(--off);}
@@ -287,7 +289,10 @@
     <input class="nav-search" id="navSearch" placeholder="Search projects…" />
     <div class="filter-row" id="navFilters">
       <span class="chip active" data-filter="all">All</span>
-      <span class="chip" data-filter="off">OFF only</span>
+      <span class="chip" data-filter="OFF">OFF</span>
+      <span class="chip" data-filter="OUT">OUT</span>
+      <span class="chip" data-filter="MISSING">MISSING</span>
+      <span class="chip" data-filter="REVIEW">REVIEW</span>
     </div>
     <div id="projList"></div>
     <div id="projEmpty" style="display:none;padding:18px 10px;color:var(--muted);font-size:11.5px;text-align:center;">
@@ -456,25 +461,18 @@
   </div>
 
   <!-- RIGHT -->
-  <div class="panel right">
+  <div class="panel right" id="refPanel">
     <div class="ref-section">
-      <div class="ref-h">Q1 '26 Bible · IL Ameren ABP</div>
-      <div class="ref-item"><div class="rk">EPC ($/W)</div><div class="rv">$1.65</div><div class="rs">Tol ±$0.10 · CS Average</div></div>
-      <div class="ref-item"><div class="rk">LNTP ($/W)</div><div class="rv">$0.10</div><div class="rs">Exact match</div></div>
-      <div class="ref-item"><div class="rk">Closing & Legal ($/W)</div><div class="rv">$0.06</div><div class="rs">Exact match</div></div>
-      <div class="ref-item"><div class="rk">ITC %</div><div class="rv">40%</div><div class="rs">+10 ppt domestic adder</div></div>
-      <div class="ref-item"><div class="rk">Eligible Costs %</div><div class="rv">97%</div><div class="rs">Of total project cost</div></div>
+      <div class="ref-h" id="refBibleHeader">Bible</div>
+      <div id="refBible"></div>
     </div>
     <div class="ref-section">
-      <div class="ref-h">Market — IL Ameren ABP</div>
-      <div class="ref-item"><div class="rk">Upfront Incentive ($/W)</div><div class="rv">$0.85</div><div class="rs">Cap $1.00 · 6-mo lag</div></div>
-      <div class="ref-item"><div class="rk">REC Rate ($/MWh)</div><div class="rv">$73.50</div><div class="rs">15-yr fixed</div></div>
-      <div class="ref-item"><div class="rk">Smart Inverter Rebate</div><div class="rv">$0.25 /W</div><div class="rs">One-time</div></div>
+      <div class="ref-h" id="refMarketHeader">Market</div>
+      <div id="refMarket"></div>
     </div>
     <div class="ref-section">
       <div class="ref-h">OpEx Benchmarks</div>
-      <div class="ref-item"><div class="rk">Insurance ($/kW-yr)</div><div class="rv">$3,500</div><div class="rs">IL override: $4,815</div></div>
-      <div class="ref-item"><div class="rk">Cust Mgmt ($/kWh)</div><div class="rv">$0.0035</div><div class="rs">Exact match</div></div>
+      <div id="refOpex"></div>
     </div>
   </div>
 
@@ -923,11 +921,12 @@ function selectProject(idx){
     el.classList.toggle('bad', isBad);
     el.querySelector('.iov').style.color = isBad ? 'var(--off)' : 'var(--text)';
   });
-  // KPIs + findings + classification strip
+  // KPIs + findings + classification strip + references
   renderKpis(p);
   renderFindings(p);
   renderClassify(p);
   renderWrappedEpc(p);
+  renderReferences(p);
   // Charts
   if(typeof Plotly!=='undefined'){ renderCharts(p); }
   // Sidebar selection
@@ -995,21 +994,41 @@ function projChipsHTML(p){
   sigs.forEach(s=>{ const k=s.code+s.status; if(!seen.has(k)){seen.add(k); uniq.push(s);} });
   const top = uniq.slice(0,4);
   if(top.length===0) return '<span class="micro ok">CLEAN</span>';
-  return top.map(s=>{
-    const cls = s.status==='OFF'?'off':s.status==='OUT'?'out':s.status==='REVIEW'?'miss':'miss';
-    const tag = s.status==='OFF'?' OFF':s.status==='OUT'?' OUT':s.status==='REVIEW'?' REV':'';
-    return '<span class="micro '+cls+'">'+s.code+tag+'</span>';
-  }).join('');
+  const clsMap = {OFF:'off', OUT:'out', REVIEW:'rev', MISSING:'miss'};
+  const tagMap = {OFF:' OFF', OUT:' OUT', REVIEW:' REV', MISSING:''};
+  return top.map(s=>'<span class="micro '+(clsMap[s.status]||'miss')+'">'+s.code+(tagMap[s.status]||'')+'</span>').join('');
 }
+
+let _navFilter = 'all';   // 'all' | 'OFF' | 'OUT' | 'MISSING' | 'REVIEW'
+let _navSearch = '';
+
+function _projMatchesFilter(p){
+  if(_navFilter === 'all') return true;
+  return (p.findings||[]).some(f=>f.status===_navFilter);
+}
+function _projMatchesSearch(p){
+  if(!_navSearch) return true;
+  const q = _navSearch.toLowerCase();
+  return (p.name||'').toLowerCase().includes(q) || (p.sub||'').toLowerCase().includes(q);
+}
+
 function renderProjectList(){
   const host = document.getElementById('projList');
   const empty = document.getElementById('projEmpty');
   if(!host) return;
-  if(!PROJECTS.length){ host.innerHTML=''; if(empty) empty.style.display='block'; projCards=[]; return; }
+  if(!PROJECTS.length){ host.innerHTML=''; if(empty){ empty.style.display='block'; empty.innerHTML='No projects loaded. Upload a pricing model and click <b>Run Review</b>.'; } projCards=[]; return; }
+  const filtered = PROJECTS
+    .map((p,i)=>({p,i}))
+    .filter(({p})=>_projMatchesFilter(p) && _projMatchesSearch(p));
+  if(!filtered.length){
+    host.innerHTML='';
+    if(empty){ empty.style.display='block'; empty.innerHTML='No projects match the current filter.'; }
+    projCards=[]; return;
+  }
   if(empty) empty.style.display='none';
-  host.innerHTML = PROJECTS.map((p,i)=>{
+  host.innerHTML = filtered.map(({p,i})=>{
     const meta = p.sub || '';
-    const dc = (p.kpis && p.kpis.dc) ? p.kpis.dc+' MW' : '';
+    const dc = (p.kpis && p.kpis.dc && p.kpis.dc!=='—') ? p.kpis.dc+' MW' : '';
     return '<div class="proj-card" data-idx="'+i+'">'
       + '<div class="pname">'+(p.name||'Unnamed')+'</div>'
       + '<div class="pmeta">'+meta+(dc?' — '+dc:'')+'</div>'
@@ -1017,7 +1036,48 @@ function renderProjectList(){
       + '</div>';
   }).join('');
   projCards = Array.from(host.querySelectorAll('.proj-card'));
-  projCards.forEach((c,i)=>c.addEventListener('click', ()=>selectProject(i)));
+  projCards.forEach((el)=>{
+    const origIdx = parseInt(el.getAttribute('data-idx'));
+    el.addEventListener('click', ()=>selectProject(origIdx));
+    if(origIdx===currentIdx) el.classList.add('selected');
+  });
+}
+
+// ===== Filter chips + search wiring =====
+(function wireNavFilters(){
+  const filters = document.getElementById('navFilters');
+  if(filters){
+    filters.addEventListener('click', e=>{
+      const chip = e.target.closest('.chip');
+      if(!chip) return;
+      filters.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      _navFilter = chip.getAttribute('data-filter') || 'all';
+      renderProjectList();
+    });
+  }
+  const search = document.getElementById('navSearch');
+  if(search){
+    search.addEventListener('input', e=>{
+      _navSearch = e.target.value || '';
+      renderProjectList();
+    });
+  }
+})();
+
+// ===== Right-panel reference renderer =====
+function renderReferences(p){
+  const R = (p && p.references) || {bible:[], market:[], opex:[], marketMatched:false};
+  const bh = document.getElementById('refBibleHeader');
+  const mh = document.getElementById('refMarketHeader');
+  if(bh) bh.textContent = R.bibleHeader || 'Bible';
+  if(mh) mh.textContent = R.marketHeader || 'Market';
+  const fmt = x => '<div class="ref-item"><div class="rk">'+x.k+'</div><div class="rv">'+x.v+'</div>'+(x.s?'<div class="rs">'+x.s+'</div>':'')+'</div>';
+  const emptyMsg = (msg) => '<div class="ref-item" style="color:var(--muted);font-style:italic;">'+msg+'</div>';
+  const host = (id, items, empty) => { const el=document.getElementById(id); if(el) el.innerHTML = (items && items.length) ? items.map(fmt).join('') : emptyMsg(empty); };
+  host('refBible',  R.bible,  'No bible entries');
+  host('refMarket', R.market, R.marketMatched===false ? 'No market match' : 'No market entries');
+  host('refOpex',   R.opex,   'No OpEx benchmarks');
 }
 
 // ----- Plotly bootstrap with retry + graceful fallback -----
@@ -1164,6 +1224,7 @@ if(PROJECTS.length){
   const dk=document.getElementById('dealKpis');  if(dk) dk.innerHTML='';
   const fb=document.getElementById('findingsBody'); if(fb) fb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted);font-style:italic;">Run a review to populate findings.</td></tr>';
   document.getElementById('navCount').textContent = '0 of 0';
+  renderReferences({references:{bibleHeader:'Bible', marketHeader:'Market', bible:[], market:[], opex:[], marketMatched:false}});
 }
 
 // Wait for Plotly script — including the onerror fallback chain
