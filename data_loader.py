@@ -30,20 +30,61 @@ def _normalize_label(s):
 
 
 def _labels_match(canonical, actual):
-    """Check if two normalized labels are equivalent."""
+    """Check if two normalized labels are equivalent.
+
+    Tightened: we only accept substring matches when the shorter label is
+    AT LEAST half the length of the longer one. This prevents false
+    positives like "Customer" matching "Customer Mgmt Esc".
+    """
     if canonical == actual:
         return True
-    # Common substitutions
-    c = canonical.replace("&", "and").replace("-", " ").replace("_", " ").replace("esc", "escalator")
-    a = actual.replace("&", "and").replace("-", " ").replace("_", " ").replace("esc", "escalator")
-    c = re.sub(r'\s+', ' ', c).strip()
-    a = re.sub(r'\s+', ' ', a).strip()
+    # Common substitutions — but DO NOT collapse "esc" to "escalator"
+    # inside word boundaries, because that makes "customer" vs
+    # "customer mgmt esc" look more similar than it should.
+    def _canon(s):
+        s = s.replace("&", "and").replace("-", " ").replace("_", " ")
+        # Only expand "esc" when it appears as a standalone word.
+        s = re.sub(r"\besc\b", "escalator", s)
+        # Replace parens/slash/percent with spaces rather than dropping their
+        # contents — "Size (MWDC)" should still match "Size MWDC".
+        s = re.sub(r"[()/%]", " ", s)
+        s = re.sub(r"\s+", " ", s).strip()
+        return s
+    c = _canon(canonical)
+    a = _canon(actual)
     if c == a:
         return True
-    # Check containment for longer labels (>8 chars)
-    if len(canonical) > 8 and (canonical in actual or actual in canonical):
-        return True
+    # Conservative substring match: both must be ≥8 chars AND the shorter
+    # side must be ≥50% of the longer, to avoid over-generous matches.
+    if len(c) >= 8 and len(a) >= 8:
+        shorter, longer = (c, a) if len(c) <= len(a) else (a, c)
+        if shorter in longer and len(shorter) >= 0.5 * len(longer):
+            return True
     return False
+
+
+# Canonical row → list of alternative labels accepted as matches.
+# Keeps matching tolerant to template drift without relaxing _labels_match.
+ROW_LABEL_ALIASES: dict[int, list[str]] = {
+    118: ["PV EPC Cost", "EPC Cost", "PV EPC"],
+    119: ["PV LNTP Cost", "LNTP Cost", "PV LNTP"],
+    122: ["IX Cost", "Interconnection Cost"],
+    123: ["Closing and Legal", "Closing & Legal", "Closing and Legal Cost"],
+    216: ["Upfront Incentive", "Upfront Incentives"],
+    217: ["Upfront Incentive Lag", "Upfront Lag"],
+    225: ["PV O&M Preventative", "O&M Preventative"],
+    226: ["PV O&M Corrective", "O&M Corrective"],
+    227: ["PV O&M Esc", "PV O&M Escalator"],
+    230: ["AM Fee", "Asset Management Fee"],
+    231: ["AM Esc", "AM Escalator", "Asset Management Escalator"],
+    241: ["Customer Mgmt Esc", "Customer Management Escalator", "Cust Mgmt Escalator"],
+    286: ["Decom Annual Premium", "Decom Bond Annual Premium"],
+    296: ["P&C Insurance", "P&C Insurance Annual Premium"],
+    297: ["P&C Insurance Esc", "P&C Insurance Escalator"],
+    302: ["Internal AM Costs"],
+    597: ["ITC Rate", "ITC %", "Investment Tax Credit Rate", "Investment Tax Credit %"],
+    602: ["Eligible Costs %", "ITC Eligible Costs", "Eligible Cost %", "ITC Eligible Cost %"],
+}
 
 
 def _detect_label_column(ws, max_row=620):
@@ -156,38 +197,46 @@ def _build_row_mapping(ws, label_col, max_row=620):
     """Build canonical_row -> actual_row mapping by scanning labels in the model.
 
     Returns a dict where keys are canonical row numbers (from INPUT_ROW_LABELS)
-    and values are the actual row numbers found in this specific model.
-    Rows not found fall back to their canonical (default) row number.
+    and values are the actual row numbers found in this specific model, or
+    `None` when no confident match was found.
+
+    Critically, unmatched rows map to None (NOT to the canonical row number)
+    so downstream code reads None instead of whatever cell happens to sit at
+    the canonical position (which is usually garbage when labels have drifted).
     """
-    # Read all labels from the label column
-    actual_labels = {}  # normalized_label -> actual_row
+    # Read all labels from the label column, preserving order by row number.
+    actual_by_norm: dict[str, int] = {}
     for r in range(1, max_row + 1):
         val = ws.cell(row=r, column=label_col).value
         if val is not None:
             norm = _normalize_label(val)
-            if norm and norm not in actual_labels:  # first occurrence wins
-                actual_labels[norm] = r
+            if norm and norm not in actual_by_norm:  # first occurrence wins
+                actual_by_norm[norm] = r
 
-    # Also merge OUTPUT_ROWS into the scan
     all_canonical = dict(INPUT_ROW_LABELS)
     all_canonical.update(OUTPUT_ROWS)
 
-    mapping = {}
+    mapping: dict[int, int | None] = {}
     for canonical_row, label in all_canonical.items():
-        norm = _normalize_label(label)
-        if norm in actual_labels:
-            mapping[canonical_row] = actual_labels[norm]
-        else:
-            # Try fuzzy matching
-            matched = False
-            for actual_norm, actual_row in actual_labels.items():
-                if _labels_match(norm, actual_norm):
-                    mapping[canonical_row] = actual_row
-                    matched = True
+        candidates = [label] + ROW_LABEL_ALIASES.get(canonical_row, [])
+        resolved = None
+        # Exact-normalized pass first (strongest signal).
+        for cand in candidates:
+            norm = _normalize_label(cand)
+            if norm in actual_by_norm:
+                resolved = actual_by_norm[norm]
+                break
+        # Fuzzy pass, using the tightened _labels_match.
+        if resolved is None:
+            for cand in candidates:
+                norm = _normalize_label(cand)
+                for actual_norm, actual_row in actual_by_norm.items():
+                    if _labels_match(norm, actual_norm):
+                        resolved = actual_row
+                        break
+                if resolved is not None:
                     break
-            if not matched:
-                mapping[canonical_row] = canonical_row  # fallback to default
-
+        mapping[canonical_row] = resolved  # may be None
     return mapping
 
 
@@ -226,8 +275,10 @@ def load_pricing_model(file):
     rate_rows.add(512)   # appraisal match toggle
 
     # Resolve actual row numbers for key fixed-position rows
-    name_row = row_map.get(4, 4)
-    toggle_row = row_map.get(7, 7)
+    # (name+toggle rarely drift, but fall back to canonical so we can still
+    # enumerate project columns even on templates with unusual label layouts.)
+    name_row = row_map.get(4) or 4
+    toggle_row = row_map.get(7) or 7
 
     # One-shot scan for wrapped-EPC component rows (label-based, model-agnostic)
     wrapped_epc_rows = _scan_wrapped_epc_rows(ws, label_col)
@@ -242,8 +293,10 @@ def load_pricing_model(file):
 
         data = {}
         for canonical_r in all_needed_canonical:
-            actual_r = row_map.get(canonical_r, canonical_r)
-            data[canonical_r] = ws.cell(row=actual_r, column=col).value
+            actual_r = row_map.get(canonical_r)
+            # Unresolved labels → None (don't read whatever lives at the
+            # canonical row, which would yield misleading values).
+            data[canonical_r] = ws.cell(row=actual_r, column=col).value if actual_r else None
 
         rate_comps = {}
         for i, start in enumerate(RATE_COMP_STARTS, 1):

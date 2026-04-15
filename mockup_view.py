@@ -528,6 +528,32 @@ def _build_capital_stack(proj: dict, market: dict | None) -> dict:
     }
 
 
+def _primary_rate(proj: dict) -> tuple[float | None, float | None]:
+    """Return (rate_per_kwh, escalator_frac) from the first live rate component.
+
+    Models vary — PPA rate and escalator don't always sit at fixed rows on
+    Project Inputs. The rate-component block (already parsed by data_loader)
+    is the authoritative source. We pick the first component with a positive
+    energy_rate and an equity_on toggle; fall back to the first with a rate.
+    """
+    comps = proj.get("rate_comps") or {}
+    best = None
+    for idx in sorted(comps):
+        c = comps[idx] or {}
+        rate = _num(c.get("energy_rate"))
+        if rate is None or rate <= 0:
+            continue
+        esc_raw = c.get("escalator")
+        # "N/A (Custom)" sentinel should be treated as 0 escalator.
+        esc = _num(esc_raw) if not (isinstance(esc_raw, str) and "custom" in esc_raw.lower()) else 0.0
+        # Prefer components that fund equity distributions.
+        if c.get("equity_on"):
+            return rate, esc
+        if best is None:
+            best = (rate, esc)
+    return best if best else (None, None)
+
+
 def _build_cashflow(proj: dict) -> dict:
     """25-year operating CF / tax benefits / terminal value (in $ thousands).
 
@@ -541,13 +567,16 @@ def _build_cashflow(proj: dict) -> dict:
         zero = [0] * 25
         return {"opCF": zero, "taxBn": zero, "terminal": zero}
 
+    # PPA rate + escalator: canonical rows first, rate-components as fallback
+    # (they are the source of truth when Project Inputs labels have drifted).
     ppa_rate = _num(data.get(ROW_PPA_RATE))
-    if ppa_rate is None:
-        ppa_rate = 0.08
     escalator = _num(data.get(ROW_ESCALATOR))
+    rc_rate, rc_esc = _primary_rate(proj)
+    if ppa_rate is None:
+        ppa_rate = rc_rate if rc_rate is not None else 0.08
     if escalator is None:
-        escalator = 0.015
-    elif abs(escalator) > 0.5:
+        escalator = rc_esc if rc_esc is not None else 0.015
+    if abs(escalator) > 0.5:
         escalator = escalator / 100.0
 
     epc = _num(data.get(ROW_EPC_WRAPPED))
