@@ -1102,6 +1102,7 @@ def main():
     # Load data once
     m1_projects, m2_projects, m1_ops = {}, {}, {}
     m1_rate_curves, gh25_ref = {}, {}
+    mapper_projects = {}
     if review_active and has_any_model:
         # Model 1: prefer uploaded file, fall back to macro runner
         if model_file:
