@@ -256,7 +256,25 @@ def load_pricing_model(file):
     labels, so models with slightly different row layouts are handled correctly.
     """
     wb = openpyxl.load_workbook(file, data_only=True, read_only=False)
-    ws = wb["Project Inputs"]
+    # Locate the Project Inputs sheet tolerantly — names drift across templates
+    # ("Project Inputs", "Project Input", "Project_Inputs", "ProjectInputs"…).
+    ws = None
+    for sn in wb.sheetnames:
+        norm = re.sub(r"[^a-z]", "", sn.lower())
+        if norm == "projectinputs":
+            ws = wb[sn]
+            break
+    if ws is None:
+        # Second pass: any sheet whose name starts with "project input"
+        for sn in wb.sheetnames:
+            if sn.strip().lower().startswith("project input"):
+                ws = wb[sn]
+                break
+    if ws is None:
+        raise KeyError(
+            "Could not find a 'Project Inputs' sheet in this workbook. "
+            f"Sheets present: {', '.join(wb.sheetnames)}"
+        )
 
     # Detect label column and build per-model row mapping
     label_col = _detect_label_column(ws)
