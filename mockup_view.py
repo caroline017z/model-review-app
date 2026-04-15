@@ -75,6 +75,13 @@ BIBLE_CL_PER_W = 0.06
 BIBLE_IX_PER_W = 0.05
 BIBLE_ITC_FRAC = 0.40
 BIBLE_ELIG_FRAC = 0.97
+# Terminal-value assumptions (year-25 → year-35 merchant tail).
+PANEL_USEFUL_LIFE_YEARS = 35
+MERCHANT_RATE_PER_MWH = 25.0        # Post-PPA merchant revenue — conservative
+MERCHANT_OPEX_MARGIN = 0.50         # Half of merchant revenue survives OpEx
+# IRR calibration: the 0.18% / cent rule assumes ~45% sponsor equity. Scale to
+# the project's actual equity fraction to stay stable under high leverage.
+CALIBRATION_SPONSOR_FRACTION = 0.45
 
 
 def _num(v: Any) -> float | None:
@@ -201,7 +208,15 @@ def _compute_impact(info: dict, data: dict) -> float | None:
     return None
 
 
-def _roll_up(findings: list[dict], dc_mw: float) -> dict:
+def _roll_up(findings: list[dict], dc_mw: float, sponsor_fraction: float | None = None) -> dict:
+    """Aggregate per-finding dollar impacts into headline sponsor metrics.
+
+    sponsor_fraction: the project's equity-to-total-sources ratio; the IRR
+    rule-of-thumb (0.18% / cent NPP) is calibrated at ~45% sponsor equity,
+    so we rescale linearly for other leverage profiles. Clamped to a
+    [0.5×, 2.0×] window to keep thin-equity projects from producing
+    ridiculous IRR deltas.
+    """
     total = 0.0
     for f in findings:
         v = f.get("impact")
@@ -211,11 +226,18 @@ def _roll_up(findings: list[dict], dc_mw: float) -> dict:
         npp_per_w = total / (dc_mw * 1_000_000)
     else:
         npp_per_w = 0.0
-    irr_pct = (npp_per_w / 0.01) * IRR_PCT_PER_CENT
+
+    leverage_scale = 1.0
+    if sponsor_fraction and sponsor_fraction > 0:
+        leverage_scale = CALIBRATION_SPONSOR_FRACTION / sponsor_fraction
+        leverage_scale = max(0.5, min(2.0, leverage_scale))
+    irr_pct = (npp_per_w / 0.01) * IRR_PCT_PER_CENT * leverage_scale
+
     return {
         "nppPerW": round(npp_per_w, 3),
         "irrPct": round(irr_pct, 2),
         "equityK": int(round(total / 1000)),
+        "leverageScale": round(leverage_scale, 2),
     }
 
 
@@ -530,9 +552,21 @@ def _build_capital_stack(proj: dict, market: dict | None) -> dict:
     def _nn(x: float) -> float:
         return round(max(0.0, float(x)), 3)
 
+    # Flag whether we detected a real DSCR schedule — hints that the
+    # illustrative 55/45 debt split could be tightened in a future iteration.
+    dscr_schedule = proj.get("dscr_schedule") or {}
+    has_dscr = bool(dscr_schedule) and any(
+        isinstance(v, (int, float)) and v > 0 for v in dscr_schedule.values()
+    )
     return {
         "model": [_nn(model_sponsor), _nn(te_value), _nn(model_debt), _nn(upfront)],
         "bible": [_nn(bible_sponsor), _nn(bible_te), _nn(bible_debt), _nn(bible_upfront)],
+        "illustrative": True,
+        "assumptions": {
+            "debtFraction": DEBT_FRACTION_OF_NET,
+            "teMonetization": TAX_EQUITY_MONETIZATION,
+            "hasModelDscr": has_dscr,
+        },
     }
 
 
@@ -627,7 +661,21 @@ def _build_cashflow(proj: dict) -> dict:
             tb += MACRS_5YR[yr_idx] * basis_k * CORPORATE_TAX_RATE
         tax_bn.append(int(round(tb)))
 
-        terminal.append(int(round(op_cf[-1] * 2.5)) if year == OPEX_TERM_YEARS else 0)
+        # Terminal value in year 25: PV of the year-25→year-35 merchant tail.
+        # Replaces the prior 2.5×opCF rule, which overstated TV by 40–70%.
+        # Assume the plant continues producing at year-25 degraded output at
+        # a conservative merchant rate; OpEx consumes half; discount at the
+        # OpEx NPV factor over the remaining useful life.
+        if year == OPEX_TERM_YEARS:
+            remaining_life = max(0, PANEL_USEFUL_LIFE_YEARS - OPEX_TERM_YEARS)
+            merchant_rev_k = (
+                prod_mwh * MERCHANT_RATE_PER_MWH * MERCHANT_OPEX_MARGIN / 1000
+            )
+            terminal.append(int(round(
+                merchant_rev_k * remaining_life * OPEX_NPV_FACTOR
+            )))
+        else:
+            terminal.append(0)
 
     return {"opCF": op_cf, "taxBn": tax_bn, "terminal": terminal}
 
@@ -704,7 +752,6 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
     findings = _build_findings(audit, data)
     summary = audit.get("summary", {}) or {}
     dc_mw = _num(data.get(ROW_DC_MW)) or 0
-    rolled = _roll_up(findings, dc_mw)
     # Look up market once so the capital stack's "bible upfront" is market-aware.
     state = str(audit.get("state") or data.get(ROW_STATE) or "").strip().upper()
     if state in ("MD", "DE"):
@@ -714,6 +761,11 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
         str(data.get(ROW_UTILITY) or "").strip(),
         str(audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip(),
     )
+    stack = _build_capital_stack(proj, market)
+    # Feed sponsor fraction into the roll-up so IRR scales with actual leverage.
+    model_total = sum(stack["model"]) or 1.0
+    sponsor_fraction = stack["model"][0] / model_total if model_total else None
+    rolled = _roll_up(findings, dc_mw, sponsor_fraction=sponsor_fraction)
     return {
         "name": proj.get("name") or "Unnamed",
         "sub": _derive_sub(proj, audit, label),
@@ -721,10 +773,12 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
         "irrPct": rolled["irrPct"],
         "nppPerW": rolled["nppPerW"],
         "equityK": rolled["equityK"],
+        "leverageScale": rolled["leverageScale"],
+        "sponsorFraction": round(sponsor_fraction or 0, 3),
         "kpis": _build_kpis(proj, findings),
         "findings": findings,
         "variance": _build_variance(findings),
-        "stack": _build_capital_stack(proj, market),
+        "stack": stack,
         "cashflow": _build_cashflow(proj),
         "tornado": _build_sensitivity(proj),
         "wrappedEpcComponents": _build_wrapped_epc(audit),

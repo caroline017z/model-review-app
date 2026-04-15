@@ -453,7 +453,10 @@
         <div class="card-body"><div id="variance" class="plot" style="height:280px;"></div></div>
       </div>
       <div class="card">
-        <div class="card-h"><h3>Capital Stack — Model vs Bible</h3><div class="h-meta">Sources of capital, $/W</div></div>
+        <div class="card-h">
+          <h3>Capital Stack — Illustrative (Model vs Bible)</h3>
+          <div class="h-meta" id="stackMeta">Derived · 55% debt / 85¢ TE assumption</div>
+        </div>
         <div class="card-body"><div id="stack" class="plot" style="height:280px;"></div></div>
       </div>
     </div>
@@ -465,7 +468,10 @@
 
     <div class="grid-2">
       <div class="card">
-        <div class="card-h"><h3>Sensitivity — ΔNPP $/W</h3><div class="h-meta">±10% input · model-driven</div></div>
+        <div class="card-h">
+          <h3>Sensitivity — ΔNPP $/W</h3>
+          <div class="h-meta" title="One-time CapEx shocks at t=0; multi-year flows at 7% WACC, 25-yr dampener (~0.55×).">±10% shock · present value</div>
+        </div>
         <div class="card-body"><div id="tornado" class="plot" style="height:260px;"></div></div>
       </div>
       <div class="card card-heatmap" id="heatmapCard">
@@ -1183,6 +1189,16 @@ function renderCharts(p){
            range:[minX - xPad, maxX + xPad]},
     yaxis:{...baseLayout.yaxis, automargin:true},
   }, cfg);
+
+  // ----- Capital stack subtitle (DSCR-schedule hint if model carries one) -----
+  const stackMeta = document.getElementById('stackMeta');
+  if (stackMeta) {
+    const a = (p.stack && p.stack.assumptions) || {};
+    const pieces = [];
+    pieces.push('Debt ' + Math.round((a.debtFraction||0.55)*100) + '% · TE ' + Math.round((a.teMonetization||0.85)*100) + '¢');
+    if (a.hasModelDscr) pieces.push('model carries DSCR schedule — sizing TBD');
+    stackMeta.textContent = 'Derived · ' + pieces.join(' · ');
+  }
 
   // ----- Capital stack -----
   Plotly.react('stack', [
