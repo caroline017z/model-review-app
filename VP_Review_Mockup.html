@@ -633,6 +633,14 @@
       <div class="card-body" style="padding:10px 14px;">
         <textarea id="reviewerNotes" placeholder="Explain accepted variances, flagged items, or context for IC (e.g. 'EPC below bible — confirmed with Lightstar via signed PO 4/8/26'). Will appear in the Findings export and IC pack."
           style="width:100%;min-height:64px;padding:9px 11px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:12px;color:var(--text);resize:vertical;background:var(--raised);"></textarea>
+        <div id="auditLogSection" style="margin-top:12px;display:none;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:8px;">
+            <span>Audit log</span>
+            <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted-2);">— immutable, session-scoped</span>
+          </div>
+          <div id="auditLog" role="log" aria-live="polite"
+            style="max-height:160px;overflow-y:auto;padding:8px 10px;border:1px solid var(--border);border-radius:4px;background:var(--inset);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:var(--text-2);white-space:pre-wrap;"></div>
+        </div>
       </div>
     </div>
 
@@ -824,6 +832,34 @@ function _saveApprovals(){
   try { sessionStorage.setItem(_APPROVAL_KEY, JSON.stringify(PROJECT_APPROVALS)); } catch(_){}
 }
 function _isApproved(idx){ return !!(PROJECT_APPROVALS[idx] && PROJECT_APPROVALS[idx].approved); }
+
+// Immutable audit log — separate from the free-text Reviewer Notes so a
+// reviewer can't silently erase provenance. Each entry is append-only.
+const _AUDIT_LOG_KEY = 'vpReview.auditLog';
+let AUDIT_LOG = (function(){
+  try { return JSON.parse(sessionStorage.getItem(_AUDIT_LOG_KEY) || '[]') || []; }
+  catch(_) { return []; }
+})();
+function _saveAuditLog(){
+  try { sessionStorage.setItem(_AUDIT_LOG_KEY, JSON.stringify(AUDIT_LOG)); } catch(_){}
+}
+function _appendAuditEntry(entry){
+  AUDIT_LOG.push(Object.assign({ts: new Date().toISOString().slice(0,16).replace('T',' ')}, entry));
+  _saveAuditLog();
+  _renderAuditLog();
+}
+function _renderAuditLog(){
+  const host = document.getElementById('auditLog');
+  const section = document.getElementById('auditLogSection');
+  if (!host || !section) return;
+  if (!AUDIT_LOG.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  host.innerHTML = AUDIT_LOG.map(e =>
+    '[' + _esc(e.ts) + '] ' + _esc(e.kind||'note') + ' — ' +
+    _esc(e.project||'') + (e.detail ? ' · ' + _esc(e.detail) : '')
+  ).join('\n');
+  host.scrollTop = host.scrollHeight;
+}
 function _getAction(projIdx, field){
   return ((FINDING_ACTIONS[projIdx]||{})[field] || {action:null, note:''});
 }
@@ -998,16 +1034,15 @@ function _updateProjectApprovalBanner(){
       approved: true, timestamp: ts, reviewer: reviewer, project: p.name,
     };
     _saveApprovals();
-    // Stamp reviewer notes (prepend immutable line).
-    const notes = document.getElementById('reviewerNotes');
-    if (notes) {
-      const acts = (FINDING_ACTIONS[currentIdx]||{});
-      const accepted = Object.keys(acts).filter(k => acts[k].action==='accept').length;
-      const flagged  = Object.keys(acts).filter(k => acts[k].action==='flag').length;
-      const stamp = `[${ts}] APPROVED — ${p.name} · ${accepted} accepted · ${flagged} flagged — ${reviewer}`;
-      notes.value = stamp + (notes.value ? '\n' + notes.value : '');
-      document.getElementById('notesCount').textContent = notes.value.length;
-    }
+    const acts = (FINDING_ACTIONS[currentIdx]||{});
+    const accepted = Object.keys(acts).filter(k => acts[k].action==='accept').length;
+    const flagged  = Object.keys(acts).filter(k => acts[k].action==='flag').length;
+    // Append to immutable audit log (reviewer cannot edit this).
+    _appendAuditEntry({
+      kind: 'APPROVED',
+      project: p.name,
+      detail: accepted + ' accepted · ' + flagged + ' flagged — ' + reviewer,
+    });
     _updateProjectApprovalBanner();
   });
   unapproveBtn.addEventListener('click', e=>{
@@ -1148,10 +1183,13 @@ function recomputeImpactFromClassify(p){
   // Δ$/W in offtake-economics & haircut → flows directly to NPP $/W (negative if costs rise / haircut deepens)
   const dHaircutPct = (current.haircut - baseline.haircut);   // pp (positive = deeper haircut = bad)
   const dAcqMgmtW   = (current.totalPerW - baseline.totalPerW); // $/W (positive = more cost = bad)
-  // Approx NPP $/W impact: $0.014/W per 1pp haircut (rule of thumb; verify against model run)
-  const dNppPerW = -(dHaircutPct * 0.014 + dAcqMgmtW);
-  // IRR sensitivity ~ 0.18% per $0.01/W of sponsor proceeds
-  const dIrrPct  = (dNppPerW / 0.01) * 0.18;
+  // Approx NPP $/W impact: $X/W per 1pp haircut — constant ships from Python via PORTFOLIO.constants.
+  const C = (PORTFOLIO && PORTFOLIO.constants) || {};
+  const haircutImpact = (C.haircutImpactPerPct != null) ? C.haircutImpactPerPct : 0.014;
+  const irrPerCent    = (C.irrPctPerCent       != null) ? C.irrPctPerCent       : 0.18;
+  const dNppPerW = -(dHaircutPct * haircutImpact + dAcqMgmtW);
+  // IRR sensitivity ~ X% per $0.01/W of sponsor proceeds — same source of truth.
+  const dIrrPct  = (dNppPerW / 0.01) * irrPerCent;
   // Equity ≈ NPP $/W × DC kW × 1000 (rough)
   const dcMW = parseFloat((p.kpis && p.kpis.dc) || '5') || 5;
   const dEquityK = Math.round(dNppPerW * dcMW * 1000);
@@ -1218,16 +1256,14 @@ document.getElementById('clsSave').addEventListener('click', e=>{
   };
   p.classify = {...after, bibleKey: bibleKey(state, prog), yield: yieldKwhPerWp, manual: true};
   recomputeImpactFromClassify(p);
-  // Audit-trail: prepend a timestamped note to Reviewer Notes.
+  // Audit-trail: append to the immutable audit log (reviewer cannot edit).
   const reason = (document.getElementById('clsReason').value || '').trim();
   const diff = _clsBeforeAfterDiff(before, after) || 'no structural change';
-  const ts = new Date().toISOString().slice(0,16).replace('T',' ');
-  const stamp = '[' + ts + '] Classification override on ' + (p.name||'project') + ': ' + diff + ' — ' + reason;
-  const notes = document.getElementById('reviewerNotes');
-  if (notes) {
-    notes.value = stamp + (notes.value ? '\n' + notes.value : '');
-    document.getElementById('notesCount').textContent = notes.value.length;
-  }
+  _appendAuditEntry({
+    kind: 'OVERRIDE',
+    project: (p.name||'project'),
+    detail: diff + ' — ' + reason,
+  });
   // Clear reason for the next potential override.
   document.getElementById('clsReason').value = '';
   _clsRefreshEnable();
@@ -1687,10 +1723,13 @@ function renderCharts(p){
   const stackMeta = document.getElementById('stackMeta');
   if (stackMeta) {
     const a = (p.stack && p.stack.assumptions) || {};
+    const isIllustrative = !!(p.stack && p.stack.illustrative);
     const pieces = [];
     pieces.push('Debt ' + Math.round((a.debtFraction||0.55)*100) + '% · TE ' + Math.round((a.teMonetization||0.85)*100) + '¢');
     if (a.hasModelDscr) pieces.push('model carries DSCR schedule — sizing TBD');
-    stackMeta.textContent = 'Derived · ' + pieces.join(' · ');
+    stackMeta.textContent = (isIllustrative ? 'ILLUSTRATIVE · Derived · ' : 'Derived · ') + pieces.join(' · ');
+    stackMeta.style.color = isIllustrative ? 'var(--off)' : '';
+    stackMeta.style.fontWeight = isIllustrative ? '700' : '';
   }
 
   // ----- Capital stack -----
@@ -1825,6 +1864,7 @@ function bootCharts(){
 renderPortfolio();
 renderProjectList();
 renderPortfolioSummary();
+_renderAuditLog();
 if(PROJECTS.length){
   // Land on the worst-impact project so the reviewer sees the biggest
   // problem first instead of whatever sits at index 0.

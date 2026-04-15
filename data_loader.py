@@ -2,6 +2,7 @@
 38DN Pricing Model Review — Data Loading
 Reads pricing model workbooks and extracts project data.
 """
+import copy
 import logging
 import streamlit as st
 import openpyxl
@@ -199,6 +200,11 @@ def _scan_rate_components(ws, col):
     return out
 
 
+#: Critical canonical rows — we warn loudly when these are unresolved, since
+#: downstream consumers show stale / garbage data without them.
+_CRITICAL_CANONICAL_ROWS = (4, 7, 10, 11, 18, 22, 118)
+
+
 def _build_row_mapping(ws, label_col, max_row=620):
     """Build canonical_row -> actual_row mapping by scanning labels in the model.
 
@@ -210,39 +216,61 @@ def _build_row_mapping(ws, label_col, max_row=620):
     so downstream code reads None instead of whatever cell happens to sit at
     the canonical position (which is usually garbage when labels have drifted).
     """
-    # Read all labels from the label column, preserving order by row number.
-    actual_by_norm: dict[str, int] = {}
+    # Read all labels from the label column. Track ALL occurrences so we can
+    # detect duplicated labels (common source of subtle mapping bugs).
+    actual_by_norm_first: dict[str, int] = {}
+    actual_by_norm_all: dict[str, list[int]] = {}
     for r in range(1, max_row + 1):
         val = ws.cell(row=r, column=label_col).value
         if val is not None:
             norm = _normalize_label(val)
-            if norm and norm not in actual_by_norm:  # first occurrence wins
-                actual_by_norm[norm] = r
+            if norm:
+                actual_by_norm_all.setdefault(norm, []).append(r)
+                if norm not in actual_by_norm_first:
+                    actual_by_norm_first[norm] = r  # first occurrence wins
+
+    for norm, rows in actual_by_norm_all.items():
+        if len(rows) > 1:
+            logger.warning(
+                "Duplicate label %r appears at rows %s — first wins (row %d). "
+                "If the later rows matter, add more-specific aliases.",
+                norm, rows, rows[0],
+            )
 
     all_canonical = dict(INPUT_ROW_LABELS)
     all_canonical.update(OUTPUT_ROWS)
 
     mapping: dict[int, int | None] = {}
+    unresolved_critical: list[int] = []
     for canonical_row, label in all_canonical.items():
         candidates = [label] + ROW_LABEL_ALIASES.get(canonical_row, [])
         resolved = None
         # Exact-normalized pass first (strongest signal).
         for cand in candidates:
             norm = _normalize_label(cand)
-            if norm in actual_by_norm:
-                resolved = actual_by_norm[norm]
+            if norm in actual_by_norm_first:
+                resolved = actual_by_norm_first[norm]
                 break
         # Fuzzy pass, using the tightened _labels_match.
         if resolved is None:
             for cand in candidates:
                 norm = _normalize_label(cand)
-                for actual_norm, actual_row in actual_by_norm.items():
+                for actual_norm, actual_row in actual_by_norm_first.items():
                     if _labels_match(norm, actual_norm):
                         resolved = actual_row
                         break
                 if resolved is not None:
                     break
         mapping[canonical_row] = resolved  # may be None
+        if resolved is None and canonical_row in _CRITICAL_CANONICAL_ROWS:
+            unresolved_critical.append(canonical_row)
+
+    if unresolved_critical:
+        logger.warning(
+            "Critical row(s) unresolved: %s — downstream UI may show blanks "
+            "or default to a fallback. Consider adding labels in column %s.",
+            unresolved_critical, chr(64 + label_col) if label_col else "?",
+        )
     return mapping
 
 
@@ -507,13 +535,21 @@ def load_pricing_model(file):
             rate_curves["projects"][pname] = proj_rc_data
 
     wb.close()
-    return {"projects": projects, "ops_sandbox": ops_sandbox, "rate_curves": rate_curves}
+    # Deep-copy before returning so the Streamlit cache stores an immutable
+    # snapshot. Downstream code (mockup_view, render_html, filter_projects)
+    # sometimes iterates and mutates in-place; without the copy a second
+    # render in the same session would see a corrupted dict.
+    return copy.deepcopy(
+        {"projects": projects, "ops_sandbox": ops_sandbox, "rate_curves": rate_curves}
+    )
 
 
 def get_projects(model_result):
     if isinstance(model_result, dict) and "projects" in model_result:
-        return model_result["projects"]
-    return model_result
+        # Return a deep copy so in-place mutations downstream (legacy code
+        # paths or future code) can't corrupt the Streamlit cache.
+        return copy.deepcopy(model_result["projects"])
+    return copy.deepcopy(model_result) if model_result else model_result
 
 
 def get_ops_sandbox(model_result):

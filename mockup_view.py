@@ -761,9 +761,23 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
     model_total = sum(stack["model"]) or 1.0
     sponsor_fraction = stack["model"][0] / model_total if model_total else None
     rolled = _roll_up(findings, dc_mw, sponsor_fraction=sponsor_fraction)
+    developer = str(data.get(ROW_DEVELOPER) or "").strip()
+    utility = str(data.get(ROW_UTILITY) or "").strip()
+    program = str(
+        audit.get("program_used")
+        or data.get(ROW_PROGRAM_A)
+        or data.get(ROW_PROGRAM_B)
+        or ""
+    ).strip()
     return {
         "name": proj.get("name") or "Unnamed",
         "sub": _derive_sub(proj, audit, label),
+        # First-class fields for the portfolio summary / nav — consumers no
+        # longer parse `sub` strings to recover them.
+        "developer": developer,
+        "state": audit.get("state") or str(data.get(ROW_STATE) or "").strip(),
+        "utility": utility,
+        "program": program,
         "verdict": _verdict_from_summary(summary),
         "irrPct": rolled["irrPct"],
         "nppPerW": rolled["nppPerW"],
@@ -997,6 +1011,16 @@ def build_payload(
             "projects": heatmap_projects,
             "fields": [c[0] for c in _HEATMAP_COLUMNS],
             "z": heatmap_z,
+        },
+        # Rule-of-thumb constants shipped into the JS so the classification-
+        # override recompute path reads the SAME calibration as Python.
+        # Keeps the two sides in sync if we ever recalibrate.
+        "constants": {
+            "irrPctPerCent": IRR_PCT_PER_CENT,
+            "calibrationSponsorFraction": CALIBRATION_SPONSOR_FRACTION,
+            "haircutImpactPerPct": 0.014,  # JS-only today; see recomputeImpactFromClassify
+            "opexNpvFactor": OPEX_NPV_FACTOR,
+            "opexTermYears": OPEX_TERM_YEARS,
         },
     }
     return projects_list, portfolio
