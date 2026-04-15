@@ -718,6 +718,64 @@ def _iter_projects(m1_projects: dict):
         yield k, v
 
 
+def _looks_real(proj: dict) -> bool:
+    """A project is 'real' if it has a proper name AND a positive DC size.
+
+    Filters out empty placeholder columns in the model template that carry a
+    toggle or stub name but no actual data.
+    """
+    name = str(proj.get("name") or "").strip()
+    if not name or name.lower() in ("", "project", "sample"):
+        return False
+    dc = _num(proj.get("data", {}).get(ROW_DC_MW)) or 0
+    return dc > 0
+
+
+def list_candidate_projects(m1_projects: dict) -> list[dict]:
+    """Suggest which project columns belong in the review.
+
+    A candidate is included when:
+      * row 7 toggle resolves to On, AND
+      * the column has a real project name + non-zero DC size.
+
+    Each returned dict carries a stable string `id`, plus name / dc / developer
+    / state / utility / program for the sidebar UI.
+    """
+    out: list[dict] = []
+    for col, proj in _iter_projects(m1_projects):
+        toggled_on = bool(proj.get("toggle", False))
+        if not toggled_on:
+            continue
+        if not _looks_real(proj):
+            continue
+        data = proj.get("data", {}) or {}
+        out.append({
+            "id": str(col),
+            "name": str(proj.get("name") or "Unnamed").strip(),
+            "dc": round(_num(data.get(ROW_DC_MW)) or 0, 2),
+            "state": str(data.get(ROW_STATE) or "").strip(),
+            "utility": str(data.get(ROW_UTILITY) or "").strip(),
+            "program": str(data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip(),
+        })
+    return out
+
+
+def filter_projects(m1_projects: dict, included_ids: set[str] | None) -> dict:
+    """Return a new dict containing only the projects whose str(col) is in
+    `included_ids`. If `included_ids` is None, returns all candidates
+    (toggle=On + real data); callers should pre-filter via list_candidate_projects."""
+    candidates = {str(c["id"]) for c in list_candidate_projects(m1_projects)}
+    if included_ids is None:
+        allowed = candidates
+    else:
+        allowed = candidates & {str(i) for i in included_ids}
+    out = {}
+    for col, proj in _iter_projects(m1_projects):
+        if str(col) in allowed:
+            out[col] = proj
+    return out
+
+
 def _default_json(o):
     if isinstance(o, (date, datetime)):
         return o.isoformat()
@@ -788,8 +846,6 @@ def build_payload(
     heatmap_projects: list[str] = []
 
     for _, proj in _iter_projects(m1_projects):
-        if not proj.get("toggle", True):
-            continue
         audit = _safe_audit(proj.get("data", {}))
         projects_list.append(_build_mockup_project(proj, audit, model_label))
         summary = audit.get("summary", {}) or {}

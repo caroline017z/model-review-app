@@ -9,7 +9,11 @@ import streamlit as st
 import streamlit.components.v1 as components
 from pathlib import Path
 
-from mockup_view import render_html as render_mockup_html
+from mockup_view import (
+    render_html as render_mockup_html,
+    list_candidate_projects,
+    filter_projects,
+)
 from config import BIBLE_BENCHMARKS
 from styles import APP_CSS, SIDEBAR_CHECKBOX_CSS, run_button_css
 from data_loader import load_pricing_model, get_projects, load_mapper_output
@@ -339,6 +343,7 @@ def main():
 
     # Load data once — only what the review mockup actually consumes.
     merged_projects: dict = {}
+    candidates: list[dict] = []
     if review_active and has_any_model:
         with st.status("Loading review data…", expanded=True) as _status:
             # Model 1: prefer uploaded file, fall back to macro runner
@@ -367,14 +372,41 @@ def main():
                     continue
                 merged_projects.setdefault(k, v)
 
+            _status.update(label="Identifying active projects…")
+            candidates = list_candidate_projects(merged_projects)
+
             _status.update(
-                label=f"Review ready — {len(merged_projects)} project(s)",
+                label=f"Review ready — suggesting {len(candidates)} active project(s)",
                 state="complete",
                 expanded=False,
             )
 
+    # Sidebar: let reviewer uncheck any false positives from the suggestion.
+    included_ids: set[str] = set()
+    if candidates:
+        with st.sidebar:
+            st.markdown("---")
+            st.markdown("### Projects in review")
+            st.caption(f"{len(candidates)} suggested (row 7 = On, with DC size). Uncheck to exclude.")
+            # Stable key so Streamlit remembers per-project include decisions.
+            model_key = getattr(model_file, "name", None) or m1_label or "model"
+            for c in candidates:
+                sig = f"inc::{model_key}::{c['id']}::{c['name']}"
+                meta = " · ".join([x for x in [c["state"], c["utility"], c["program"]] if x])
+                dc_str = f"{c['dc']:.2f} MW" if c["dc"] else ""
+                tail = " — ".join([x for x in [meta, dc_str] if x])
+                label = f"**{c['name']}**" + (f"  \n{tail}" if tail else "")
+                checked = st.checkbox(label, value=True, key=sig)
+                if checked:
+                    included_ids.add(str(c["id"]))
+            n_included = len(included_ids)
+            if n_included != len(candidates):
+                st.caption(f"→ Reviewing {n_included} of {len(candidates)}.")
+
+    review_projects = filter_projects(merged_projects, included_ids) if candidates else {}
+
     mockup_html = render_mockup_html(
-        merged_projects,
+        review_projects,
         model_label=m1_label or "Model 1",
         reviewer="Caroline Z.",
         bible_label="Q1 '26",
