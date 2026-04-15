@@ -1104,35 +1104,50 @@ def main():
     m1_rate_curves, gh25_ref = {}, {}
     mapper_projects = {}
     if review_active and has_any_model:
-        # Model 1: prefer uploaded file, fall back to macro runner
-        if model_file:
-            m1_result = load_pricing_model(model_file)
-        elif has_mr_m1:
-            m1_result = mr_model
-            m1_label = mr_label
-        else:
-            m1_result = None
+        with st.status("Loading review data…", expanded=True) as _status:
+            # Model 1: prefer uploaded file, fall back to macro runner
+            if model_file:
+                _status.update(label=f"Parsing Model 1: {getattr(model_file, 'name', m1_label)}…")
+                m1_result = load_pricing_model(model_file)
+            elif has_mr_m1:
+                _status.update(label=f"Loading Model 1 from macro runner: {mr_label}…")
+                m1_result = mr_model
+                m1_label = mr_label
+            else:
+                m1_result = None
 
-        # Model 2: prefer uploaded file, fall back to macro runner
-        if model_file_2:
-            m2_result = load_pricing_model(model_file_2)
-        elif has_mr_m2:
-            m2_result = mr_model
-            m2_label = mr_label
-        else:
-            m2_result = None
+            # Model 2: prefer uploaded file, fall back to macro runner
+            if model_file_2:
+                _status.update(label=f"Parsing Model 2: {getattr(model_file_2, 'name', m2_label)}…")
+                m2_result = load_pricing_model(model_file_2)
+            elif has_mr_m2:
+                _status.update(label=f"Loading Model 2 from macro runner: {mr_label}…")
+                m2_result = mr_model
+                m2_label = mr_label
+            else:
+                m2_result = None
 
-        m1_projects = get_projects(m1_result) if m1_result else {}
-        m2_projects = get_projects(m2_result) if m2_result else {}
-        mapper_projects = load_mapper_output(mapper_file) if mapper_file else {}
-        m1_ops = get_ops_sandbox(m1_result) if m1_result else {}
-        m1_rate_curves = get_rate_curves(m1_result) if m1_result else {}
+            _status.update(label="Extracting projects from Model 1…")
+            m1_projects = get_projects(m1_result) if m1_result else {}
+            _status.update(label="Extracting projects from Model 2…")
+            m2_projects = get_projects(m2_result) if m2_result else {}
+            if mapper_file:
+                _status.update(label="Loading mapper output…")
+            mapper_projects = load_mapper_output(mapper_file) if mapper_file else {}
+            _status.update(label="Reading operating sandbox…")
+            m1_ops = get_ops_sandbox(m1_result) if m1_result else {}
+            _status.update(label="Reading rate curves…")
+            m1_rate_curves = get_rate_curves(m1_result) if m1_result else {}
 
-        # Load GH25 reference curves (cached at session level)
-        if "gh25_ref" not in st.session_state:
-            _gh25_path = Path(r"C:\Users\CarolineZepecki\Desktop\GH_IL_Summer 2025_OBBB_38 Degrees.xlsx")
-            st.session_state["gh25_ref"] = load_gh25_reference(str(_gh25_path)) if _gh25_path.exists() else {}
-        gh25_ref = st.session_state.get("gh25_ref", {})
+            # Load GH25 reference curves (cached at session level)
+            if "gh25_ref" not in st.session_state:
+                _status.update(label="Loading GH25 reference curves…")
+                _gh25_path = Path(r"C:\Users\CarolineZepecki\Desktop\GH_IL_Summer 2025_OBBB_38 Degrees.xlsx")
+                st.session_state["gh25_ref"] = load_gh25_reference(str(_gh25_path)) if _gh25_path.exists() else {}
+            gh25_ref = st.session_state.get("gh25_ref", {})
+
+            n1 = len(m1_projects); n2 = len(m2_projects)
+            _status.update(label=f"Review ready — Model 1: {n1} projects, Model 2: {n2} projects", state="complete", expanded=False)
 
     # For tab guard checks: use a truthy sentinel when macro runner is the source
     effective_m1 = model_file if model_file else (mr_label if has_mr_m1 else None)
