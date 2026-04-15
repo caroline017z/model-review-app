@@ -1012,6 +1012,8 @@ function _projMatchesSearch(p){
   return (p.name||'').toLowerCase().includes(q) || (p.sub||'').toLowerCase().includes(q);
 }
 
+function _esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
 function renderProjectList(){
   const host = document.getElementById('projList');
   const empty = document.getElementById('projEmpty');
@@ -1030,8 +1032,8 @@ function renderProjectList(){
     const meta = p.sub || '';
     const dc = (p.kpis && p.kpis.dc && p.kpis.dc!=='—') ? p.kpis.dc+' MW' : '';
     return '<div class="proj-card" data-idx="'+i+'">'
-      + '<div class="pname">'+(p.name||'Unnamed')+'</div>'
-      + '<div class="pmeta">'+meta+(dc?' — '+dc:'')+'</div>'
+      + '<div class="pname">'+_esc(p.name||'Unnamed')+'</div>'
+      + '<div class="pmeta">'+_esc(meta+(dc?' — '+dc:''))+'</div>'
       + '<div class="pchips">'+projChipsHTML(p)+'</div>'
       + '</div>';
   }).join('');
@@ -1041,6 +1043,11 @@ function renderProjectList(){
     el.addEventListener('click', ()=>selectProject(origIdx));
     if(origIdx===currentIdx) el.classList.add('selected');
   });
+  // If the currently-selected project is no longer in the filtered set,
+  // promote the first visible project so the center panel stays in sync.
+  if(!filtered.some(({i})=>i===currentIdx)){
+    selectProject(filtered[0].i);
+  }
 }
 
 // ===== Filter chips + search wiring =====
@@ -1072,8 +1079,8 @@ function renderReferences(p){
   const mh = document.getElementById('refMarketHeader');
   if(bh) bh.textContent = R.bibleHeader || 'Bible';
   if(mh) mh.textContent = R.marketHeader || 'Market';
-  const fmt = x => '<div class="ref-item"><div class="rk">'+x.k+'</div><div class="rv">'+x.v+'</div>'+(x.s?'<div class="rs">'+x.s+'</div>':'')+'</div>';
-  const emptyMsg = (msg) => '<div class="ref-item" style="color:var(--muted);font-style:italic;">'+msg+'</div>';
+  const fmt = x => '<div class="ref-item"><div class="rk">'+_esc(x.k)+'</div><div class="rv">'+_esc(x.v)+'</div>'+(x.s?'<div class="rs">'+_esc(x.s)+'</div>':'')+'</div>';
+  const emptyMsg = (msg) => '<div class="ref-item" style="color:var(--muted);font-style:italic;">'+_esc(msg)+'</div>';
   const host = (id, items, empty) => { const el=document.getElementById(id); if(el) el.innerHTML = (items && items.length) ? items.map(fmt).join('') : emptyMsg(empty); };
   host('refBible',  R.bible,  'No bible entries');
   host('refMarket', R.market, R.marketMatched===false ? 'No market match' : 'No market entries');

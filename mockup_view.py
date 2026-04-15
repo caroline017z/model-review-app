@@ -205,11 +205,8 @@ def _build_references(proj: dict, audit: dict) -> dict:
     utility = str(data.get(ROW_UTILITY) or "").strip()
     program = str(audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip()
 
-    # Bible (cross-market + IL insurance override if applicable)
-    cs = dict(CS_AVERAGE)
-    overrides = CS_STATE_OVERRIDES.get(state) or (CS_STATE_OVERRIDES.get("MD") if state in ("MD", "DE") else {})
-    if overrides:
-        cs = {**cs, **overrides}
+    # Bible (cross-market + per-state overrides, e.g. IL hail insurance)
+    cs = {**CS_AVERAGE, **CS_STATE_OVERRIDES.get(state, {})}
 
     def _cs_item(row: int, pretty: str) -> dict | None:
         info = cs.get(row)
@@ -246,14 +243,14 @@ def _build_references(proj: dict, audit: dict) -> dict:
         rec_term = market.get("rec_term")
         if rec_rate is not None:
             rec_v = f"${rec_rate:,.2f}/MWh" if isinstance(rec_rate, (int, float)) else str(rec_rate)
-            rec_s = f"{rec_term}-yr" if isinstance(rec_term, (int, float)) else (str(rec_term) if rec_term else "")
+            rec_s = f"{int(rec_term)}-yr" if isinstance(rec_term, (int, float)) else (str(rec_term) if rec_term else "")
             market_items.append({"k": "REC Rate", "v": rec_v, "s": rec_s})
         if market.get("post_rec_rate") not in (None, 0):
             prr = market.get("post_rec_rate"); prt = market.get("post_rec_term")
             market_items.append({
                 "k": "Post-REC Rate",
                 "v": f"${prr:,.2f}/MWh" if isinstance(prr, (int, float)) else str(prr),
-                "s": f"{prt}-yr" if prt else "",
+                "s": f"{int(prt)}-yr" if isinstance(prt, (int, float)) else (str(prt) if prt else ""),
             })
         if market.get("rate_curve"):
             market_items.append({
@@ -524,7 +521,26 @@ def _iter_projects(m1_projects: dict):
 def _default_json(o):
     if isinstance(o, (date, datetime)):
         return o.isoformat()
+    # Preserve Decimal numeric fidelity so JS keeps typeof==='number'.
+    try:
+        from decimal import Decimal
+        if isinstance(o, Decimal):
+            return float(o)
+    except ImportError:
+        pass
+    # openpyxl Cell objects have a .value attribute
+    if hasattr(o, "value") and not callable(o):
+        try:
+            return o.value
+        except Exception:
+            pass
     return str(o)
+
+
+def _safe_json(payload) -> str:
+    """json.dumps hardened for <script> embedding: neutralize </ and <!-- sequences."""
+    s = json.dumps(payload, default=_default_json, ensure_ascii=False)
+    return s.replace("</", "<\\/").replace("<!--", "<\\!--")
 
 
 def build_payload(
@@ -584,8 +600,8 @@ def render_html(
     template = _TEMPLATE_PATH.read_text(encoding="utf-8")
     payload = (
         "/* __INJECT_DATA_START__ (runtime) */\n"
-        f"let PORTFOLIO = {json.dumps(portfolio, default=_default_json)};\n"
-        f"let PROJECTS = {json.dumps(projects_list, default=_default_json)};\n"
+        f"let PORTFOLIO = {_safe_json(portfolio)};\n"
+        f"let PROJECTS = {_safe_json(projects_list)};\n"
         "/* __INJECT_DATA_END__ */"
     )
     if not _INJECT_RE.search(template):
