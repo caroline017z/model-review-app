@@ -23,22 +23,26 @@ from utils import (
     safe_float, fmt_dollar_w, fmt_row_val, kpi_card, styled_plotly,
     fmt_val, fmt_delta, style_field_header, style_delta, style_flag, style_warn, style_status,
 )
-from data_loader import load_pricing_model, get_projects, get_ops_sandbox, load_data_room
+from data_loader import (load_pricing_model, get_projects, get_ops_sandbox,
+                         get_rate_curves, load_data_room, load_gh25_reference,
+                         load_mapper_output)
 from validation import validate_project
+from bible_audit import audit_project, status_class, status_tooltip
 from benchmark_store import load_overrides, save_overrides, delete_overrides, apply_overrides
 from charts import build_capex_waterfall, build_value_driver_chart, build_delta_chart, build_sensitivity_tornado
 from comparison import (
     build_comparison_table, compute_portfolio_wtd_avg,
     render_bible_section, render_market_card,
 )
-from xlsx_export import generate_comparison_xlsx, generate_multi_project_xlsx, build_export_rows
+from xlsx_export import (generate_comparison_xlsx, generate_multi_project_xlsx,
+                         build_export_rows, generate_review_xlsx)
 from pptx_export import generate_pptx
 from pdf_export import generate_pdf
 
 # --- Macro Runner integration ---
 _MACRO_RUNNER_DIR = r"C:\Users\CarolineZepecki\projects\excel_macro_runner"
 if _MACRO_RUNNER_DIR not in sys.path:
-    sys.path.insert(0, _MACRO_RUNNER_DIR)
+    sys.path.append(_MACRO_RUNNER_DIR)
 try:
     from vp_bridge import (
         list_available_runs as _mr_list_runs,
@@ -103,6 +107,14 @@ def render_sidebar():
             st.session_state["_m2_prev_file"] = m2_fname
             st.session_state["m2l"] = guess_label(model_file_2, "Model 2")
         m2_label = st.text_input("Model 2 Label", key="m2l")
+
+        st.markdown("---")
+        st.markdown("### Mapper Output (optional)")
+        mapper_file = st.file_uploader(
+            "Portfolio-Model-Mapper output",
+            type=["xlsx"], key="mapper",
+            help="Output from /portfolio-model-mapper. Adds a third comparison column (Developer Inputs) and feeds the bible audit.",
+        )
 
         st.markdown("---")
         st.markdown("### Data Room")
@@ -247,7 +259,7 @@ def render_sidebar():
         if has_model and not review_active:
             st.caption("Upload detected \u2014 press RUN REVIEW to analyze")
 
-    return model_file, model_file_2, m1_label, m2_label, dr_files, review_active
+    return model_file, model_file_2, m1_label, m2_label, dr_files, review_active, mapper_file
 
 
 # ---------------------------------------------------------------------------
@@ -431,23 +443,42 @@ def tab_market():
     st.dataframe(pd.DataFrame(comp_rows), use_container_width=True, hide_index=True, height=400)
 
 
-def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, model_file):
+def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, model_file,
+                   mapper_projects=None):
     if not review_active or not model_file:
         st.markdown('<div style="text-align:center;padding:3rem;"><p style="font-size:0.95rem;font-weight:600;color:#212B48;">Upload models and press RUN REVIEW</p></div>', unsafe_allow_html=True)
         return
 
     active1 = {k: v for k, v in m1_projects.items() if v["toggle"]}
     active2 = {k: v for k, v in m2_projects.items() if v["toggle"]} if m2_projects else {}
+    mapper_active = {k: v for k, v in (mapper_projects or {}).items() if v.get("toggle")}
 
     all_names_1 = {v["name"]: v for v in active1.values()}
     all_names_2 = {v["name"]: v for v in active2.values()}
+    all_names_mapper = {v["name"]: v for v in mapper_active.values()}
     common = sorted(set(all_names_1.keys()) & set(all_names_2.keys()))
+
+    # Pre-compute bible audit per anchor project (drives inline highlighting).
+    # Audit runs against the Model 1 anchor data — that's the source of truth
+    # being reviewed. Mapper deltas show on top of audit highlighting.
+    _audit_cache = {}
+    def _audit_for(name):
+        if name in _audit_cache:
+            return _audit_cache[name]
+        proj = all_names_1.get(name)
+        if not proj:
+            _audit_cache[name] = None
+            return None
+        result = audit_project(proj["data"])
+        _audit_cache[name] = result
+        return result
 
     st.markdown(f"""
     <div class="kpi-row">
         {kpi_card(m1_label, str(len(all_names_1)), f"{sum(safe_float(p['data'].get(11)) or 0 for p in all_names_1.values()):.1f} MWdc", "accent")}
         {kpi_card(m2_label if m2_projects else "Model 2", str(len(all_names_2)) if all_names_2 else "\u2014", f"{sum(safe_float(p['data'].get(11)) or 0 for p in all_names_2.values()):.1f} MWdc" if all_names_2 else "Not loaded", "accent" if all_names_2 else "warn")}
         {kpi_card("Matched", str(len(common)), "By project name", "pass" if common else "teal")}
+        {kpi_card("Dev Inputs", str(len(all_names_mapper)) if all_names_mapper else "\u2014", "From mapper output" if all_names_mapper else "Not loaded", "accent" if all_names_mapper else "warn")}
     </div>
     """, unsafe_allow_html=True)
 
@@ -577,16 +608,31 @@ def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, 
                     body += '<td></td><td class="delta-cell"></td>'
                 body += '</tr>'
 
+            # Bible-audit highlighting on the anchor cell
+            audit_res = _audit_for(anchor_name)
+            a_cls = status_class(audit_res, r)
+            a_tip = status_tooltip(audit_res, r)
+            a_attrs = (f' title="{a_tip}"' if a_tip else "")
+            anchor_cls = f"fr fr-anchor anchor-border {a_cls}".rstrip()
+
             body += '<tr>'
             body += f'<td class="fr fr-row">{r}</td>'
             body += f'<td class="fr fr-field">{label}</td>'
-            body += f'<td class="fr fr-anchor anchor-border">{a_fmt}</td>'
+            body += f'<td class="{anchor_cls}"{a_attrs}>{a_fmt}</td>'
             for c_fmt, d_fmt, neg_cls in comp_entries:
                 body += f'<td>{c_fmt}</td>'
                 body += f'<td class="delta-cell{" neg-val" if neg_cls else ""}">{d_fmt}</td>'
             body += '</tr>'
 
-        return f'<div class="cmp-wrap"><table class="cmp-tbl"><thead><tr>{hdr_cells}</tr></thead><tbody>{body}</tbody></table></div>'
+        legend = (
+            '<div class="audit-legend">'
+            '<span class="audit-chip audit-off">OFF bible</span>'
+            '<span class="audit-chip audit-out">Out of range</span>'
+            '<span class="audit-chip audit-missing">Missing</span>'
+            '<span class="audit-chip audit-review">Manual review</span>'
+            '</div>'
+        )
+        return legend + f'<div class="cmp-wrap"><table class="cmp-tbl"><thead><tr>{hdr_cells}</tr></thead><tbody>{body}</tbody></table></div>'
 
     if compare_mode == "Group (weighted avg)":
         anchor_projs = {k: v for k, v in active1.items() if v["name"] in anchor_sel}
@@ -620,6 +666,17 @@ def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, 
             for pn in comp_sel:
                 if pn in all_names_2:
                     comp_projects.append((f"{pn} ({m2_label})", all_names_2[pn]["data"]))
+
+            # Append mapper (developer inputs) as a third source for the anchor
+            # project — fuzzy match by substring since mapper names may include
+            # site codes (e.g. "IL VER001 (US Highway 136)").
+            if all_names_mapper:
+                for mn, mp in all_names_mapper.items():
+                    short = mn.split(" (")[0].strip()
+                    if (anchor_name in mn or mn in anchor_name
+                            or short in anchor_name or anchor_name in short):
+                        comp_projects.append((f"{mn} (Dev Input)", mp["data"]))
+                        break
 
             unmatched_anchor = [n for n in anchor_sel if n not in all_names_2 and n != anchor_name]
             unmatched_comp = [n for n in comp_sel if n not in all_names_1] if comp_sel else []
@@ -724,7 +781,8 @@ def tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, 
         )
 
 
-def tab_review(m1_projects, m1_ops, m1_label, m2_label, model_file, model_file_2, review_active):
+def tab_review(m1_projects, m1_ops, m1_label, m2_label, model_file, model_file_2, review_active,
+               rate_curves=None, gh25_ref=None, dr_files=None):
     if not model_file or not review_active:
         msg = "Press RUN REVIEW in the sidebar" if model_file else "Upload a Pricing Model to begin"
         st.markdown(f'<div style="text-align:center;padding:3rem 2rem;"><p style="font-size:0.95rem;font-weight:600;color:#212B48;">{msg}</p></div>', unsafe_allow_html=True)
@@ -911,6 +969,39 @@ def tab_review(m1_projects, m1_ops, m1_label, m2_label, model_file, model_file_2
                           font=dict(family="DM Sans", size=12), plot_bgcolor=PLOTLY_BG, paper_bgcolor=PLOTLY_BG)
         st.plotly_chart(fig, use_container_width=True, key="heatmap")
 
+    # --- Bible Review Download ---
+    st.markdown('<div class="section-hdr">Download Bible Review Report</div>', unsafe_allow_html=True)
+    dl_col1, dl_col2 = st.columns(2)
+    with dl_col1:
+        st.markdown("**Excel — Per-Project Bible Review + Rate Curves**")
+        st.caption("Individual project sheets with Bible comparison, flagged variations, and rate curve analysis vs GH25")
+        review_buf = generate_review_xlsx(
+            projects=projects,
+            bible_benchmarks=BIBLE_BENCHMARKS,
+            rate_curves=rate_curves,
+            gh25_ref=gh25_ref,
+            data_room=None,
+            model_label=m1_label,
+        )
+        active_count = len([v for v in projects.values() if v["toggle"]])
+        st.download_button(
+            label=f"\u2B07 Download Bible Review ({active_count} projects)",
+            data=review_buf,
+            file_name=f"38DN_Bible_Review_{m1_label.replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="dl_review_xlsx",
+        )
+    with dl_col2:
+        if gh25_ref:
+            st.markdown("**Rate curves included:**")
+            curves_avail = list(gh25_ref.get("annual", {}).keys())
+            st.caption(f"GH25 reference curves: {', '.join(curves_avail)}")
+            for cn, cagr in gh25_ref.get("cagrs", {}).items():
+                if cagr:
+                    st.caption(f"  {cn} CAGR: {cagr:.2%}")
+        else:
+            st.caption("GH25 reference file not found — rate curve analysis unavailable")
+
 
 def tab_value_drivers(m1_projects, m1_label, m2_label, model_file, model_file_2, review_active):
     if not model_file or not review_active:
@@ -990,7 +1081,7 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    model_file, model_file_2, m1_label, m2_label, dr_files, review_active = render_sidebar()
+    model_file, model_file_2, m1_label, m2_label, dr_files, review_active, mapper_file = render_sidebar()
 
     # --- Check for macro runner loaded data ---
     mr_model = st.session_state.get("mr_loaded_model")
@@ -1010,6 +1101,7 @@ def main():
 
     # Load data once
     m1_projects, m2_projects, m1_ops = {}, {}, {}
+    m1_rate_curves, gh25_ref = {}, {}
     if review_active and has_any_model:
         # Model 1: prefer uploaded file, fall back to macro runner
         if model_file:
@@ -1031,7 +1123,15 @@ def main():
 
         m1_projects = get_projects(m1_result) if m1_result else {}
         m2_projects = get_projects(m2_result) if m2_result else {}
+        mapper_projects = load_mapper_output(mapper_file) if mapper_file else {}
         m1_ops = get_ops_sandbox(m1_result) if m1_result else {}
+        m1_rate_curves = get_rate_curves(m1_result) if m1_result else {}
+
+        # Load GH25 reference curves (cached at session level)
+        if "gh25_ref" not in st.session_state:
+            _gh25_path = Path(r"C:\Users\CarolineZepecki\Desktop\GH_IL_Summer 2025_OBBB_38 Degrees.xlsx")
+            st.session_state["gh25_ref"] = load_gh25_reference(str(_gh25_path)) if _gh25_path.exists() else {}
+        gh25_ref = st.session_state.get("gh25_ref", {})
 
     # For tab guard checks: use a truthy sentinel when macro runner is the source
     effective_m1 = model_file if model_file else (mr_label if has_mr_m1 else None)
@@ -1048,9 +1148,11 @@ def main():
     with t_market:
         tab_market()
     with t_compare:
-        tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, effective_m1)
+        tab_comparison(m1_projects, m2_projects, m1_label, m2_label, review_active, effective_m1,
+                       mapper_projects=mapper_projects)
     with t_review:
-        tab_review(m1_projects, m1_ops, m1_label, m2_label, effective_m1, effective_m2, review_active)
+        tab_review(m1_projects, m1_ops, m1_label, m2_label, effective_m1, effective_m2, review_active,
+                  rate_curves=m1_rate_curves, gh25_ref=gh25_ref, dr_files=dr_files)
     with t_charts:
         tab_value_drivers(m1_projects, m1_label, m2_label, effective_m1, effective_m2, review_active)
     with t_raw:

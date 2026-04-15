@@ -1,10 +1,12 @@
 """
 38DN Pricing Model Review — Excel Export
-Generates branded XLSX with Variance and Full comparison sheets.
+Generates branded XLSX with Variance and Full comparison sheets,
+per-project Bible comparison, rate curve analysis, and Data Room validation.
 Style mirrors 38DN walk/pricing summary formatting (Aptos Narrow, navy headers, etc.)
 """
 
 import io
+import datetime
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
 from openpyxl.utils import get_column_letter
@@ -471,6 +473,581 @@ def generate_multi_project_xlsx(projects_data, label1, label2, title="Multi-Proj
         ws_full = wb.create_sheet(full_name)
         write_comparison_sheet(ws_full, export_rows, label1, label2,
                                f"{proj_title} \u2014 Full Inputs", variance_only=False)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+
+# =====================================================================
+# ENHANCED REVIEW EXPORT — Bible Comparison + Rate Curve Analysis
+# =====================================================================
+
+# Additional style constants for review sheets
+FILL_FLAG_RED = PatternFill(start_color="FDE0DF", end_color="FDE0DF", fill_type="solid")
+FILL_FLAG_AMBER = PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")
+FILL_MATCH_GREEN = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+FILL_DR_MATCH = PatternFill(start_color="D6E4F0", end_color="D6E4F0", fill_type="solid")
+FONT_FLAG = Font(name="Aptos Narrow", size=11, bold=True, color="B83230")
+FONT_OK = Font(name="Aptos Narrow", size=11, color="45A750")
+FONT_NOTE = Font(name="Aptos Narrow", size=10, italic=True, color="666666")
+FONT_TITLE = Font(name="Aptos Display", size=14, bold=True, color="050D25")
+FONT_SUBTITLE = Font(name="Aptos Display", size=11, bold=True, color="212B48")
+
+
+def _bible_value_for_row(row_num, bible_benchmarks, state=None):
+    """Look up the Pricing Bible benchmark value for a given model row number.
+
+    Returns dict with min/max/unit/label/category or None.
+    """
+    for cat, checks in bible_benchmarks.items():
+        for label, spec in checks.items():
+            if spec.get("derived"):
+                continue
+            if spec.get("row") == row_num:
+                return {
+                    "min": spec["min"], "max": spec["max"],
+                    "unit": spec["unit"], "label": label, "category": cat,
+                }
+    return None
+
+
+def _write_project_review_sheet(ws, proj_name, proj_data, bible_benchmarks,
+                                 state, data_room=None):
+    """Write a per-project review sheet: Model Value vs Bible Range with flags."""
+    from config import (INPUT_ROW_LABELS, OUTPUT_ROWS, DISPLAY_ORDER,
+                        DPW_ROWS, SECTION_BREAKS)
+
+    ws.column_dimensions["A"].width = 3.0
+    ws.column_dimensions["B"].width = 8.0
+    ws.column_dimensions["C"].width = 34.0
+    ws.column_dimensions["D"].width = 8.0
+    ws.column_dimensions["E"].width = 16.0
+    ws.column_dimensions["F"].width = 14.0
+    ws.column_dimensions["G"].width = 14.0
+    ws.column_dimensions["H"].width = 12.0
+    ws.column_dimensions["I"].width = 30.0
+
+    # Title
+    ws.merge_cells("B2:I2")
+    ws["B2"].value = f"{proj_name} \u2014 Pricing Bible Review"
+    ws["B2"].font = FONT_TITLE
+    ws["B2"].alignment = ALIGN_LEFT
+
+    ws["B3"].value = f"State: {state}"
+    ws["B3"].font = FONT_SUBTITLE
+
+    # Header row
+    headers = ["Row", "Field", "Units", "Model Value", "Bible Min", "Bible Max", "Status", "Notes"]
+    cols = ["B", "C", "D", "E", "F", "G", "H", "I"]
+    for col, hdr in zip(cols, headers):
+        cell = ws[f"{col}5"]
+        cell.value = hdr
+        cell.font = FONT_HEADER
+        cell.fill = FILL_NAVY
+        cell.alignment = ALIGN_CENTER
+        cell.border = BORDER_HEADER
+
+    current_row = 7
+    prev_section = None
+    flag_count = 0
+
+    all_rows = [r for r in DISPLAY_ORDER if r in INPUT_ROW_LABELS or r in OUTPUT_ROWS]
+
+    for r in all_rows:
+        label = INPUT_ROW_LABELS.get(r, OUTPUT_ROWS.get(r, f"Row {r}"))
+        is_text = r in TEXT_ROWS or r in DATE_ROWS
+        is_pct = r in PCT_ROWS
+        is_output = r in OUTPUT_HIGHLIGHT
+
+        # Section break
+        if r in SECTION_BREAKS and SECTION_BREAKS[r] != prev_section:
+            prev_section = SECTION_BREAKS[r]
+            ws[f"B{current_row}"].border = BORDER_SECTION
+            ws[f"C{current_row}"].value = prev_section
+            ws[f"C{current_row}"].font = FONT_SECTION
+            ws[f"C{current_row}"].border = BORDER_SECTION
+            for col in ["D", "E", "F", "G", "H", "I"]:
+                ws[f"{col}{current_row}"].border = BORDER_SECTION
+            current_row += 1
+
+        # Row number
+        ws[f"B{current_row}"].value = r
+        ws[f"B{current_row}"].font = FONT_DATA
+        ws[f"B{current_row}"].alignment = ALIGN_CENTER
+        ws[f"B{current_row}"].border = BORDER_STD
+
+        # Field name
+        ws[f"C{current_row}"].value = label
+        ws[f"C{current_row}"].font = FONT_DATA_BOLD if is_output else FONT_DATA
+        ws[f"C{current_row}"].alignment = ALIGN_LEFT
+        ws[f"C{current_row}"].border = BORDER_STD
+
+        # Units
+        nf = get_nf(r)
+        unit_text = ""
+        if is_pct:
+            unit_text = "%"
+        elif r in DPW_ROWS:
+            unit_text = "$/W"
+        elif r in INT_ROWS:
+            unit_text = "#"
+        elif is_text:
+            unit_text = "text"
+        ws[f"D{current_row}"].value = unit_text
+        ws[f"D{current_row}"].font = FONT_UNIT
+        ws[f"D{current_row}"].alignment = ALIGN_CENTER
+        ws[f"D{current_row}"].border = BORDER_STD
+
+        # Model value
+        raw_val = proj_data.get(r)
+        v = safe_float(raw_val) if not is_text else None
+        cell_e = ws[f"E{current_row}"]
+        if v is not None:
+            cell_e.value = v
+            cell_e.number_format = nf
+        else:
+            cell_e.value = str(raw_val or "") if is_text else ""
+        cell_e.font = FONT_DATA_BOLD if is_output else FONT_DATA
+        cell_e.alignment = ALIGN_CENTER
+        cell_e.border = BORDER_STD
+        if is_output:
+            cell_e.fill = FILL_ICE_BLUE
+
+        # Bible comparison
+        bible = _bible_value_for_row(r, bible_benchmarks, state)
+        cell_f = ws[f"F{current_row}"]
+        cell_g = ws[f"G{current_row}"]
+        cell_h = ws[f"H{current_row}"]
+        cell_i = ws[f"I{current_row}"]
+
+        if bible and v is not None:
+            cell_f.value = bible["min"]
+            cell_f.number_format = nf
+            cell_f.font = FONT_DATA
+            cell_f.alignment = ALIGN_CENTER
+            cell_f.border = BORDER_STD
+
+            cell_g.value = bible["max"]
+            cell_g.number_format = nf
+            cell_g.font = FONT_DATA
+            cell_g.alignment = ALIGN_CENTER
+            cell_g.border = BORDER_STD
+
+            if v < bible["min"]:
+                cell_h.value = "LOW"
+                cell_h.font = FONT_FLAG
+                cell_h.fill = FILL_FLAG_RED
+                pct_off = (bible["min"] - v) / bible["min"] * 100 if bible["min"] != 0 else 0
+                cell_i.value = f"{pct_off:.1f}% below Bible min"
+                cell_i.font = FONT_NOTE
+                flag_count += 1
+            elif v > bible["max"]:
+                cell_h.value = "HIGH"
+                cell_h.font = FONT_FLAG
+                cell_h.fill = FILL_FLAG_RED
+                pct_off = (v - bible["max"]) / bible["max"] * 100 if bible["max"] != 0 else 0
+                cell_i.value = f"{pct_off:.1f}% above Bible max"
+                cell_i.font = FONT_NOTE
+                flag_count += 1
+            else:
+                cell_h.value = "OK"
+                cell_h.font = FONT_OK
+                cell_h.fill = FILL_MATCH_GREEN
+                cell_i.value = ""
+
+            cell_h.alignment = ALIGN_CENTER
+            cell_h.border = BORDER_STD
+            cell_i.alignment = ALIGN_LEFT
+            cell_i.border = BORDER_STD
+        else:
+            for c in [cell_f, cell_g, cell_h, cell_i]:
+                c.value = ""
+                c.border = BORDER_STD
+
+        # Alternating fill
+        if current_row % 2 == 0 and not is_output:
+            for col in ["B", "C", "D", "E", "F", "G"]:
+                c = ws[f"{col}{current_row}"]
+                if c.fill == FILL_NONE or (c.fill.fgColor and c.fill.fgColor.rgb == "00000000"):
+                    c.fill = FILL_LIGHT_GRAY
+
+        current_row += 1
+
+    # Summary row at top
+    ws["F3"].value = f"{flag_count} flagged"
+    ws["F3"].font = FONT_FLAG if flag_count else FONT_OK
+
+    ws.freeze_panes = "E6"
+    return current_row
+
+
+def _write_rate_curve_sheet(ws, proj_name, proj_rc_data, rc_dates,
+                             gh25_ref, state, proj_data):
+    """Write a rate curve analysis sheet for one project.
+
+    Compares the model's per-project custom rate curves against the
+    GH25 reference curves, calculates implied discount, and flags deviations.
+    """
+    ws.column_dimensions["A"].width = 3.0
+    ws.column_dimensions["B"].width = 12.0
+    ws.column_dimensions["C"].width = 16.0
+    ws.column_dimensions["D"].width = 16.0
+    ws.column_dimensions["E"].width = 16.0
+    ws.column_dimensions["F"].width = 16.0
+    ws.column_dimensions["G"].width = 14.0
+    ws.column_dimensions["H"].width = 12.0
+    ws.column_dimensions["I"].width = 24.0
+
+    ws.merge_cells("B2:I2")
+    ws["B2"].value = f"{proj_name} \u2014 Rate Curve Analysis"
+    ws["B2"].font = FONT_TITLE
+    ws["B2"].alignment = ALIGN_LEFT
+
+    # Determine which GH25 curve to use based on utility
+    utility = str(proj_data.get(19, "")).strip()
+    if "ameren" in utility.lower():
+        gh_curve_name = "Ameren GH25"
+    elif "comed" in utility.lower() or "com ed" in utility.lower():
+        gh_curve_name = "ComEd GH25"
+    elif state == "IL":
+        gh_curve_name = "Ameren GH25"
+    else:
+        gh_curve_name = None  # Non-IL: no GH25 reference available
+
+    # Expected GH25 discount based on market config (not customer discount row 161)
+    # IL = 17.5%, MD = 22.5% per Pricing Bible
+    state_upper = str(state).strip().upper()
+    if state_upper == "IL":
+        expected_disc = 0.175
+    elif state_upper in ("MD", "MD/DE"):
+        expected_disc = 0.225
+    else:
+        # Fall back to the rate discount from Project Inputs (row 161)
+        expected_disc = safe_float(proj_data.get(161)) or 0
+
+    cust_disc = safe_float(proj_data.get(161)) or 0
+    if gh_curve_name:
+        ws["B3"].value = (f"Utility: {utility} | GH25 Ref: {gh_curve_name} | "
+                          f"GH25 Discount: {expected_disc:.1%} | Cust Discount: {cust_disc:.1%}")
+    else:
+        ws["B3"].value = (f"Utility: {utility} | GH25 Discount: {expected_disc:.1%} | "
+                          f"Cust Discount: {cust_disc:.1%} | No GH25 IL ref for {state}")
+    ws["B3"].font = FONT_SUBTITLE
+
+    gh_annual = gh25_ref.get("annual", {}).get(gh_curve_name, {}) if (gh25_ref and gh_curve_name) else {}
+    gh_cagr = gh25_ref.get("cagrs", {}).get(gh_curve_name) if (gh25_ref and gh_curve_name) else None
+
+    if gh_cagr:
+        ws["B4"].value = f"GH25 CAGR: {gh_cagr:.2%}"
+        ws["B4"].font = FONT_NOTE
+
+    # Annualize the model's RC1 rate curve
+    model_rc1 = proj_rc_data.get(1, {})
+    model_annual = {}
+    for dt, val in model_rc1.items():
+        if hasattr(dt, "year"):
+            model_annual.setdefault(dt.year, []).append(val)
+    model_annual = {yr: sum(v) / len(v) for yr, v in model_annual.items()}
+
+    # Header
+    headers = ["Year", "Model Rate", "GH25 Rate", "Implied Disc.", "Expected Disc.",
+               "Disc. Variance", "Status", "Notes"]
+    cols = ["B", "C", "D", "E", "F", "G", "H", "I"]
+    for col, hdr in zip(cols, headers):
+        cell = ws[f"{col}6"]
+        cell.value = hdr
+        cell.font = FONT_HEADER
+        cell.fill = FILL_NAVY
+        cell.alignment = ALIGN_CENTER
+        cell.border = BORDER_HEADER
+
+    current_row = 7
+    all_years = sorted(set(list(model_annual.keys()) + list(gh_annual.keys())))
+    cod_year = safe_float(proj_data.get(15))
+    if cod_year:
+        all_years = [y for y in all_years if y >= int(cod_year)]
+    all_years = all_years[:35]
+
+    total_model_disc = []
+
+    for yr in all_years:
+        m_rate = model_annual.get(yr)
+        g_rate = gh_annual.get(yr)
+
+        ws[f"B{current_row}"].value = yr
+        ws[f"B{current_row}"].font = FONT_DATA
+        ws[f"B{current_row}"].alignment = ALIGN_CENTER
+        ws[f"B{current_row}"].border = BORDER_STD
+
+        cell_c = ws[f"C{current_row}"]
+        if m_rate is not None:
+            cell_c.value = m_rate
+            cell_c.number_format = "$#,##0.0000"
+        else:
+            cell_c.value = ""
+        cell_c.font = FONT_DATA
+        cell_c.alignment = ALIGN_CENTER
+        cell_c.border = BORDER_STD
+
+        cell_d = ws[f"D{current_row}"]
+        if g_rate is not None:
+            cell_d.value = g_rate
+            cell_d.number_format = "$#,##0.0000"
+        else:
+            cell_d.value = ""
+        cell_d.font = FONT_DATA
+        cell_d.alignment = ALIGN_CENTER
+        cell_d.border = BORDER_STD
+
+        cell_e = ws[f"E{current_row}"]
+        cell_f = ws[f"F{current_row}"]
+        cell_g = ws[f"G{current_row}"]
+        cell_h = ws[f"H{current_row}"]
+        cell_i = ws[f"I{current_row}"]
+
+        if m_rate is not None and g_rate is not None and g_rate > 0:
+            implied_disc = 1.0 - (m_rate / g_rate)
+            cell_e.value = implied_disc
+            cell_e.number_format = "0.0%"
+
+            cell_f.value = expected_disc
+            cell_f.number_format = "0.0%"
+
+            disc_var = implied_disc - expected_disc
+            cell_g.value = disc_var
+            cell_g.number_format = "+0.0%;-0.0%"
+
+            total_model_disc.append(implied_disc)
+
+            if abs(disc_var) > 0.03:
+                cell_h.value = "FLAG"
+                cell_h.font = FONT_FLAG
+                cell_h.fill = FILL_FLAG_RED
+                cell_i.value = f"Discount off by {abs(disc_var):.1%} pts"
+                cell_i.font = FONT_NOTE
+            elif abs(disc_var) > 0.01:
+                cell_h.value = "WARN"
+                cell_h.font = Font(name="Aptos Narrow", size=11, bold=True, color="CC8800")
+                cell_h.fill = FILL_FLAG_AMBER
+                cell_i.value = ""
+            else:
+                cell_h.value = "OK"
+                cell_h.font = FONT_OK
+                cell_h.fill = FILL_MATCH_GREEN
+                cell_i.value = ""
+        else:
+            for c in [cell_e, cell_f, cell_g, cell_h, cell_i]:
+                c.value = ""
+
+        for c in [cell_e, cell_f, cell_g, cell_h, cell_i]:
+            c.alignment = ALIGN_CENTER
+            c.border = BORDER_STD
+
+        if current_row % 2 == 0:
+            for col in ["B", "C", "D"]:
+                c = ws[f"{col}{current_row}"]
+                if c.fill == FILL_NONE or (c.fill.fgColor and c.fill.fgColor.rgb == "00000000"):
+                    c.fill = FILL_LIGHT_GRAY
+
+        current_row += 1
+
+    # Summary row
+    current_row += 1
+    if total_model_disc:
+        avg_disc = sum(total_model_disc) / len(total_model_disc)
+        ws[f"B{current_row}"].value = "Overall Average"
+        ws[f"B{current_row}"].font = FONT_DATA_BOLD
+        ws[f"B{current_row}"].border = BORDER_SECTION
+        ws[f"C{current_row}"].border = BORDER_SECTION
+        ws[f"D{current_row}"].border = BORDER_SECTION
+
+        ws[f"E{current_row}"].value = avg_disc
+        ws[f"E{current_row}"].number_format = "0.0%"
+        ws[f"E{current_row}"].font = FONT_DATA_BOLD
+        ws[f"E{current_row}"].alignment = ALIGN_CENTER
+        ws[f"E{current_row}"].border = BORDER_SECTION
+
+        ws[f"F{current_row}"].value = expected_disc
+        ws[f"F{current_row}"].number_format = "0.0%"
+        ws[f"F{current_row}"].font = FONT_DATA_BOLD
+        ws[f"F{current_row}"].alignment = ALIGN_CENTER
+        ws[f"F{current_row}"].border = BORDER_SECTION
+
+        overall_var = avg_disc - expected_disc
+        ws[f"G{current_row}"].value = overall_var
+        ws[f"G{current_row}"].number_format = "+0.0%;-0.0%"
+        ws[f"G{current_row}"].font = FONT_FLAG if abs(overall_var) > 0.02 else FONT_DATA_BOLD
+        ws[f"G{current_row}"].alignment = ALIGN_CENTER
+        ws[f"G{current_row}"].border = BORDER_SECTION
+
+        ws[f"H{current_row}"].value = "PASS" if abs(overall_var) <= 0.02 else "REVIEW"
+        ws[f"H{current_row}"].font = FONT_OK if abs(overall_var) <= 0.02 else FONT_FLAG
+        ws[f"H{current_row}"].fill = FILL_MATCH_GREEN if abs(overall_var) <= 0.02 else FILL_FLAG_RED
+        ws[f"H{current_row}"].alignment = ALIGN_CENTER
+        ws[f"H{current_row}"].border = BORDER_SECTION
+
+    ws.freeze_panes = "C7"
+    return current_row
+
+
+def _write_review_summary_sheet(ws, projects_data, bible_benchmarks, title):
+    """Write a summary sheet with key metrics and flag counts per project."""
+    ws.column_dimensions["A"].width = 3.0
+    ws.column_dimensions["B"].width = 30.0
+
+    ws.merge_cells("B2:H2")
+    ws["B2"].value = title
+    ws["B2"].font = FONT_TITLE
+    ws["B2"].alignment = ALIGN_LEFT
+
+    summary_metrics = [
+        (11, "Size MWdc", "MWdc"),
+        (118, "EPC Cost", "$/W"),
+        (129, "Total CapEx", "$/W"),
+        (157, "Energy Rate", "$/kWh"),
+        (158, "Escalator", "%"),
+        (161, "Discount", "%"),
+        (597, "ITC Rate", "%"),
+        (33, "FMV ($/W)", "$/W"),
+        (38, "NPP ($/W)", "$/W"),
+    ]
+
+    header_row = 4
+    ws[f"B{header_row}"].value = "Project"
+    ws[f"B{header_row}"].font = FONT_HEADER
+    ws[f"B{header_row}"].fill = FILL_NAVY
+    ws[f"B{header_row}"].alignment = ALIGN_CENTER
+    ws[f"B{header_row}"].border = BORDER_HEADER
+
+    col_idx = 3
+    for _, metric_label, unit in summary_metrics:
+        cl = get_column_letter(col_idx)
+        ws.column_dimensions[cl].width = 14.0
+        cell = ws[f"{cl}{header_row}"]
+        cell.value = f"{metric_label}\n({unit})"
+        cell.font = FONT_HEADER
+        cell.fill = FILL_NAVY
+        cell.alignment = ALIGN_CENTER
+        cell.border = BORDER_HEADER
+        col_idx += 1
+
+    flag_col = get_column_letter(col_idx)
+    ws.column_dimensions[flag_col].width = 12.0
+    cell = ws[f"{flag_col}{header_row}"]
+    cell.value = "Flags"
+    cell.font = FONT_HEADER
+    cell.fill = FILL_NAVY
+    cell.alignment = ALIGN_CENTER
+    cell.border = BORDER_HEADER
+
+    data_row = 5
+    for proj_name, proj_data, state in projects_data:
+        ws[f"B{data_row}"].value = proj_name
+        ws[f"B{data_row}"].font = FONT_DATA_BOLD
+        ws[f"B{data_row}"].alignment = ALIGN_LEFT
+        ws[f"B{data_row}"].border = BORDER_STD
+
+        ci = 3
+        flag_count = 0
+        for row_num, _, _ in summary_metrics:
+            cl = get_column_letter(ci)
+            v = safe_float(proj_data.get(row_num))
+            nf = get_nf(row_num)
+            cell = ws[f"{cl}{data_row}"]
+            if v is not None:
+                cell.value = v
+                cell.number_format = nf
+
+                bible = _bible_value_for_row(row_num, bible_benchmarks, state)
+                if bible:
+                    if v < bible["min"] or v > bible["max"]:
+                        cell.fill = FILL_FLAG_RED
+                        cell.font = FONT_FLAG
+                        flag_count += 1
+                    else:
+                        cell.font = FONT_DATA
+                else:
+                    cell.font = FONT_DATA
+            else:
+                cell.value = ""
+                cell.font = FONT_DATA
+            cell.alignment = ALIGN_CENTER
+            cell.border = BORDER_STD
+            ci += 1
+
+        cell_flag = ws[f"{flag_col}{data_row}"]
+        cell_flag.value = flag_count
+        cell_flag.font = FONT_FLAG if flag_count else FONT_OK
+        cell_flag.fill = FILL_FLAG_RED if flag_count > 2 else (FILL_FLAG_AMBER if flag_count else FILL_MATCH_GREEN)
+        cell_flag.alignment = ALIGN_CENTER
+        cell_flag.border = BORDER_STD
+
+        if data_row % 2 == 0:
+            for ci2 in range(2, col_idx):
+                cl2 = get_column_letter(ci2)
+                c = ws[f"{cl2}{data_row}"]
+                if c.fill == FILL_NONE or (c.fill.fgColor and c.fill.fgColor.rgb == "00000000"):
+                    c.fill = FILL_LIGHT_GRAY
+
+        data_row += 1
+
+    ws.freeze_panes = "C5"
+
+
+def generate_review_xlsx(projects, bible_benchmarks, rate_curves=None,
+                          gh25_ref=None, data_room=None, model_label="Model"):
+    """Generate the enhanced review XLSX workbook.
+
+    When only one model is loaded (no Model 2), compares each project
+    against Pricing Bible benchmarks with flagged variations.
+    Includes rate curve analysis sheets when GH25 reference is available.
+
+    Returns: BytesIO buffer
+    """
+    wb = openpyxl.Workbook()
+
+    active_projects = {k: v for k, v in projects.items() if v["toggle"]}
+
+    proj_list = []
+    for col_idx, proj in active_projects.items():
+        pname = proj["name"]
+        pdata = proj["data"]
+        state = str(pdata.get(18, "")).strip().upper()
+        proj_list.append((pname, pdata, state))
+
+    # Sheet 1: Summary
+    ws_sum = wb.active
+    ws_sum.title = "Summary"
+    _write_review_summary_sheet(ws_sum, proj_list, bible_benchmarks,
+                                 f"{model_label} \u2014 Pricing Bible Review Summary")
+
+    # Per-project Bible Review sheets
+    for pname, pdata, state in proj_list:
+        sheet_name = _truncate_sheet_name(pname, "Review")
+        ws_proj = wb.create_sheet(sheet_name)
+        _write_project_review_sheet(ws_proj, pname, pdata, bible_benchmarks,
+                                     state, data_room)
+
+    # Rate Curve Analysis sheets
+    rc_proj_data = rate_curves.get("projects", {}) if rate_curves else {}
+
+    for pname, pdata, state in proj_list:
+        proj_rc = rc_proj_data.get(pname, {})
+        if not proj_rc:
+            for rc_name, rc_data in rc_proj_data.items():
+                first_part = pname.split(" | ")[0].strip()
+                if rc_name in pname or first_part in rc_name or pname in rc_name:
+                    proj_rc = rc_data
+                    break
+
+        if proj_rc:
+            sheet_name = _truncate_sheet_name(pname, "Rates")
+            ws_rc = wb.create_sheet(sheet_name)
+            rc_dates = rate_curves.get("dates", {}) if rate_curves else {}
+            _write_rate_curve_sheet(ws_rc, pname, proj_rc, rc_dates,
+                                    gh25_ref, state, pdata)
 
     buf = io.BytesIO()
     wb.save(buf)

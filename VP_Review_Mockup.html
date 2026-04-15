@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>38DN — VP Pricing Review (Mockup)</title>
+<!-- Plotly: try multiple CDNs in case one is blocked -->
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"
+        onerror="var s=document.createElement('script');s.src='https://unpkg.com/plotly.js-dist-min@2.35.2/plotly.min.js';document.head.appendChild(s);"></script>
+<style>
+  :root{
+    /* 38DN core palette */
+    --navy:#050D25; --indigo:#212B48; --teal:#518484; --teal-deep:#3d6868;
+    --green:#45A750; --blue:#1D6FA9;
+    /* Surfaces */
+    --bg:#f7f8fa; --surface:#ffffff; --inset:#eef0f5; --raised:#fafbfc;
+    /* Text */
+    --text:#050D25; --text-2:#3a4357; --muted:#7d8694; --muted-2:#aab1bc;
+    /* Borders */
+    --border:rgba(5,13,37,0.08); --border-strong:rgba(5,13,37,0.16);
+    /* Status — RED RESERVED FOR HARD ERRORS ONLY */
+    --off:#b83230; --off-bg:#fbecea;
+    --out:#3d6868; --out-bg:rgba(81,132,132,0.10);   /* teal-deep, not yellow */
+    --miss:#7d8694; --miss-bg:#eef0f5;                /* neutral grey */
+    --rev:#1D6FA9;  --rev-bg:rgba(29,111,169,0.08);
+    --ok:#3a7d44;  --ok-bg:rgba(58,125,68,0.08);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Inter','Segoe UI','Century Gothic',system-ui,sans-serif;
+    font-size:13px;-webkit-font-smoothing:antialiased;}
+
+  /* ===== Top bar ===== */
+  .topbar{
+    height:50px;background:var(--navy);color:#fff;
+    display:flex;align-items:center;padding:0 20px;gap:24px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+  }
+  .brand{font-weight:700;letter-spacing:0.06em;font-size:12.5px;}
+  .brand span{color:var(--teal);}                  /* teal accent, not green */
+  .modes{display:flex;background:rgba(255,255,255,0.05);border-radius:5px;padding:3px;}
+  .mode{padding:6px 14px;font-size:11.5px;font-weight:600;border-radius:3px;color:rgba(255,255,255,0.55);cursor:pointer;letter-spacing:0.03em;}
+  .mode.active{background:var(--teal);color:#fff;}  /* teal toggle, not white */
+  .top-meta{margin-left:auto;display:flex;gap:18px;font-size:11px;color:rgba(255,255,255,0.55);}
+  .top-meta b{color:#fff;font-weight:600;}
+
+  /* ===== Audit summary strip ===== */
+  .audit-strip{
+    background:var(--surface);border-bottom:1px solid var(--border);
+    padding:11px 20px;display:flex;gap:8px;align-items:center;
+  }
+  .strip-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-right:6px;}
+  .pill{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:5px 11px;border-radius:5px;font-size:11.5px;font-weight:600;
+    border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text-2);
+    transition:border-color .12s ease;
+  }
+  .pill:hover{border-color:var(--border-strong);}
+  .pill .num{font-size:13px;font-weight:700;color:var(--text);}
+  .pill.off{background:var(--off-bg);color:var(--off);border-color:rgba(184,50,48,0.2);}
+  .pill.off .num{color:var(--off);}
+  .pill.out .num,.pill.miss .num,.pill.rev .num{color:var(--text);}
+  .strip-divider{width:1px;height:22px;background:var(--border);margin:0 6px;}
+  .impact{margin-left:auto;font-size:12px;color:var(--text-2);}
+  .impact b{color:var(--off);font-weight:700;font-size:13.5px;}
+
+  /* ===== Layout ===== */
+  .layout{display:grid;grid-template-columns:280px 1fr 300px;gap:1px;background:var(--border);min-height:calc(100vh - 50px - 47px);}
+  .panel{background:var(--bg);padding:14px;overflow-y:auto;}
+  .panel.center{padding:18px;}
+
+  /* ===== Project navigator ===== */
+  .nav-header{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between;}
+  .nav-search{
+    width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;
+    background:var(--surface);font-size:12px;margin-bottom:10px;
+  }
+  .filter-row{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;}
+  .chip{font-size:10px;padding:3px 8px;border-radius:10px;background:var(--inset);color:var(--text-2);cursor:pointer;border:1px solid transparent;}
+  .chip.active{background:var(--indigo);color:#fff;}
+  .proj-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:5px;
+    padding:9px 11px;margin-bottom:5px;cursor:pointer;
+    border-left:2px solid transparent;transition:border-color .12s ease;
+  }
+  .proj-card:hover{border-color:var(--border-strong);}
+  .proj-card.selected{border-left-color:var(--teal);background:#fff;box-shadow:0 1px 2px rgba(5,13,37,0.05);}
+  .proj-card .pname{font-weight:700;font-size:12.5px;}
+  .proj-card .pmeta{font-size:10.5px;color:var(--muted);margin-top:2px;}
+  .proj-card .pchips{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap;}
+  .micro{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:3px;letter-spacing:0.04em;}
+  .micro.off{background:var(--off-bg);color:var(--off);}
+  .micro.out{background:var(--out-bg);color:var(--out);}
+  .micro.miss{background:var(--miss-bg);color:var(--miss);}
+  .micro.ok{background:var(--ok-bg);color:var(--ok);}
+
+  /* ===== Center deep-dive ===== */
+  .deal-header{
+    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+    margin-bottom:12px;overflow:hidden;
+  }
+  .deal-header-bar{
+    background:var(--navy);
+    color:#fff;padding:14px 18px;display:flex;align-items:center;gap:14px;
+  }
+  .deal-title{font-size:19px;font-weight:700;letter-spacing:-0.01em;color:#fff;}
+  .deal-sub{color:rgba(255,255,255,0.55);font-size:11.5px;}
+  .verdict{
+    padding:4px 11px;border-radius:4px;font-weight:700;font-size:10.5px;
+    text-transform:uppercase;letter-spacing:0.06em;
+    background:rgba(184,50,48,0.18);color:#ff9a98;border:1px solid rgba(255,154,152,0.35);
+  }
+  .impact-objs{margin-left:auto;display:flex;gap:8px;}
+  .impact-obj{
+    background:#ffffff;border:1px solid rgba(255,255,255,0.18);
+    border-radius:5px;padding:7px 13px;min-width:112px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.20);
+  }
+  .impact-obj .iol{font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);}
+  .impact-obj .iov{font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;margin-top:1px;}
+  .impact-obj .ios{font-size:9.5px;color:var(--muted);margin-top:1px;letter-spacing:0.02em;}
+  .impact-obj.bad{border-left:2px solid var(--off);background:#ffffff;}
+  .impact-obj.bad .iov{color:var(--off);}
+  .deal-header-body{padding:14px 18px;}
+  .deal-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+  .kpi{background:var(--raised);border:1px solid var(--border);border-radius:5px;padding:10px 12px;border-left:2px solid var(--border);}
+  .kpi.k-accent{border-left-color:var(--teal);}
+  .kpi.k-off{border-left-color:var(--off);}
+  .kpi-label{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);}
+  .kpi-value{font-size:16.5px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums;}
+  .kpi-sub{font-size:10.5px;color:var(--muted);margin-top:2px;}
+  .kpi-sub.neg{color:var(--off);font-weight:600;}
+
+  .card{
+    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+    margin-bottom:12px;overflow:hidden;
+  }
+  .card-h{
+    display:flex;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);
+    background:var(--raised);
+  }
+  .card-h h3{margin:0;font-size:12.5px;font-weight:700;letter-spacing:0.02em;}
+  .card-h .h-meta{margin-left:auto;font-size:10.5px;color:var(--muted);}
+  .card-body{padding:14px 16px;}
+
+  /* Findings table */
+  .findings-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+  .findings-tbl th{
+    text-align:left;padding:8px 10px;font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);
+    border-bottom:1px solid var(--border);background:var(--raised);
+  }
+  .findings-tbl td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  .findings-tbl tr:last-child td{border-bottom:none;}
+  .findings-tbl tr:hover td{background:var(--inset);}
+  .field{font-weight:600;}
+  .num-cell{font-variant-numeric:tabular-nums;text-align:right;}
+  .delta-neg{color:var(--off);font-weight:700;}
+  .delta-pos{color:var(--text);font-weight:600;}    /* not green — neutral */
+  .impact-cell{font-weight:700;text-align:right;font-variant-numeric:tabular-nums;}
+  .impact-cell.neg{color:var(--off);}
+  /* Accounting-style negatives — red parentheses, never minus-black */
+  .neg-acct{color:var(--off);font-weight:700;font-variant-numeric:tabular-nums;}
+  .kpi-sub.neg{color:var(--off);font-weight:600;}
+  .status-tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:0.04em;}
+  .status-tag.off{background:var(--off-bg);color:var(--off);}
+  .status-tag.out{background:var(--out-bg);color:var(--out);}
+  .status-tag.miss{background:var(--miss-bg);color:var(--miss);}
+  .row-action{font-size:10px;color:var(--teal);cursor:pointer;font-weight:600;letter-spacing:0.03em;}
+  .row-action:hover{color:var(--teal-deep);text-decoration:underline;}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  /* ===== Right reference panel ===== */
+  .ref-section{margin-bottom:16px;}
+  .ref-h{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  .ref-item{
+    background:var(--surface);border:1px solid var(--border);border-radius:5px;
+    padding:8px 10px;margin-bottom:4px;font-size:11.5px;
+  }
+  .ref-item .rk{color:var(--muted);font-size:10px;}
+  .ref-item .rv{font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums;}
+  .ref-item .rs{font-size:10px;color:var(--muted);margin-top:2px;}
+
+  /* Bottom bar */
+  .bottom{
+    height:46px;background:var(--surface);border-top:1px solid var(--border);
+    display:flex;align-items:center;padding:0 20px;gap:8px;
+  }
+  .btn{
+    padding:6px 13px;border-radius:4px;font-size:11.5px;font-weight:600;
+    border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text-2);
+  }
+  .btn:hover{border-color:var(--border-strong);}
+  .btn.primary{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .btn.primary:hover{background:#0a1838;}
+  .btn.ghost{background:transparent;}
+
+  .plot{width:100%;}
+  .plot-fallback{padding:20px;color:var(--muted);font-size:11px;text-align:center;border:1px dashed var(--border);border-radius:4px;}
+
+  /* ===== Discreet auto-detect classification card ===== */
+  .classify-strip{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+    padding:8px 14px;margin-bottom:12px;font-size:11.5px;
+  }
+  .classify-strip details{flex:1;}
+  .classify-strip summary{
+    cursor:pointer;list-style:none;display:flex;align-items:center;gap:14px;
+    color:var(--text-2);
+  }
+  .classify-strip summary::-webkit-details-marker{display:none;}
+  .classify-strip summary::after{
+    content:'⌃';color:var(--muted);margin-left:auto;font-size:13px;
+    transition:transform .15s ease;display:inline-block;transform:rotate(180deg);
+  }
+  .classify-strip details[open] summary::after{transform:rotate(0);}
+  .classify-strip .auto-tag{
+    font-size:9.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+    padding:2px 7px;border-radius:3px;background:var(--rev-bg);color:var(--rev);
+    border:1px solid rgba(29,111,169,0.2);
+  }
+  .classify-strip .auto-field{display:inline-flex;align-items:center;gap:6px;}
+  .classify-strip .auto-field b{font-weight:700;color:var(--text);}
+  .classify-edit{
+    margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);
+    display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+  }
+  .classify-edit label{display:block;font-size:9.5px;font-weight:700;
+    text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:3px;}
+  .classify-edit select, .classify-edit input{
+    width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:4px;
+    background:var(--surface);font-size:12px;color:var(--text);font-family:inherit;
+  }
+  .classify-edit .helper{font-size:10px;color:var(--muted);margin-top:3px;}
+  .classify-actions{
+    grid-column:1/-1;display:flex;gap:6px;justify-content:flex-end;margin-top:4px;
+  }
+  .btn-tiny{
+    padding:4px 10px;font-size:10.5px;font-weight:600;border-radius:3px;
+    border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text-2);
+  }
+  .btn-tiny.primary{background:var(--teal);border-color:var(--teal);color:#fff;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">38<span>°</span>N · VP PRICING REVIEW</div>
+  <div class="modes">
+    <div class="mode">Portfolio</div>
+    <div class="mode active">Project Deep-Dive</div>
+    <div class="mode">Reference</div>
+  </div>
+  <div class="top-meta">
+    <span>Model: <b id="modelName">Lightstar · IL</b></span>
+    <span>Bible: <b>Q1 '26</b></span>
+    <span>Loaded: <b>Apr 15, 2026</b></span>
+    <span>Reviewer: <b>Caroline Z.</b></span>
+  </div>
+</div>
+
+<!-- Audit summary strip -->
+<div class="audit-strip">
+  <span class="strip-label">Portfolio Audit</span>
+  <span class="pill off"><span class="num">47</span> OFF</span>
+  <span class="pill out"><span class="num">12</span> OUT</span>
+  <span class="pill miss"><span class="num">8</span> MISSING</span>
+  <span class="pill rev"><span class="num">3</span> REVIEW</span>
+  <div class="strip-divider"></div>
+  <span class="pill"><span class="num">8</span> Projects</span>
+  <span class="pill"><span class="num">62.4 MW</span> Total DC</span>
+  <span class="pill" style="margin-left:auto;"><span class="num">3</span> Reviewed</span>
+  <span class="pill"><span class="num">5</span> Pending</span>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT -->
+  <div class="panel left">
+    <div class="nav-header">
+      <span>Projects · 8</span>
+      <span style="color:var(--teal);cursor:pointer;">+ Filter</span>
+    </div>
+    <input class="nav-search" placeholder="Search projects…" />
+    <div class="filter-row">
+      <span class="chip active">All</span>
+      <span class="chip">OFF only</span>
+      <span class="chip">IL</span>
+      <span class="chip">NY</span>
+      <span class="chip">MD/DE</span>
+    </div>
+
+    <div class="proj-card selected">
+      <div class="pname">Joel</div>
+      <div class="pmeta">IL · Ameren · ABP — 4.85 MW</div>
+      <div class="pchips">
+        <span class="micro off">EPC OFF</span>
+        <span class="micro off">ITC OFF</span>
+        <span class="micro out">UPF OUT</span>
+        <span class="micro miss">EC</span>
+      </div>
+    </div>
+    <div class="proj-card">
+      <div class="pname">Bishop Hill</div>
+      <div class="pmeta">IL · ComEd · ABP — 7.20 MW</div>
+      <div class="pchips">
+        <span class="micro off">LNTP OFF</span>
+        <span class="micro out">OPEX OUT</span>
+      </div>
+    </div>
+    <div class="proj-card">
+      <div class="pname">Greenwood</div>
+      <div class="pmeta">NY · NYSEG · CDG — 5.00 MW</div>
+      <div class="pchips">
+        <span class="micro off">EPC OFF</span>
+        <span class="micro miss">INS</span>
+      </div>
+    </div>
+    <div class="proj-card">
+      <div class="pname">Marlboro</div>
+      <div class="pmeta">MD · BGE · CSEP — 3.10 MW</div>
+      <div class="pchips"><span class="micro ok">CLEAN</span></div>
+    </div>
+    <div class="proj-card">
+      <div class="pname">Sussex East</div>
+      <div class="pmeta">DE · Delmarva — 8.40 MW</div>
+      <div class="pchips">
+        <span class="micro off">EPC OFF</span>
+        <span class="micro off">UPF OFF</span>
+      </div>
+    </div>
+    <div class="proj-card">
+      <div class="pname">Lake Geneva</div>
+      <div class="pmeta">IL · ComEd · Non-ABP — 6.60 MW</div>
+      <div class="pchips"><span class="micro out">OPEX OUT</span></div>
+    </div>
+    <div class="proj-card">
+      <div class="pname">Stanton</div>
+      <div class="pmeta">NY · National Grid · VDER — 12.10 MW</div>
+      <div class="pchips">
+        <span class="micro" style="background:var(--rev-bg);color:var(--rev);">VDER REV</span>
+        <span class="micro off">EPC OFF</span>
+      </div>
+    </div>
+    <div class="proj-card">
+      <div class="pname">Ridge Run</div>
+      <div class="pmeta">MD · PEPCO · CSEP — 15.20 MW</div>
+      <div class="pchips">
+        <span class="micro off">EPC OFF</span>
+        <span class="micro out">INS OUT</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="panel center">
+
+    <div class="deal-header">
+      <div class="deal-header-bar">
+        <div>
+          <div class="deal-title" id="dealTitle">Joel</div>
+          <div class="deal-sub" id="dealSub">Lightstar Renewables · IL Ameren · ABP Community · COD Q3 '26</div>
+        </div>
+        <span class="verdict" id="dealVerdict">REWORK REQUIRED</span>
+        <div class="impact-objs">
+          <div class="impact-obj bad">
+            <div class="iol">IRR Impact</div>
+            <div class="iov" id="impIRR">(1.85%)</div>
+            <div class="ios">FMV IRR · OFF findings</div>
+          </div>
+          <div class="impact-obj bad">
+            <div class="iol">NPP (Dev. Fee) Impact</div>
+            <div class="iov" id="impNPP">($0.29/W)</div>
+            <div class="ios">Sponsor proceeds · OFF findings</div>
+          </div>
+        </div>
+      </div>
+      <div class="deal-header-body">
+        <div class="deal-kpis" id="dealKpis"></div>
+      </div>
+    </div>
+
+    <!-- Auto-detected classification: discreet override strip -->
+    <div class="classify-strip" id="classifyStrip">
+      <details>
+        <summary>
+          <span class="auto-tag" id="clsTag">AUTO-DETECTED</span>
+          <span class="auto-field">Program: <b id="clsProgramS">ABP</b></span>
+          <span class="auto-field">Mix LMI/Resi/Com: <b id="clsMixS">50 / 30 / 20</b></span>
+          <span class="auto-field">Haircut: <b id="clsHaircutS">11.5%</b></span>
+          <span class="auto-field">Acq+Mgmt: <b id="clsAcqMgmtS">$0.018/W</b></span>
+          <span style="margin-left:auto;font-size:10.5px;color:var(--muted);">click to override</span>
+        </summary>
+        <div style="padding:4px 14px 0;">
+          <div class="classify-edit" style="grid-template-columns:2fr 1fr;">
+            <div>
+              <label>Program Classification</label>
+              <select id="clsProgram">
+                <option value="ABP">ABP (IL)</option>
+                <option value="Non-ABP">Non-ABP (IL)</option>
+                <option value="VDER">VDER (NY)</option>
+                <option value="CSEP">CSEP (NJ)</option>
+                <option value="MD-Permanent">MD Permanent Program</option>
+                <option value="MD-Pilot">MD Pilot Program</option>
+                <option value="Community">Community Solar (generic)</option>
+              </select>
+              <div class="helper">Forces market lookup if auto-detect from rate components is wrong</div>
+            </div>
+            <div>
+              <label>Yield (kWh/Wp)</label>
+              <div id="clsYieldRO" style="padding:6px 8px;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.08);border-radius:3px;font-variant-numeric:tabular-nums;font-weight:600;">—</div>
+              <div class="helper">Pulled from the model's Project Inputs (read-only). Drives $/W ↔ $/kWh, $/W ↔ $/MWh apples-to-apples conversion</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;font-size:10.5px;font-weight:700;letter-spacing:0.6px;color:var(--muted);text-transform:uppercase;">
+            Customer Offtake Mix &nbsp;<span style="font-weight:500;text-transform:none;letter-spacing:0;">(must sum to 100%)</span>
+            <span id="clsMixWarn" style="float:right;color:var(--off);display:none;">⚠ doesn't sum to 100</span>
+          </div>
+          <div class="classify-edit" style="grid-template-columns:1fr 1fr 1fr;">
+            <div>
+              <label>LMI %</label>
+              <input id="clsLMI" type="number" step="1" min="0" max="100" />
+            </div>
+            <div>
+              <label>Residential %</label>
+              <input id="clsResi" type="number" step="1" min="0" max="100" />
+            </div>
+            <div>
+              <label>Commercial %</label>
+              <input id="clsCom" type="number" step="1" min="0" max="100" />
+            </div>
+          </div>
+          <div style="margin-top:10px;padding:8px 10px;background:rgba(81,132,132,0.08);border-left:3px solid var(--teal);border-radius:3px;font-size:11px;">
+            <div style="font-weight:700;color:var(--teal-deep);text-transform:uppercase;letter-spacing:0.5px;font-size:10px;margin-bottom:4px;">Computed from bible per-segment values</div>
+            <div id="clsComputed" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 10px;">
+          <button class="btn-tiny" id="clsReset">Reset to bible default</button>
+          <button class="btn-tiny primary" id="clsSave">Apply override &amp; recompute audit</button>
+        </div>
+      </details>
+    </div>
+
+    <!-- Wrapped EPC build breakdown -->
+    <div class="classify-strip" id="wrappedEpcStrip">
+      <details>
+        <summary>
+          <span class="auto-tag" style="background:rgba(29,111,169,0.14);color:var(--blue);">WRAPPED EPC</span>
+          <span class="auto-field">Total: <b id="wepcTotal">$1.22/W</b></span>
+          <span class="auto-field" style="color:var(--muted);">EPC + LNTP + Safe Harbor + Contingency</span>
+          <span style="margin-left:auto;font-size:10.5px;color:var(--muted);">click for component breakdown</span>
+        </summary>
+        <div id="wepcBreakdown" style="padding:6px 14px 12px;font-size:11.5px;color:var(--text);"></div>
+      </details>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h3>Bible Audit Findings</h3>
+        <div class="h-meta">4 findings · sorted by $-impact</div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <table class="findings-tbl">
+          <thead><tr>
+            <th>Field</th><th style="text-align:right;">Bible (Q1 '26)</th><th style="text-align:right;">Model</th><th style="text-align:right;">Δ</th>
+            <th style="text-align:right;">Est. $-impact</th><th>Status</th><th>Source</th><th></th>
+          </tr></thead>
+          <tbody id="findingsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-h"><h3>Bible Variance — by $-impact</h3><div class="h-meta">Joel · all flagged fields</div></div>
+        <div class="card-body"><div id="variance" class="plot" style="height:280px;"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Capital Stack — Model vs Bible</h3><div class="h-meta">Sources of capital, $/W</div></div>
+        <div class="card-body"><div id="stack" class="plot" style="height:280px;"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>25-Year Cash Flow</h3><div class="h-meta">Operating CF + tax benefits + terminal</div></div>
+      <div class="card-body"><div id="cashflow" class="plot" style="height:260px;"></div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-h"><h3>Sensitivity — ΔNPP $/W</h3><div class="h-meta">±10% input · model-driven</div></div>
+        <div class="card-body"><div id="tornado" class="plot" style="height:260px;"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Portfolio Audit Heatmap</h3><div class="h-meta">All projects × bible fields</div></div>
+        <div class="card-body"><div id="heatmap" class="plot" style="height:260px;"></div></div>
+      </div>
+    </div>
+
+    <!-- Reviewer notes — optional, ships into export -->
+    <div class="card notes-card">
+      <div class="card-h">
+        <h3>Reviewer Notes <span style="font-weight:400;color:var(--muted);font-size:11px;margin-left:6px;">— optional · attached to export</span></h3>
+        <div class="h-meta"><span id="notesCount">0</span> chars · auto-saved</div>
+      </div>
+      <div class="card-body" style="padding:10px 14px;">
+        <textarea id="reviewerNotes" placeholder="Explain accepted variances, flagged items, or context for IC (e.g. 'EPC below bible — confirmed with Lightstar via signed PO 4/8/26'). Will appear in the Findings export and IC pack."
+          style="width:100%;min-height:64px;padding:9px 11px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:12px;color:var(--text);resize:vertical;background:var(--raised);"></textarea>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT -->
+  <div class="panel right">
+    <div class="ref-section">
+      <div class="ref-h">Q1 '26 Bible · IL Ameren ABP</div>
+      <div class="ref-item"><div class="rk">EPC ($/W)</div><div class="rv">$1.65</div><div class="rs">Tol ±$0.10 · CS Average</div></div>
+      <div class="ref-item"><div class="rk">LNTP ($/W)</div><div class="rv">$0.10</div><div class="rs">Exact match</div></div>
+      <div class="ref-item"><div class="rk">Closing & Legal ($/W)</div><div class="rv">$0.06</div><div class="rs">Exact match</div></div>
+      <div class="ref-item"><div class="rk">ITC %</div><div class="rv">40%</div><div class="rs">+10 ppt domestic adder</div></div>
+      <div class="ref-item"><div class="rk">Eligible Costs %</div><div class="rv">97%</div><div class="rs">Of total project cost</div></div>
+    </div>
+    <div class="ref-section">
+      <div class="ref-h">Market — IL Ameren ABP</div>
+      <div class="ref-item"><div class="rk">Upfront Incentive ($/W)</div><div class="rv">$0.85</div><div class="rs">Cap $1.00 · 6-mo lag</div></div>
+      <div class="ref-item"><div class="rk">REC Rate ($/MWh)</div><div class="rv">$73.50</div><div class="rs">15-yr fixed</div></div>
+      <div class="ref-item"><div class="rk">Smart Inverter Rebate</div><div class="rv">$0.25 /W</div><div class="rs">One-time</div></div>
+    </div>
+    <div class="ref-section">
+      <div class="ref-h">OpEx Benchmarks</div>
+      <div class="ref-item"><div class="rk">Insurance ($/kW-yr)</div><div class="rv">$3,500</div><div class="rs">IL override: $4,815</div></div>
+      <div class="ref-item"><div class="rk">Cust Mgmt ($/kWh)</div><div class="rv">$0.0035</div><div class="rs">Exact match</div></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="bottom">
+  <button class="btn" id="btnPrev">← Prev</button>
+  <button class="btn" id="btnNext">Next →</button>
+  <div style="flex:1;text-align:center;font-size:11px;color:var(--muted);"><span id="navCount">1 of 8</span></div>
+  <button class="btn">Mark reviewed</button>
+  <button class="btn">Export findings (xlsx)</button>
+  <button class="btn primary">Generate IC pack (pdf)</button>
+</div>
+
+<script>
+// ===== Project navigation =====
+// Helper: format negatives as accounting-style red parens
+function fmtNeg(val, suffix){
+  // val is negative number; returns "(abs)" — caller wraps in red span
+  const abs = Math.abs(val);
+  return '(' + abs + (suffix||'') + ')';
+}
+function setNegHTML(el, val, formatter){
+  // val<0 → red parens; val===0 → neutral 0; val>0 → black with +
+  if(val < 0){ el.innerHTML = '<span style="color:var(--off);">'+formatter(-val,true)+'</span>'; }
+  else if(val > 0){ el.textContent = formatter(val,false); }
+  else { el.textContent = formatter(0,false); }
+}
+
+const PROJECTS = [
+  // For each project: full set of dynamic data so charts + table refresh on click
+  {name:'Joel',        sub:"Lightstar Renewables · IL Ameren · ABP Community · COD Q3 '26", verdict:'REWORK REQUIRED',
+    irrPct:-1.85, nppPerW:-0.29, equityK:-213,
+    kpis:{dc:'4.85', dcSub:'3.85 MW AC', epc:'$1.22', epcSub:'vs Bible $1.65', epcOff:true,
+          npp:'$2.18', nppSub:'Target $2.05', itc:'0%', itcSub:'vs Bible 40%', itcOff:true,
+          irr:'8.2%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'ITC %',                bible:'40%',     model:'0%',     delta:-40,    deltaUnit:'pp', impact:-1180000, status:'OFF', source:'CS Average'},
+      {field:'EPC ($/W)',            bible:'$1.65',   model:'$1.22',  delta:-0.43,  deltaUnit:'$',  impact:-213000,  status:'OFF', source:'CS Average'},
+      {field:'Upfront Incentive ($/W)', bible:'≤ $1.00', model:'$1.02', delta:0.02, deltaUnit:'$',  impact:-10000,   status:'OUT', source:'Range · IL/Ameren/ABP'},
+      {field:'Eligible Costs %',     bible:'97%',     model:null,     delta:null,   deltaUnit:'',   impact:null,     status:'MISSING', source:'CS Average'},
+    ],
+    variance:{labels:['ITC % (−40 pp)','EPC ($/W)','Upfront ($/W)','Eligible Costs %'], x:[-1180,-213,-10,0], txt:['($1.18M)','($213k)','($10k)','missing'], colors:['off','off','out','miss']},
+    stack:{model:[0.62, 0.00, 1.20, 1.02], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:1.0,
+    tornadoMul:1.0
+  },
+  {name:'Bishop Hill', sub:"Lightstar Renewables · IL ComEd · ABP · COD Q4 '26", verdict:'REVIEW',
+    irrPct:-0.42, nppPerW:-0.08, equityK:-58,
+    kpis:{dc:'7.20', dcSub:'5.70 MW AC', epc:'$1.62', epcSub:'vs Bible $1.65', epcOff:false,
+          npp:'$2.06', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.7%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'LNTP ($/W)',           bible:'$0.10',  model:'$0.16',  delta:0.06,  deltaUnit:'$',  impact:-48000,  status:'OFF', source:'CS Average'},
+      {field:'OpEx ($/kW-yr)',       bible:'≤ $19',  model:'$22',    delta:3,     deltaUnit:'$',  impact:-10000,  status:'OUT', source:'Range · IL'},
+    ],
+    variance:{labels:['LNTP ($/W)','OpEx ($/kW-yr)'], x:[-48,-10], txt:['($48k)','($10k)'], colors:['off','out']},
+    stack:{model:[0.55, 0.72, 1.15, 0.85], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:1.45, tornadoMul:1.45
+  },
+  {name:'Greenwood',   sub:"Lightstar Renewables · NY NYSEG · CDG · COD Q2 '26", verdict:'REWORK REQUIRED',
+    irrPct:-1.10, nppPerW:-0.18, equityK:-128,
+    kpis:{dc:'5.00', dcSub:'4.10 MW AC', epc:'$1.40', epcSub:'vs Bible $1.65', epcOff:true,
+          npp:'$2.12', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.3%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'EPC ($/W)',           bible:'$1.65',  model:'$1.40',  delta:-0.25, deltaUnit:'$',  impact:-125000, status:'OFF', source:'CS Average'},
+      {field:'Insurance ($/kW-yr)', bible:'$3,500', model:null,     delta:null,  deltaUnit:'',   impact:null,    status:'MISSING', source:'CS Average'},
+    ],
+    variance:{labels:['EPC ($/W)','Insurance'], x:[-125,0], txt:['($125k)','missing'], colors:['off','miss']},
+    stack:{model:[0.50, 0.78, 1.10, 0.85], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:1.05, tornadoMul:1.05
+  },
+  {name:'Marlboro',    sub:"Lightstar Renewables · MD BGE · MD Permanent · COD Q3 '26", verdict:'CLEAN',
+    irrPct:0, nppPerW:0, equityK:0,
+    kpis:{dc:'3.10', dcSub:'2.55 MW AC', epc:'$1.65', epcSub:'matches Bible', epcOff:false,
+          npp:'$2.05', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.6%', irrSub:'Threshold 7.5%'},
+    findings:[],
+    variance:{labels:['No findings'], x:[0], txt:['—'], colors:['miss']},
+    stack:{model:[0.41, 0.78, 1.10, 0.85], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:0.65, tornadoMul:0.65
+  },
+  {name:'Sussex East', sub:"Lightstar Renewables · DE Delmarva · COD Q1 '27", verdict:'REWORK REQUIRED',
+    irrPct:-1.40, nppPerW:-0.22, equityK:-186,
+    kpis:{dc:'8.40', dcSub:'6.80 MW AC', epc:'$1.30', epcSub:'vs Bible $1.65', epcOff:true,
+          npp:'$2.20', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.1%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'EPC ($/W)',     bible:'$1.65',  model:'$1.30',  delta:-0.35, deltaUnit:'$', impact:-294000, status:'OFF', source:'CS Average'},
+      {field:'Upfront ($/W)', bible:'≤ $0.95',model:'$1.05',  delta:0.10,  deltaUnit:'$', impact:-84000,  status:'OFF', source:'Market'},
+    ],
+    variance:{labels:['EPC ($/W)','Upfront ($/W)'], x:[-294,-84], txt:['($294k)','($84k)'], colors:['off','off']},
+    stack:{model:[0.58, 0.70, 1.20, 1.05], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:1.7, tornadoMul:1.7
+  },
+  {name:'Lake Geneva', sub:"Lightstar Renewables · IL ComEd · Non-ABP · COD Q4 '26", verdict:'REVIEW',
+    irrPct:-0.20, nppPerW:-0.04, equityK:-22,
+    kpis:{dc:'6.60', dcSub:'5.20 MW AC', epc:'$1.66', epcSub:'matches', epcOff:false,
+          npp:'$2.04', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.5%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'OpEx ($/kW-yr)', bible:'≤ $19', model:'$21', delta:2, deltaUnit:'$', impact:-22000, status:'OUT', source:'Range · IL'},
+    ],
+    variance:{labels:['OpEx ($/kW-yr)'], x:[-22], txt:['($22k)'], colors:['out']},
+    stack:{model:[0.42, 0.78, 1.12, 0.84], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:1.35, tornadoMul:1.35
+  },
+  {name:'Stanton',     sub:"Lightstar Renewables · NY National Grid · VDER · COD Q2 '27", verdict:'REVIEW',
+    irrPct:-0.65, nppPerW:-0.11, equityK:-78,
+    kpis:{dc:'12.10', dcSub:'9.90 MW AC', epc:'$1.50', epcSub:'vs Bible $1.65', epcOff:true,
+          npp:'$2.10', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.4%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'EPC ($/W)',  bible:'$1.65', model:'$1.50', delta:-0.15, deltaUnit:'$', impact:-181500, status:'OFF', source:'CS Average'},
+      {field:'VDER Value', bible:'S-SFA', model:'manual', delta:null,  deltaUnit:'',  impact:null,    status:'REVIEW', source:'Market lookup'},
+    ],
+    variance:{labels:['EPC ($/W)','VDER Value'], x:[-181,0], txt:['($181k)','review'], colors:['off','miss']},
+    stack:{model:[0.48, 0.75, 1.12, 0.88], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:2.45, tornadoMul:2.45
+  },
+  {name:'Ridge Run',   sub:"Lightstar Renewables · MD PEPCO · MD Permanent · COD Q3 '27", verdict:'REWORK REQUIRED',
+    irrPct:-1.95, nppPerW:-0.31, equityK:-308,
+    kpis:{dc:'15.20', dcSub:'12.40 MW AC', epc:'$1.20', epcSub:'vs Bible $1.65', epcOff:true,
+          npp:'$2.25', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'6.9%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'EPC ($/W)',          bible:'$1.65',  model:'$1.20',  delta:-0.45, deltaUnit:'$', impact:-684000, status:'OFF', source:'CS Average'},
+      {field:'Insurance ($/kW-yr)',bible:'$3,500', model:'$4,200', delta:700,   deltaUnit:'$', impact:-22000,  status:'OUT', source:'Range · MD'},
+    ],
+    variance:{labels:['EPC ($/W)','Insurance'], x:[-684,-22], txt:['($684k)','($22k)'], colors:['off','out']},
+    stack:{model:[0.65, 0.65, 1.25, 0.85], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:3.1, tornadoMul:3.1
+  },
+];
+let currentIdx = 0;
+const projCards = document.querySelectorAll('.proj-card');
+
+// ---- accounting helpers ----
+function fmtMoneyShort(absVal){
+  if(absVal>=1e6) return '$'+(absVal/1e6).toFixed(2)+'M';
+  if(absVal>=1e3) return '$'+Math.round(absVal/1e3)+'k';
+  return '$'+absVal.toFixed(0);
+}
+function fmtNegMoney(v){ return v<0 ? '<span class="neg-acct">('+fmtMoneyShort(-v).replace('$','$')+')</span>' : (v===0?'$0':'$'+v.toLocaleString()); }
+function fmtNegPct(v, decimals){ return v<0 ? '<span class="neg-acct">('+(-v).toFixed(decimals||2)+'%)</span>' : v.toFixed(decimals||2)+'%'; }
+function fmtNegPerW(v){ return v<0 ? '<span class="neg-acct">($'+(-v).toFixed(2)+'/W)</span>' : '$'+v.toFixed(2)+'/W'; }
+
+// ---- KPI render ----
+function renderKpis(p){
+  const k = p.kpis;
+  const equityHTML = p.equityK<0 ? '<span class="neg-acct">($'+Math.abs(p.equityK)+'k)</span>' : (p.equityK===0?'$0':'$'+p.equityK+'k');
+  document.getElementById('dealKpis').innerHTML = `
+    <div class="kpi k-accent"><div class="kpi-label">DC Size</div><div class="kpi-value">${k.dc} <span style="font-size:11px;color:var(--muted);">MW</span></div><div class="kpi-sub">${k.dcSub}</div></div>
+    <div class="kpi ${k.epcOff?'k-off':'k-accent'}"><div class="kpi-label">EPC</div><div class="kpi-value">${k.epc}<span style="font-size:11px;color:var(--muted);">/W</span></div><div class="kpi-sub${k.epcOff?' neg':''}">${k.epcSub}</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">NPP</div><div class="kpi-value">${k.npp}<span style="font-size:11px;color:var(--muted);">/W</span></div><div class="kpi-sub">${k.nppSub}</div></div>
+    <div class="kpi ${k.itcOff?'k-off':'k-accent'}"><div class="kpi-label">ITC</div><div class="kpi-value">${k.itc}</div><div class="kpi-sub${k.itcOff?' neg':''}">${k.itcSub}</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">FMV IRR</div><div class="kpi-value">${k.irr}</div><div class="kpi-sub">${k.irrSub}</div></div>
+    <div class="kpi ${p.equityK<0?'k-off':'k-accent'}"><div class="kpi-label">Equity Δ</div><div class="kpi-value">${equityHTML}</div><div class="kpi-sub${p.equityK<0?' neg':''}">vs bible-aligned</div></div>
+  `;
+}
+
+// ---- findings table render ----
+function renderFindings(p){
+  const body = document.getElementById('findingsBody');
+  if(!p.findings.length){
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-style:italic;">No bible findings — this project is clean.</td></tr>';
+    return;
+  }
+  body.innerHTML = p.findings.map(f=>{
+    const deltaCell = (f.delta===null) ? '<td class="num-cell" style="color:var(--muted);">missing</td>'
+      : (f.delta<0) ? `<td class="num-cell neg-acct">(${Math.abs(f.delta)}${f.deltaUnit==='$'?'':' '+f.deltaUnit})</td>`
+      : `<td class="num-cell" style="color:var(--text);font-weight:600;">+${f.deltaUnit==='$'?'$':''}${f.delta}${f.deltaUnit==='$'?'':' '+f.deltaUnit}</td>`;
+    const impactCell = (f.impact===null) ? '<td class="impact-cell" style="color:var(--muted);">—</td>'
+      : `<td class="impact-cell neg-acct">(${fmtMoneyShort(Math.abs(f.impact))})</td>`;
+    const statusCls = {OFF:'off',OUT:'out',MISSING:'miss',REVIEW:'rev'}[f.status]||'miss';
+    const action = f.status==='MISSING' ? 'Flag' : 'Accept · Flag';
+    return `<tr>
+      <td class="field">${f.field}</td>
+      <td class="num-cell">${f.bible??'—'}</td>
+      <td class="num-cell"${f.model===null?' style="color:var(--muted);"':''}>${f.model??'—'}</td>
+      ${deltaCell}${impactCell}
+      <td><span class="status-tag ${statusCls}">${f.status}</span></td>
+      <td style="font-size:11px;color:var(--muted);">${f.source}</td>
+      <td><span class="row-action">${action}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ---- classification (auto-detected w/ override) ----
+// Bible per-program defaults: mix [LMI, Resi, Com] (%), per-segment haircut (%),
+// per-segment Cust Acq ($/kWh) and Cust Mgmt ($/MWh).
+// CSEP = NJ. MD has separate Permanent and Pilot programs with distinct bible values.
+const BIBLE_OFFTAKE = {
+  'IL-ABP':         {mix:[50,30,20], haircut:[20,10,5],  acq:[0.012,0.008,0.004], mgmt:[3.5,2.0,1.0]},
+  'IL-Non-ABP':     {mix:[ 0,40,60], haircut:[20,10,5],  acq:[0.012,0.008,0.004], mgmt:[3.5,2.0,1.0]},
+  'NY-VDER':        {mix:[ 0,30,70], haircut:[15, 8,4],  acq:[0.010,0.007,0.003], mgmt:[3.0,1.8,0.9]},
+  'NY-Community':   {mix:[25,50,25], haircut:[15,10,5],  acq:[0.011,0.008,0.004], mgmt:[3.2,1.9,1.0]},
+  'NJ-CSEP':        {mix:[40,40,20], haircut:[18,10,5],  acq:[0.011,0.008,0.004], mgmt:[3.2,1.9,1.0]},
+  'MD-Permanent':   {mix:[40,40,20], haircut:[18,10,5],  acq:[0.011,0.008,0.004], mgmt:[3.2,1.9,1.0]},
+  'MD-Pilot':       {mix:[30,50,20], haircut:[22,12,6],  acq:[0.014,0.009,0.005], mgmt:[3.8,2.2,1.1]},
+  'DE-Community':   {mix:[30,40,30], haircut:[15, 9,5],  acq:[0.010,0.007,0.003], mgmt:[3.0,1.8,0.9]},
+  'DEFAULT':        {mix:[33,34,33], haircut:[15,10,5],  acq:[0.011,0.008,0.004], mgmt:[3.2,1.9,1.0]},
+};
+function bibleKey(state, prog){
+  const k = state+'-'+prog;
+  if(BIBLE_OFFTAKE[k]) return k;
+  if(prog==='MD-Permanent') return 'MD-Permanent';
+  if(prog==='MD-Pilot')     return 'MD-Pilot';
+  if(prog==='CSEP')         return 'NJ-CSEP';
+  if(prog==='Community' && state==='NY') return 'NY-Community';
+  if(prog==='Community' && state==='DE') return 'DE-Community';
+  return 'DEFAULT';
+}
+function deriveClassify(p){
+  const s = (p.sub||'').toLowerCase();
+  // Detect state
+  let state = 'IL';
+  if(s.includes(' md ')||s.startsWith('md ')||s.includes(' md.'))  state='MD';
+  else if(s.includes(' nj ')||s.startsWith('nj ')) state='NJ';
+  else if(s.includes(' de ')||s.startsWith('de ')) state='DE';
+  else if(s.includes(' ny ')||s.startsWith('ny ')) state='NY';
+  else if(s.includes(' il ')||s.startsWith('il ')) state='IL';
+  // Detect program
+  let prog = 'Community';
+  if(s.includes('non-abp')) prog='Non-ABP';
+  else if(s.includes('vder')) prog='VDER';
+  else if(s.includes('csep')) { prog='CSEP'; state='NJ'; } // CSEP is NJ
+  else if(s.includes('abp')) prog='ABP';
+  // MD: default to Permanent (Pilot only if explicitly mentioned)
+  if(state==='MD') prog = s.includes('pilot') ? 'MD-Pilot' : 'MD-Permanent';
+  const key = bibleKey(state, prog);
+  const b = BIBLE_OFFTAKE[key];
+  // Yield comes from model upload — read from project data when present
+  const yieldFromModel = (p.kpis && p.kpis.yieldKwhPerWp) ? p.kpis.yieldKwhPerWp : 1.55;
+  return {
+    program:prog, state:state, bibleKey:key,
+    mix:[...b.mix],
+    yield: yieldFromModel,
+    manual:false,
+  };
+}
+function blendedFromMix(c){
+  const b = BIBLE_OFFTAKE[c.bibleKey] || BIBLE_OFFTAKE.DEFAULT;
+  const w = c.mix.map(x=>x/100);
+  // Bible blended values (native units)
+  const haircut = w[0]*b.haircut[0] + w[1]*b.haircut[1] + w[2]*b.haircut[2]; // %
+  const acqKwh  = w[0]*b.acq[0]     + w[1]*b.acq[1]     + w[2]*b.acq[2];     // $/kWh
+  const mgmtMwh = w[0]*b.mgmt[0]    + w[1]*b.mgmt[1]    + w[2]*b.mgmt[2];    // $/MWh
+  // For UI parity / display: also express each in $/W using model yield.
+  // Conversion logic (apples-to-apples flows BOTH directions for bible compare):
+  //   $/kWh × yield (kWh/Wp) = $/W      →  reverse:  $/W ÷ yield = $/kWh
+  //   $/MWh × yield / 1000   = $/W      →  reverse:  $/W ÷ yield × 1000 = $/MWh
+  const acqPerW  = acqKwh  * c.yield;
+  const mgmtPerW = (mgmtMwh / 1000) * c.yield;
+  return {haircut, acqKwh, mgmtMwh, acqPerW, mgmtPerW, totalPerW: acqPerW+mgmtPerW, b};
+}
+// Reverse helpers — used when comparing the model's $/W input back to bible $/kWh or $/MWh
+function modelPerW_to_perKwh(perW, yieldKwhPerWp){ return perW / (yieldKwhPerWp||1); }
+function modelPerW_to_perMwh(perW, yieldKwhPerWp){ return perW / (yieldKwhPerWp||1) * 1000; }
+function renderClassify(p){
+  if(!p.classify) p.classify = deriveClassify(p);
+  const c = p.classify;
+  // Lock auto-baseline so we can compute deltas vs bible default
+  if(!p.classifyAuto) p.classifyAuto = JSON.parse(JSON.stringify(deriveClassify(p)));
+  const bl = blendedFromMix(c);
+  // Summary chips
+  document.getElementById('clsProgramS').textContent = c.program + (c.state==='MD'?' (MD Permanent)':'');
+  document.getElementById('clsMixS').textContent     = c.mix[0]+' / '+c.mix[1]+' / '+c.mix[2];
+  document.getElementById('clsHaircutS').textContent = bl.haircut.toFixed(1)+'%';
+  document.getElementById('clsAcqMgmtS').textContent = '$'+bl.totalPerW.toFixed(3)+'/W';
+  // Inputs
+  const validProgs = ['ABP','Non-ABP','VDER','CSEP','MD-Permanent','MD-Pilot','Community'];
+  document.getElementById('clsProgram').value     = validProgs.includes(c.program)?c.program:'Community';
+  document.getElementById('clsYieldRO').textContent = c.yield.toFixed(2)+' kWh/Wp · from model';
+  document.getElementById('clsLMI').value         = c.mix[0];
+  document.getElementById('clsResi').value        = c.mix[1];
+  document.getElementById('clsCom').value         = c.mix[2];
+  // Mix sum warning
+  const sum = c.mix[0]+c.mix[1]+c.mix[2];
+  document.getElementById('clsMixWarn').style.display = (sum===100) ? 'none' : 'inline';
+  // Computed block
+  const segB = bl.b;
+  document.getElementById('clsComputed').innerHTML = `
+    <div>
+      <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.4px;">Custom Rate Curve Haircut</div>
+      <div style="font-size:16px;font-weight:700;color:var(--teal-deep);font-variant-numeric:tabular-nums;">${bl.haircut.toFixed(2)}%</div>
+      <div style="font-size:10px;color:var(--muted);">Guidehouse strip · weighted ${segB.haircut[0]}/${segB.haircut[1]}/${segB.haircut[2]}%</div>
+    </div>
+    <div>
+      <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.4px;">Cust Acquisition (bible $/kWh)</div>
+      <div style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;">$${bl.acqKwh.toFixed(4)}/kWh</div>
+      <div style="font-size:11px;color:var(--text);">Model equiv: <b>$${bl.acqPerW.toFixed(4)}/W</b></div>
+      <div style="font-size:10px;color:var(--muted);">$/kWh × yield (${c.yield.toFixed(2)} kWh/Wp) ↔ $/W</div>
+    </div>
+    <div>
+      <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.4px;">Cust Management (bible $/MWh)</div>
+      <div style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;">$${bl.mgmtMwh.toFixed(2)}/MWh</div>
+      <div style="font-size:11px;color:var(--text);">Model equiv: <b>$${bl.mgmtPerW.toFixed(4)}/W</b></div>
+      <div style="font-size:10px;color:var(--muted);">$/MWh × yield ÷ 1000 ↔ $/W</div>
+    </div>`;
+  // Tag state
+  const tag = document.getElementById('clsTag');
+  tag.textContent = c.manual ? 'MANUAL OVERRIDE' : 'AUTO-DETECTED';
+  tag.style.background = c.manual ? 'rgba(184,50,48,0.12)' : 'rgba(81,132,132,0.18)';
+  tag.style.color      = c.manual ? 'var(--off)' : 'var(--teal-deep)';
+}
+
+// ---- Recompute audit IRR/NPP/equity impact from delta vs auto-detected baseline ----
+function recomputeImpactFromClassify(p){
+  if(!p.irrPctAuto)   p.irrPctAuto   = p.irrPct;
+  if(!p.nppPerWAuto)  p.nppPerWAuto  = p.nppPerW;
+  if(!p.equityKAuto)  p.equityKAuto  = p.equityK;
+  const baseline = blendedFromMix(p.classifyAuto);
+  const current  = blendedFromMix(p.classify);
+  // Δ$/W in offtake-economics & haircut → flows directly to NPP $/W (negative if costs rise / haircut deepens)
+  const dHaircutPct = (current.haircut - baseline.haircut);   // pp (positive = deeper haircut = bad)
+  const dAcqMgmtW   = (current.totalPerW - baseline.totalPerW); // $/W (positive = more cost = bad)
+  // Approx NPP $/W impact: $0.014/W per 1pp haircut (rule of thumb; verify against model run)
+  const dNppPerW = -(dHaircutPct * 0.014 + dAcqMgmtW);
+  // IRR sensitivity ~ 0.18% per $0.01/W of sponsor proceeds
+  const dIrrPct  = (dNppPerW / 0.01) * 0.18;
+  // Equity ≈ NPP $/W × DC kW × 1000 (rough)
+  const dcMW = parseFloat((p.kpis && p.kpis.dc) || '5') || 5;
+  const dEquityK = Math.round(dNppPerW * dcMW * 1000);
+  p.irrPct  = +(p.irrPctAuto  + dIrrPct).toFixed(2);
+  p.nppPerW = +(p.nppPerWAuto + dNppPerW).toFixed(3);
+  p.equityK = p.equityKAuto + dEquityK;
+}
+
+// Live sum-warning + summary refresh as user types in mix fields
+['clsLMI','clsResi','clsCom','clsProgram'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=>{
+    const lmi=+document.getElementById('clsLMI').value||0;
+    const resi=+document.getElementById('clsResi').value||0;
+    const com=+document.getElementById('clsCom').value||0;
+    document.getElementById('clsMixWarn').style.display = ((lmi+resi+com)===100) ? 'none' : 'inline';
+  });
+});
+document.getElementById('clsSave').addEventListener('click', e=>{
+  e.preventDefault();
+  const p = PROJECTS[currentIdx];
+  const prog = document.getElementById('clsProgram').value;
+  // Infer state from program (CSEP→NJ, MD-* →MD); otherwise keep prior state
+  let state = (p.classify && p.classify.state) || 'IL';
+  if(prog==='CSEP') state='NJ';
+  else if(prog==='MD-Permanent' || prog==='MD-Pilot') state='MD';
+  // Yield is read-only — keep the model-supplied value
+  const yieldKwhPerWp = (p.classify && p.classify.yield) || 1.55;
+  p.classify = {
+    program:  prog,
+    state:    state,
+    bibleKey: bibleKey(state, prog),
+    mix: [
+      parseInt(document.getElementById('clsLMI').value)||0,
+      parseInt(document.getElementById('clsResi').value)||0,
+      parseInt(document.getElementById('clsCom').value)||0,
+    ],
+    yield:    yieldKwhPerWp,
+    manual: true,
+  };
+  recomputeImpactFromClassify(p);
+  selectProject(currentIdx); // full re-render: header/IRR/NPP/findings/charts
+});
+document.getElementById('clsReset').addEventListener('click', e=>{
+  e.preventDefault();
+  const p = PROJECTS[currentIdx];
+  p.classify = deriveClassify(p);
+  if(p.irrPctAuto!==undefined)  p.irrPct  = p.irrPctAuto;
+  if(p.nppPerWAuto!==undefined) p.nppPerW = p.nppPerWAuto;
+  if(p.equityKAuto!==undefined) p.equityK = p.equityKAuto;
+  selectProject(currentIdx);
+});
+
+// ---- wrapped EPC breakdown ----
+function deriveWrappedEpc(p){
+  // Build illustrative components if not provided. Total reconciles to KPI EPC.
+  const totalStr = (p.kpis && p.kpis.epc) ? p.kpis.epc : '$1.22';
+  const total = parseFloat(totalStr.replace(/[^0-9.]/g,'')) || 1.22;
+  // Plausible split: EPC ~78%, LNTP ~13%, Safe Harbor ~6%, Contingency ~3%
+  return {
+    total: total,
+    bibleTotal: 1.65,
+    components: [
+      {label:'EPC (base)',          value: +(total*0.78).toFixed(3)},
+      {label:'LNTP',                value: +(total*0.13).toFixed(3)},
+      {label:'Safe Harbor module',  value: +(total*0.06).toFixed(3)},
+      {label:'EPC Contingency',     value: +(total*0.03).toFixed(3)},
+    ],
+  };
+}
+function renderWrappedEpc(p){
+  if(!p.wrappedEpc) p.wrappedEpc = deriveWrappedEpc(p);
+  const w = p.wrappedEpc;
+  document.getElementById('wepcTotal').textContent = '$'+w.total.toFixed(2)+'/W';
+  const delta = w.total - w.bibleTotal;
+  const deltaHTML = delta<0
+    ? '<span class="neg-acct">($'+Math.abs(delta).toFixed(2)+'/W vs bible $'+w.bibleTotal.toFixed(2)+')</span>'
+    : '<span style="color:var(--text);">+$'+delta.toFixed(2)+'/W vs bible $'+w.bibleTotal.toFixed(2)+'</span>';
+  const rows = w.components.map(c=>`
+    <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted rgba(0,0,0,0.08);">
+      <span style="color:var(--muted);">${c.label}</span>
+      <b style="font-variant-numeric:tabular-nums;">$${c.value.toFixed(3)}/W</b>
+    </div>`).join('');
+  document.getElementById('wepcBreakdown').innerHTML = rows + `
+    <div style="display:flex;justify-content:space-between;padding:6px 0 0;font-weight:700;">
+      <span>Wrapped Total (Project Inputs row 118)</span>
+      <span>$${w.total.toFixed(3)}/W</span>
+    </div>
+    <div style="margin-top:6px;font-size:11px;">${deltaHTML}</div>
+    <div style="margin-top:4px;color:var(--muted);font-size:10.5px;">This wrapped total is what the bible audit compares — not raw EPC alone.</div>`;
+}
+
+function selectProject(idx){
+  if(idx<0) idx = PROJECTS.length-1;
+  if(idx>=PROJECTS.length) idx = 0;
+  currentIdx = idx;
+  const p = PROJECTS[idx];
+  // Header
+  document.getElementById('dealTitle').textContent = p.name;
+  document.getElementById('dealSub').textContent   = p.sub;
+  document.getElementById('impIRR').innerHTML = p.irrPct<0 ? '('+(-p.irrPct).toFixed(2)+'%)' : p.irrPct.toFixed(2)+'%';
+  document.getElementById('impNPP').innerHTML = p.nppPerW<0 ? '($'+(-p.nppPerW).toFixed(2)+'/W)' : '$'+p.nppPerW.toFixed(2)+'/W';
+  // Verdict
+  const v = document.getElementById('dealVerdict');
+  v.textContent = p.verdict;
+  const verdictStyle = p.verdict==='CLEAN' ? {bg:'rgba(58,125,68,0.18)', col:'#9be0a6', bd:'rgba(155,224,166,0.4)'}
+                     : p.verdict==='REVIEW' ? {bg:'rgba(81,132,132,0.22)', col:'#cfe6e6', bd:'rgba(207,230,230,0.4)'}
+                     : {bg:'rgba(184,50,48,0.18)', col:'#ff9a98', bd:'rgba(255,154,152,0.35)'};
+  v.style.background = verdictStyle.bg; v.style.color = verdictStyle.col; v.style.borderColor = verdictStyle.bd;
+  // Impact objects: bad if any negative impact
+  document.querySelectorAll('.impact-obj').forEach(el=>{
+    const isBad = p.verdict!=='CLEAN' && (p.irrPct<0 || p.nppPerW<0);
+    el.classList.toggle('bad', isBad);
+    el.querySelector('.iov').style.color = isBad ? 'var(--off)' : 'var(--text)';
+  });
+  // KPIs + findings + classification strip
+  renderKpis(p);
+  renderFindings(p);
+  renderClassify(p);
+  renderWrappedEpc(p);
+  // Charts
+  if(typeof Plotly!=='undefined'){ renderCharts(p); }
+  // Sidebar selection
+  projCards.forEach((c,i)=>c.classList.toggle('selected', i===idx));
+  document.getElementById('navCount').textContent = (idx+1)+' of '+PROJECTS.length;
+  projCards[idx].scrollIntoView({block:'nearest', behavior:'smooth'});
+}
+projCards.forEach((c,i)=>c.addEventListener('click', ()=>selectProject(i)));
+document.getElementById('btnNext').addEventListener('click', ()=>selectProject(currentIdx+1));
+document.getElementById('btnPrev').addEventListener('click', ()=>selectProject(currentIdx-1));
+// Keyboard: J / K or arrow keys
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName==='TEXTAREA' || e.target.tagName==='INPUT') return;
+  if(e.key==='ArrowDown' || e.key==='j') selectProject(currentIdx+1);
+  if(e.key==='ArrowUp'   || e.key==='k') selectProject(currentIdx-1);
+});
+
+// ===== Reviewer notes auto-counter =====
+const notes = document.getElementById('reviewerNotes');
+const notesCount = document.getElementById('notesCount');
+notes.addEventListener('input', ()=>{ notesCount.textContent = notes.value.length; });
+
+// ===== Model-name parser: strip "38DN-", "Pricing Model", and dates =====
+// Example: "38DN-Lightstar-IL-Pricing Model-2026-04-15.xlsm" → "Lightstar · IL"
+function parseModelName(filename){
+  if(!filename) return '';
+  let n = filename.replace(/\.(xlsm|xlsx|xls)$/i,'');
+  n = n.replace(/^38DN[-_\s]*/i,'');
+  n = n.replace(/[-_\s]*Pricing[\s_-]*Model[-_\s]*/ig,'-');
+  n = n.replace(/\d{4}[-_]\d{2}[-_]\d{2}/g,'');                 // YYYY-MM-DD
+  n = n.replace(/\d{1,2}[-_]\d{1,2}[-_]\d{2,4}/g,'');           // MM-DD-YY(YY)
+  n = n.replace(/Q[1-4][\s_-]*['‘]?\d{2,4}/ig,'');              // Q3 '26
+  n = n.replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
+  return n.split(' ').filter(Boolean).join(' · ');
+}
+// Simulated upload — would be wired to the file_uploader in the real Streamlit app
+// e.g. st.session_state['model_filename'] = uploaded.name
+const SIMULATED_UPLOAD = '38DN-Lightstar-IL-Pricing Model-2026-04-15.xlsm';
+document.getElementById('modelName').textContent = parseModelName(SIMULATED_UPLOAD) || 'No model loaded';
+
+// ----- Plotly bootstrap with retry + graceful fallback -----
+const NAVY='#050D25', INDIGO='#212B48', TEAL='#518484', TEAL_DEEP='#3d6868',
+      BLUE='#1D6FA9', OFF='#b83230', MUTED='#7d8694', INSET='#eef0f5';
+
+function fallbackPlot(id, msg){
+  var el=document.getElementById(id);
+  if(el) el.innerHTML='<div class="plot-fallback">Chart library failed to load — '+(msg||'check network connection.')+'</div>';
+}
+
+const COLOR_MAP = {off:OFF, out:TEAL_DEEP, miss:MUTED};
+const baseLayout = {
+  font:{family:'Inter, Segoe UI, sans-serif', size:11, color:'#212B48'},
+  paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+  xaxis:{gridcolor:'rgba(5,13,37,0.05)', zerolinecolor:'rgba(5,13,37,0.15)', automargin:true, ticklabelstandoff:6, title:{standoff:14}},
+  yaxis:{gridcolor:'rgba(5,13,37,0.05)', zerolinecolor:'rgba(5,13,37,0.15)', automargin:true, ticklabelstandoff:6, title:{standoff:14}},
+};
+const cfg={displayModeBar:false, responsive:true};
+const TEAL_DEEP_VAR = '#3d6868';
+
+function renderCharts(p){
+  if(typeof Plotly==='undefined') return;
+
+  // ----- Variance: dynamic margins so labels never overlap -----
+  const vColors = p.variance.colors.map(c => COLOR_MAP[c] || MUTED);
+  // Compute padding to keep "outside" text labels from clipping
+  const minX = Math.min(...p.variance.x, 0);
+  const maxX = Math.max(...p.variance.x, 0);
+  const xPad = Math.max(Math.abs(minX), Math.abs(maxX)) * 0.30 || 50;
+  Plotly.react('variance', [{
+    type:'bar', orientation:'h',
+    x:p.variance.x, y:p.variance.labels,
+    marker:{color:vColors},
+    text:p.variance.txt,
+    textposition:'outside', cliponaxis:false, textfont:{color:'#212B48', size:11},
+    hovertemplate:'%{y}<br>$-impact: $%{x}k<extra></extra>',
+  }], {...baseLayout,
+    margin:{l:10, r:10, t:14, b:50, pad:4, autoexpand:true},
+    xaxis:{...baseLayout.xaxis, title:{text:'Equity $-impact (thousands)', standoff:14},
+           tickprefix:'$', ticksuffix:'k',
+           range:[minX - xPad, maxX + xPad]},
+    yaxis:{...baseLayout.yaxis, automargin:true},
+  }, cfg);
+
+  // ----- Capital stack -----
+  Plotly.react('stack', [
+    {type:'bar', name:'Sponsor Equity', x:['Model','Bible'], y:[p.stack.model[0], p.stack.bible[0]], marker:{color:NAVY}},
+    {type:'bar', name:'Tax Equity',     x:['Model','Bible'], y:[p.stack.model[1], p.stack.bible[1]], marker:{color:TEAL}},
+    {type:'bar', name:'Debt',           x:['Model','Bible'], y:[p.stack.model[2], p.stack.bible[2]], marker:{color:INDIGO}},
+    {type:'bar', name:'Incentives',     x:['Model','Bible'], y:[p.stack.model[3], p.stack.bible[3]], marker:{color:BLUE}},
+  ],{...baseLayout, barmode:'stack',
+    yaxis:{...baseLayout.yaxis, title:{text:'$/W', standoff:12}, tickprefix:'$', tickformat:'.2f'},
+    xaxis:{...baseLayout.xaxis, automargin:true},
+    legend:{orientation:'h', y:-0.22, font:{size:10}},
+    margin:{l:10, r:10, t:14, b:60, autoexpand:true}
+  }, cfg);
+
+  // ----- 25-year cash flow (scaled by project) -----
+  const mul = p.cashflowMul || 1;
+  const yrs = Array.from({length:25},(_,i)=>i+1);
+  const opCF  = yrs.map(y => mul*(380 + 4*y - 1.2*y*y/3));
+  const taxBn = yrs.map(y => mul*(y<=6 ? 280 - 30*y : 20));
+  const term  = yrs.map(y => y===25 ? mul*1200 : 0);
+  Plotly.react('cashflow', [
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Operating CF', x:yrs, y:opCF,  fillcolor:'rgba(81,132,132,0.55)'},
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Tax Benefits', x:yrs, y:taxBn, fillcolor:'rgba(33,43,72,0.45)'},
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Terminal',     x:yrs, y:term,  fillcolor:'rgba(29,111,169,0.45)'},
+  ],{...baseLayout,
+    xaxis:{...baseLayout.xaxis, title:{text:'Year', standoff:12}, dtick:5, automargin:true},
+    yaxis:{...baseLayout.yaxis, title:{text:'$ thousands', standoff:14}, tickprefix:'$', tickformat:',.0f'},
+    legend:{orientation:'h', y:-0.25, font:{size:10}},
+    margin:{l:10, r:10, t:14, b:60, autoexpand:true}
+  }, cfg);
+
+  // ----- Sensitivity tornado (scaled per project) -----
+  const tmul = p.tornadoMul || 1;
+  const inputs = ['EPC $/W','ITC %','Upfront $/W','REC $/MWh','OpEx $/kW','Discount Rate','Insurance'];
+  const lo = [-0.08,-0.12,-0.03,-0.05,-0.02,-0.04,-0.01].map(v=>v*tmul);
+  const hi = [ 0.08, 0.12, 0.03, 0.05, 0.02, 0.04, 0.01].map(v=>v*tmul);
+  const tMin = Math.min(...lo), tMax = Math.max(...hi);
+  const tPad = Math.max(Math.abs(tMin), Math.abs(tMax))*0.15 || 0.02;
+  Plotly.react('tornado', [
+    {type:'bar', orientation:'h', name:'−10%', x:lo, y:inputs, marker:{color:OFF}, hovertemplate:'%{y}: $%{x:.2f}<extra>−10%</extra>'},
+    {type:'bar', orientation:'h', name:'+10%', x:hi, y:inputs, marker:{color:TEAL}, hovertemplate:'%{y}: $%{x:.2f}<extra>+10%</extra>'},
+  ],{...baseLayout, barmode:'overlay',
+    xaxis:{...baseLayout.xaxis, title:{text:'ΔNPP ($/W)', standoff:14}, tickprefix:'$', tickformat:'.2f',
+           zeroline:true, zerolinewidth:2, zerolinecolor:'#212B48',
+           range:[tMin-tPad, tMax+tPad]},
+    yaxis:{...baseLayout.yaxis, automargin:true},
+    legend:{orientation:'h', y:-0.25, font:{size:10}},
+    margin:{l:10, r:10, t:14, b:60, autoexpand:true}
+  }, cfg);
+
+  // ----- Heatmap (with current project highlighted via a row marker) -----
+  const projects = PROJECTS.map(x=>x.name);
+  const fields = ['EPC','LNTP','C&L','ITC','EligCost','Upfront','REC','OpEx','Insurance'];
+  // Statuses per project derived loosely from findings counts
+  const z = [
+    [2,0,0,2,3,1,0,0,0],
+    [0,2,0,0,0,0,0,1,0],
+    [2,0,0,0,3,0,0,0,3],
+    [0,0,0,0,0,0,0,0,0],
+    [2,0,0,0,0,2,0,0,0],
+    [0,0,0,0,0,0,0,1,0],
+    [2,0,0,0,0,0,0,0,0],
+    [2,0,0,0,0,0,0,0,1],
+  ];
+  Plotly.react('heatmap', [{
+    type:'heatmap', z, x:fields, y:projects,
+    colorscale:[[0,'#f7f8fa'],[0.34,'rgba(81,132,132,0.25)'],[0.67,'rgba(184,50,48,0.55)'],[1,'#dfe2e8']],
+    showscale:false, xgap:3, ygap:3,
+    hovertemplate:'%{y} · %{x}: status %{z}<extra></extra>',
+  }],{...baseLayout,
+    margin:{l:10, r:10, t:14, b:40, autoexpand:true},
+    xaxis:{...baseLayout.xaxis, side:'bottom', automargin:true},
+    yaxis:{...baseLayout.yaxis, automargin:true},
+    shapes:[{   // Highlight currently-selected project row
+      type:'rect', xref:'paper', x0:0, x1:1,
+      y0:currentIdx-0.5, y1:currentIdx+0.5,
+      line:{color:TEAL, width:2}, fillcolor:'rgba(0,0,0,0)',
+    }],
+  }, cfg);
+}
+
+function bootCharts(){
+  if(typeof Plotly==='undefined'){
+    ['variance','stack','cashflow','tornado','heatmap'].forEach(id=>fallbackPlot(id));
+    return;
+  }
+  renderCharts(PROJECTS[currentIdx]);
+}
+
+// Initial render of KPIs + findings (does not require Plotly)
+selectProject(0);
+
+// Wait for Plotly script — including the onerror fallback chain
+let tries=0;
+(function waitForPlotly(){
+  if(typeof Plotly!=='undefined'){ renderCharts(PROJECTS[currentIdx]); return; }
+  if(tries++ > 40){ bootCharts(); return; }   // gives up after ~4s, shows fallback
+  setTimeout(waitForPlotly, 100);
+})();
+</script>
+</body>
+</html>

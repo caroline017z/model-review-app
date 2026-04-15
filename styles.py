@@ -269,6 +269,32 @@ div[data-baseweb="select"] > div:focus-within {
 .cmp-tbl .delta-hdr { font-size: 0.62rem; color: var(--text-muted); min-width: 80px; }
 .cmp-tbl .delta-cell { font-style: italic; color: var(--text-muted); font-size: 0.78rem; }
 .cmp-tbl .delta-cell.neg-val { color: var(--status-fail); font-weight: 600; }
+
+/* ===== Bible-audit inline cell highlighting =====
+   Applied to the anchor (Model 1) cell when the project's input deviates
+   from the Q1 '26 Pricing Bible canonical value. Hover the cell for the
+   tooltip with expected value & reason. */
+.cmp-tbl .audit-off     { background: rgba(184, 50, 48, 0.16) !important;  color: #7a1f1d; font-weight: 700; box-shadow: inset 3px 0 0 #b83230; }
+.cmp-tbl .audit-out     { background: rgba(245, 196, 60, 0.22) !important; color: #6e4c08; font-weight: 700; box-shadow: inset 3px 0 0 #f5c43c; }
+.cmp-tbl .audit-missing { background: rgba(120, 130, 145, 0.14) !important; color: #4a525e; font-style: italic; box-shadow: inset 3px 0 0 #788291; }
+.cmp-tbl .audit-review  { background: rgba(29, 111, 169, 0.12) !important;  color: #144a72; font-weight: 600; box-shadow: inset 3px 0 0 #1D6FA9; }
+
+.audit-legend {
+    display: flex; gap: 0.5rem; margin: 0.4rem 0 0.6rem 0;
+    font-size: 0.7rem; flex-wrap: wrap; align-items: center;
+}
+.audit-legend::before {
+    content: "Bible audit:"; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.05em; margin-right: 0.25rem;
+}
+.audit-chip {
+    padding: 0.18rem 0.5rem; border-radius: 4px; font-weight: 600;
+    border: 1px solid rgba(0,0,0,0.06); white-space: nowrap;
+}
+.audit-chip.audit-off     { background: rgba(184, 50, 48, 0.16);  color: #7a1f1d; }
+.audit-chip.audit-out     { background: rgba(245, 196, 60, 0.22); color: #6e4c08; }
+.audit-chip.audit-missing { background: rgba(120, 130, 145, 0.14); color: #4a525e; }
+.audit-chip.audit-review  { background: rgba(29, 111, 169, 0.12);  color: #144a72; }
 </style>
 """
 

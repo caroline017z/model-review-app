@@ -61,6 +61,97 @@ def _detect_label_column(ws, max_row=620):
     return best_col
 
 
+# ---------------------------------------------------------------------------
+# Wrapped-EPC component detection
+# ---------------------------------------------------------------------------
+# The bible's $1.65/W EPC benchmark is the WRAPPED EPC = EPC + LNTP +
+# Safe Harbor module amount + EPC Contingency. Models vary in how they place
+# these rows, so we scan the label column for any row whose label matches
+# one of the patterns below and sum the per-W values for each project.
+WRAPPED_EPC_LABEL_PATTERNS = [
+    # (regex, component name) — order is informational only
+    (r"^pv\s*epc\s*cost$",                           "EPC"),
+    (r"^pv\s*lntp(\s*cost)?$",                       "LNTP"),
+    (r"safe\s*harbor.*module|module.*safe\s*harbor", "Safe Harbor Modules"),
+    (r"epc\s*contingency|contingency.*epc",          "EPC Contingency"),
+]
+
+
+def _scan_wrapped_epc_rows(ws, label_col, max_row=620):
+    """Return list of (row, component_name) for wrapped-EPC build rows."""
+    found = []
+    for r in range(1, max_row + 1):
+        val = ws.cell(row=r, column=label_col).value
+        if val is None:
+            continue
+        norm = _normalize_label(val)
+        for pat, comp_name in WRAPPED_EPC_LABEL_PATTERNS:
+            if re.search(pat, norm):
+                found.append((r, comp_name))
+                break
+    return found
+
+
+# ---------------------------------------------------------------------------
+# Rate-component label scanner — Guidehouse discount + ABP REC detection
+# ---------------------------------------------------------------------------
+# The bible expects a Guidehouse-derived discount applied to community-solar
+# rate components. The actual discount % lives at offset+7 of each rate
+# component start row. Separately, if any rate component is named "ABP REC"
+# (or similar) AND that component's equity toggle is on, the project should
+# be priced using ABP market assumptions for its (state, utility) regardless
+# of how the program field is labeled.
+GUIDEHOUSE_NAME_PATTERNS = [
+    r"guidehouse",
+    r"\bgh\b",                  # "GH discount" abbreviation
+]
+ABP_REC_NAME_PATTERNS = [
+    r"\babp\s*rec\b",
+    r"adjustable\s*block",
+    r"\babp\b.*\brec\b",
+]
+
+
+def _matches_any(name, patterns):
+    if not name:
+        return False
+    n = _normalize_label(name)
+    return any(re.search(p, n) for p in patterns)
+
+
+def _scan_rate_components(ws, col):
+    """Inspect each rate component's name + toggles for this project column.
+
+    Returns:
+        {
+          "guidehouse": [{idx, name, discount, equity_on, debt_on, appraisal_on}, ...],
+          "abp_rec":    [{idx, name, energy_rate, discount, equity_on, ...}, ...],
+          "abp_rec_live": bool,    # any ABP REC component with equity_on truthy
+        }
+    """
+    out = {"guidehouse": [], "abp_rec": [], "abp_rec_live": False}
+    for i, start in enumerate(RATE_COMP_STARTS, 1):
+        name = ws.cell(row=start + 1, column=col).value
+        if not name:
+            continue
+        eq_on  = safe_float(ws.cell(row=EQUITY_RATE_TOGGLE_START + (i - 1), column=col).value)
+        dt_on  = safe_float(ws.cell(row=DEBT_RATE_TOGGLE_START   + (i - 1), column=col).value)
+        ap_on  = safe_float(ws.cell(row=APPRAISAL_RATE_TOGGLE_START + (i - 1), column=col).value)
+        rec = {
+            "idx": i, "name": str(name).strip(),
+            "energy_rate": safe_float(ws.cell(row=start + 3, column=col).value),
+            "discount":    safe_float(ws.cell(row=start + 7, column=col).value),
+            "equity_on": bool(eq_on), "debt_on": bool(dt_on), "appraisal_on": bool(ap_on),
+        }
+        if _matches_any(name, GUIDEHOUSE_NAME_PATTERNS):
+            out["guidehouse"].append(rec)
+        if _matches_any(name, ABP_REC_NAME_PATTERNS):
+            out["abp_rec"].append(rec)
+            if rec["equity_on"]:
+                out["abp_rec_live"] = True
+    return out
+
+
 def _build_row_mapping(ws, label_col, max_row=620):
     """Build canonical_row -> actual_row mapping by scanning labels in the model.
 
@@ -138,6 +229,9 @@ def load_pricing_model(file):
     name_row = row_map.get(4, 4)
     toggle_row = row_map.get(7, 7)
 
+    # One-shot scan for wrapped-EPC component rows (label-based, model-agnostic)
+    wrapped_epc_rows = _scan_wrapped_epc_rows(ws, label_col)
+
     projects = {}
     for col in range(6, 88):
         name_cell = ws.cell(row=name_row, column=col).value
@@ -190,6 +284,33 @@ def load_pricing_model(file):
         data["_front_back_toggle"] = ws.cell(row=320, column=col).value
         data["_debt_sizing_method"] = ws.cell(row=321, column=col).value
 
+        # ---- Wrapped EPC build: sum EPC + LNTP + Safe Harbor + Contingency ----
+        # The bible's $1.65/W EPC benchmark is the WRAPPED total. We sum every
+        # component row found by the label scan; missing components contribute 0.
+        epc_components = []
+        wrapped_total = 0.0
+        any_value = False
+        for r, comp_name in wrapped_epc_rows:
+            v = safe_float(ws.cell(row=r, column=col).value)
+            epc_components.append({"row": r, "component": comp_name, "value": v})
+            if v is not None:
+                wrapped_total += v
+                any_value = True
+        data["_wrapped_epc_components"] = epc_components
+        data["_wrapped_epc_total"] = wrapped_total if any_value else None
+        # Override row 118 used by the bible audit so the comparison runs
+        # against the WRAPPED build, not raw PV EPC alone. Original raw EPC
+        # is preserved at _raw_epc_118 for diagnostics.
+        if any_value:
+            data["_raw_epc_118"] = data.get(118)
+            data[118] = wrapped_total
+
+        # ---- Rate-component scan: Guidehouse discount + ABP REC live state ----
+        rate_scan = _scan_rate_components(ws, col)
+        data["_guidehouse_components"] = rate_scan["guidehouse"]
+        data["_abp_rec_components"]    = rate_scan["abp_rec"]
+        data["_abp_rec_live"]          = rate_scan["abp_rec_live"]
+
         clean_name = " | ".join(line.strip() for line in str(name_cell).strip().splitlines() if line.strip())
         projects[col] = {
             "name": clean_name, "toggle": is_on,
@@ -229,8 +350,82 @@ def load_pricing_model(file):
                           ("equity_opex_npv", 48), ("debt_opex_npv", 49), ("appraisal_opex_npv", 50)]:
             ops_sandbox[attr] = safe_float(ws_ops.cell(row=row, column=8).value)
 
+    # --- Rate Curves sheet ---
+    rate_curves = {}
+    if "Rate Curves" in wb.sheetnames:
+        ws_rc = wb["Rate Curves"]
+
+        # Read date row (row 5, cols 10+)
+        rc_dates = {}
+        for c in range(10, min(510, ws_rc.max_column + 1)):
+            d = ws_rc.cell(row=5, column=c).value
+            if d is not None and hasattr(d, "year"):
+                rc_dates[c] = d
+            elif d is None and c > 20:
+                break
+
+        # Build project name -> RC custom-rate row mapping
+        # RC1 projects start at row 35, RC2 at row 117, etc.
+        # Each RC block is 82 rows apart: 30, 112, 194, 276, 358, 440
+        rc_block_starts = [30, 112, 194, 276, 358, 440]
+        proj_row_offset = 5  # projects start 5 rows after block start
+
+        # Map project names to their rate curve row within each block
+        rc_proj_rows = {}  # {rc_index: {project_name: row_number}}
+        for rc_idx, blk_start in enumerate(rc_block_starts, 1):
+            rc_proj_rows[rc_idx] = {}
+            rc_label_row = blk_start  # e.g. "Rate Component 1"
+            rc_name = ws_rc.cell(row=rc_label_row, column=4).value  # curve name (e.g. "GH25 -22.5")
+
+            # Custom rate row (aggregate) is blk_start + 2
+            custom_rate_row = blk_start + 2
+
+            # Per-project custom rates start at blk_start + 5
+            for pr in range(blk_start + proj_row_offset, blk_start + 80):
+                pname = ws_rc.cell(row=pr, column=2).value
+                if pname and "Project " not in str(pname) and "Anchor" not in str(pname):
+                    rc_proj_rows[rc_idx][str(pname).strip()] = pr
+                elif pname and "Anchor" in str(pname):
+                    break
+
+            rate_curves[f"rc{rc_idx}_name"] = str(rc_name or "")
+            rate_curves[f"rc{rc_idx}_custom_row"] = custom_rate_row
+            rate_curves[f"rc{rc_idx}_proj_rows"] = rc_proj_rows[rc_idx]
+
+        # Extract monthly rate data per project per RC
+        rate_curves["dates"] = rc_dates
+        rate_curves["projects"] = {}
+
+        for col_idx, proj in projects.items():
+            pname = proj["name"]
+            # Find matching project row in Rate Curves by name matching
+            proj_rc_data = {}
+            for rc_idx in range(1, 7):
+                proj_rows_map = rc_proj_rows.get(rc_idx, {})
+                # Try exact match first, then partial
+                matched_row = None
+                for rc_pname, rc_row in proj_rows_map.items():
+                    if rc_pname in pname or pname in rc_pname:
+                        matched_row = rc_row
+                        break
+                    # Also try first part of multi-line name
+                    first_part = pname.split(" | ")[0].strip()
+                    if rc_pname == first_part or first_part in rc_pname:
+                        matched_row = rc_row
+                        break
+
+                if matched_row:
+                    monthly = {}
+                    for c, dt in rc_dates.items():
+                        v = safe_float(ws_rc.cell(row=matched_row, column=c).value)
+                        if v is not None and v != 0:
+                            monthly[dt] = v
+                    proj_rc_data[rc_idx] = monthly
+
+            rate_curves["projects"][pname] = proj_rc_data
+
     wb.close()
-    return {"projects": projects, "ops_sandbox": ops_sandbox}
+    return {"projects": projects, "ops_sandbox": ops_sandbox, "rate_curves": rate_curves}
 
 
 def get_projects(model_result):
@@ -243,6 +438,155 @@ def get_ops_sandbox(model_result):
     if isinstance(model_result, dict) and "ops_sandbox" in model_result:
         return model_result["ops_sandbox"]
     return {}
+
+
+def get_rate_curves(model_result):
+    if isinstance(model_result, dict) and "rate_curves" in model_result:
+        return model_result["rate_curves"]
+    return {}
+
+
+def load_gh25_reference(file_path):
+    """Load GH Summer 2025 reference rate curves from the OBBB file.
+
+    Returns dict with:
+        dates: {col: datetime}
+        curves: {curve_name: {datetime: rate_value}}
+        annual: {curve_name: {year: avg_rate}}
+        cagrs: {curve_name: float}
+    """
+    import openpyxl
+    from pathlib import Path
+
+    fp = Path(file_path)
+    if not fp.exists():
+        return {}
+
+    wb = openpyxl.load_workbook(str(fp), data_only=True, read_only=False)
+    if "2025 Table" not in wb.sheetnames:
+        wb.close()
+        return {}
+
+    ws = wb["2025 Table"]
+
+    # Read dates from row 5, col 6+
+    dates = {}
+    for c in range(6, min(402, ws.max_column + 1)):
+        d = ws.cell(row=5, column=c).value
+        if d is not None and hasattr(d, "year"):
+            dates[c] = d
+
+    # Curve definitions: row -> (name, cagr_col_D)
+    curve_defs = {
+        49: "Ameren Resi",
+        50: "Ameren Com",
+        51: "Ameren GH25",
+        53: "ComEd Resi",
+        54: "ComEd Com",
+        55: "ComEd GH25",
+    }
+
+    curves = {}
+    cagrs = {}
+    annual = {}
+
+    for row, name in curve_defs.items():
+        cagr = safe_float(ws.cell(row=row, column=4).value)
+        cagrs[name] = cagr
+
+        monthly = {}
+        yearly_buckets = {}
+        for c, dt in dates.items():
+            v = safe_float(ws.cell(row=row, column=c).value)
+            if v is not None:
+                monthly[dt] = v
+                yearly_buckets.setdefault(dt.year, []).append(v)
+
+        curves[name] = monthly
+        annual[name] = {yr: sum(vals) / len(vals) for yr, vals in yearly_buckets.items()}
+
+    wb.close()
+    return {"dates": dates, "curves": curves, "annual": annual, "cagrs": cagrs}
+
+
+@st.cache_data(show_spinner=False)
+def load_mapper_output(file):
+    """Load a portfolio-model-mapper output workbook.
+
+    The mapper produces a 'Model Paste Format' (or 'Full Row Mapping 2') sheet
+    with this layout:
+        Col A: Model Row#   (matches our canonical INPUT_ROW_LABELS keys)
+        Col B: Field        (label, ignored — we trust the row #)
+        Col C: Units        (ignored)
+        Col D: Source       (CIM / Default / Manual — kept for tooltip)
+        Col E..N: one column per project, header is project name in row 1
+
+    Returns a dict shaped exactly like load_pricing_model()'s 'projects' so the
+    UI can drop it in alongside Model 1 / Model 2:
+        {col_idx: {"name": ..., "toggle": True, "col_letter": ...,
+                   "data": {row#: value}, "rate_comps": {}, "_source_map": {row#: src}}}
+    """
+    wb = openpyxl.load_workbook(file, data_only=True, read_only=False)
+
+    # Prefer the paste-format sheet (canonical row #s); fall back to Full Row Mapping
+    target_sheet = None
+    for candidate in ("Model Paste Format", "Full Row Mapping 2", "Full Row Mapping"):
+        if candidate in wb.sheetnames:
+            target_sheet = candidate
+            break
+    if target_sheet is None:
+        wb.close()
+        return {}
+
+    ws = wb[target_sheet]
+
+    # Header row 1: cols 5+ contain project names. Skip empty headers.
+    project_cols = []
+    for c in range(5, ws.max_column + 1):
+        name = ws.cell(row=1, column=c).value
+        if name and str(name).strip():
+            # Cleanup: strip leading state code/site code in parentheses if any
+            project_cols.append((c, str(name).strip()))
+
+    if not project_cols:
+        wb.close()
+        return {}
+
+    projects = {}
+    for c, pname in project_cols:
+        data = {}
+        sources = {}
+        for r in range(2, ws.max_row + 1):
+            row_num_cell = ws.cell(row=r, column=1).value
+            row_num = safe_float(row_num_cell)
+            if row_num is None:
+                continue
+            row_int = int(row_num)
+            val = ws.cell(row=r, column=c).value
+            if val is None or (isinstance(val, str) and not val.strip()):
+                continue
+            data[row_int] = val
+            sources[row_int] = ws.cell(row=r, column=4).value
+
+        if not data:
+            continue
+
+        # Clean name (mirror load_pricing_model logic)
+        clean_name = " | ".join(line.strip() for line in pname.splitlines() if line.strip())
+        projects[c] = {
+            "name": clean_name,
+            "toggle": True,
+            "col_letter": openpyxl.utils.get_column_letter(c),
+            "data": data,
+            "rate_comps": {},
+            "dscr_label": None,
+            "dscr_schedule": {},
+            "_source_map": sources,
+            "_origin": "mapper",
+        }
+
+    wb.close()
+    return projects
 
 
 @st.cache_data(show_spinner=False)
