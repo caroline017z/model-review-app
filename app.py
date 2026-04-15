@@ -44,6 +44,33 @@ st.set_page_config(
 
 st.markdown(APP_CSS, unsafe_allow_html=True)
 
+# Let the embedded mockup extend to the viewport edges.
+st.markdown(
+    """
+    <style>
+      /* Kill the default block-container gutters on the main area */
+      .main .block-container{
+        padding: 0.25rem 0.5rem 0 0.5rem !important;
+        max-width: 100% !important;
+      }
+      /* Remove the header padding that leaves dead space above the iframe */
+      header[data-testid="stHeader"]{
+        background: transparent;
+      }
+      /* Make the component iframe fill its row */
+      iframe[title="streamlit_component"]{
+        width: 100% !important;
+      }
+      /* When the sidebar is collapsed, the main column stretches — keep the
+         iframe responsive without horizontal scrollbars. */
+      section[data-testid="stSidebar"][aria-expanded="false"] + section .block-container{
+        padding-left: 0.5rem !important;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # ---------------------------------------------------------------------------
 # Sidebar

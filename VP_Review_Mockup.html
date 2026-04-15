@@ -1143,16 +1143,13 @@ function renderCharts(p){
     margin:{l:10, r:10, t:14, b:60, autoexpand:true}
   }, cfg);
 
-  // ----- 25-year cash flow (scaled by project) -----
-  const mul = p.cashflowMul || 1;
-  const yrs = Array.from({length:25},(_,i)=>i+1);
-  const opCF  = yrs.map(y => mul*(380 + 4*y - 1.2*y*y/3));
-  const taxBn = yrs.map(y => mul*(y<=6 ? 280 - 30*y : 20));
-  const term  = yrs.map(y => y===25 ? mul*1200 : 0);
+  // ----- 25-year cash flow (real arrays from Python) -----
+  const cf = p.cashflow || {opCF:[], taxBn:[], terminal:[]};
+  const yrs = Array.from({length:Math.max(cf.opCF.length, 25)},(_,i)=>i+1);
   Plotly.react('cashflow', [
-    {type:'scatter', mode:'none', stackgroup:'one', name:'Operating CF', x:yrs, y:opCF,  fillcolor:'rgba(81,132,132,0.55)'},
-    {type:'scatter', mode:'none', stackgroup:'one', name:'Tax Benefits', x:yrs, y:taxBn, fillcolor:'rgba(33,43,72,0.45)'},
-    {type:'scatter', mode:'none', stackgroup:'one', name:'Terminal',     x:yrs, y:term,  fillcolor:'rgba(29,111,169,0.45)'},
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Operating CF', x:yrs, y:cf.opCF,    fillcolor:'rgba(81,132,132,0.55)'},
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Tax Benefits', x:yrs, y:cf.taxBn,   fillcolor:'rgba(33,43,72,0.45)'},
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Terminal',     x:yrs, y:cf.terminal,fillcolor:'rgba(29,111,169,0.45)'},
   ],{...baseLayout,
     xaxis:{...baseLayout.xaxis, title:{text:'Year', standoff:12}, dtick:5, automargin:true},
     yaxis:{...baseLayout.yaxis, title:{text:'$ thousands', standoff:14}, tickprefix:'$', tickformat:',.0f'},
@@ -1160,12 +1157,13 @@ function renderCharts(p){
     margin:{l:10, r:10, t:14, b:60, autoexpand:true}
   }, cfg);
 
-  // ----- Sensitivity tornado (scaled per project) -----
-  const tmul = p.tornadoMul || 1;
-  const inputs = ['EPC $/W','ITC %','Upfront $/W','REC $/MWh','OpEx $/kW','Discount Rate','Insurance'];
-  const lo = [-0.08,-0.12,-0.03,-0.05,-0.02,-0.04,-0.01].map(v=>v*tmul);
-  const hi = [ 0.08, 0.12, 0.03, 0.05, 0.02, 0.04, 0.01].map(v=>v*tmul);
-  const tMin = Math.min(...lo), tMax = Math.max(...hi);
+  // ----- Sensitivity tornado (real ΔNPP $/W arrays) -----
+  const torn = p.tornado || {labels:[], lo:[], hi:[]};
+  const inputs = torn.labels.slice().reverse();  // reverse so largest swing is on top
+  const lo = torn.lo.slice().reverse();
+  const hi = torn.hi.slice().reverse();
+  const tMin = lo.length ? Math.min(...lo, 0) : 0;
+  const tMax = hi.length ? Math.max(...hi, 0) : 0;
   const tPad = Math.max(Math.abs(tMin), Math.abs(tMax))*0.15 || 0.02;
   Plotly.react('tornado', [
     {type:'bar', orientation:'h', name:'−10%', x:lo, y:inputs, marker:{color:OFF}, hovertemplate:'%{y}: $%{x:.2f}<extra>−10%</extra>'},
@@ -1180,19 +1178,10 @@ function renderCharts(p){
   }, cfg);
 
   // ----- Heatmap (with current project highlighted via a row marker) -----
-  const projects = PROJECTS.map(x=>x.name);
-  const fields = ['EPC','LNTP','C&L','ITC','EligCost','Upfront','REC','OpEx','Insurance'];
-  // Statuses per project derived loosely from findings counts
-  const z = [
-    [2,0,0,2,3,1,0,0,0],
-    [0,2,0,0,0,0,0,1,0],
-    [2,0,0,0,3,0,0,0,3],
-    [0,0,0,0,0,0,0,0,0],
-    [2,0,0,0,0,2,0,0,0],
-    [0,0,0,0,0,0,0,1,0],
-    [2,0,0,0,0,0,0,0,0],
-    [2,0,0,0,0,0,0,0,1],
-  ];
+  const HM = (PORTFOLIO && PORTFOLIO.heatmap) || {projects:[], fields:[], z:[]};
+  const projects = HM.projects.length ? HM.projects : PROJECTS.map(x=>x.name);
+  const fields = HM.fields.length ? HM.fields : ['EPC','LNTP','C&L','ITC','Elig Cost','Upfront','Insurance','O&M','AM Fee'];
+  const z = HM.z.length ? HM.z : projects.map(()=>fields.map(()=>0));
   Plotly.react('heatmap', [{
     type:'heatmap', z, x:fields, y:projects,
     colorscale:[[0,'#f7f8fa'],[0.34,'rgba(81,132,132,0.25)'],[0.67,'rgba(184,50,48,0.55)'],[1,'#dfe2e8']],

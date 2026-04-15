@@ -37,7 +37,10 @@ ROW_PROGRAM_A = 22
 ROW_PROGRAM_B = 21
 ROW_EPC_WRAPPED = 118
 ROW_LNTP = 119
+ROW_IX = 122
 ROW_CLOSING = 123
+ROW_PPA_RATE = 157
+ROW_ESCALATOR = 158
 ROW_NPP = 38
 ROW_FMV_IRR = 33
 ROW_UPFRONT = 216
@@ -50,6 +53,27 @@ IRR_PCT_PER_CENT = 0.18
 # NPV dampener for multi-year OpEx deltas (rough 7% WACC, 25-yr).
 OPEX_NPV_FACTOR = 0.55
 OPEX_TERM_YEARS = 25
+
+# Assumptions for derived chart data (when real model run isn't available).
+DEFAULT_YIELD_KWH_PER_WP = 1.55     # CS average
+DEFAULT_DEGRADATION = 0.005         # 0.5% / yr
+DEFAULT_OPEX_ESC = 0.02
+DEFAULT_OM_PREV = 4_750             # $/MW/yr
+DEFAULT_OM_CORR = 2_000
+DEFAULT_AM_FEE = 3_000
+DEFAULT_INSURANCE = 3_500
+TAX_EQUITY_MONETIZATION = 0.85      # TE pays ~85¢ per $1 of ITC
+DEBT_FRACTION_OF_NET = 0.55         # DSCR-sized illustrative
+CORPORATE_TAX_RATE = 0.21
+# MACRS 5-yr (half-year convention) with ITC basis reduction applied separately.
+MACRS_5YR = (0.20, 0.32, 0.192, 0.1152, 0.1152, 0.0576)
+# Bible defaults for the "bible-aligned" capital-stack comparison.
+BIBLE_EPC_PER_W = 1.65
+BIBLE_LNTP_PER_W = 0.10
+BIBLE_CL_PER_W = 0.06
+BIBLE_IX_PER_W = 0.05
+BIBLE_ITC_FRAC = 0.40
+BIBLE_ELIG_FRAC = 0.97
 
 
 def _num(v: Any) -> float | None:
@@ -462,14 +486,193 @@ def _build_wrapped_epc(audit: dict) -> list[dict]:
     return out
 
 
+def _build_capital_stack(proj: dict, market: dict | None) -> dict:
+    """Four-bar capital stack ($/W) for Model vs Bible-aligned.
+
+    Order: Sponsor Equity, Tax Equity, Debt, Incentives.
+    """
+    data = proj.get("data", {})
+    def _fill(val, fallback):
+        return val if val is not None else fallback
+
+    epc = _fill(_num(data.get(ROW_EPC_WRAPPED)), BIBLE_EPC_PER_W)
+    lntp = _fill(_num(data.get(ROW_LNTP)), BIBLE_LNTP_PER_W)
+    cl = _fill(_num(data.get(ROW_CLOSING)), BIBLE_CL_PER_W)
+    ix = _fill(_num(data.get(ROW_IX)), BIBLE_IX_PER_W)
+    upfront = _fill(_num(data.get(ROW_UPFRONT)), 0.0)
+    # Explicit 0 must stay 0 — can't use `or` fallback on ITC/eligible.
+    itc = _fill(_as_fraction(data.get(ROW_ITC_PCT)), BIBLE_ITC_FRAC)
+    elig = _fill(_as_fraction(data.get(ROW_ELIG_COSTS)), BIBLE_ELIG_FRAC)
+
+    model_total = epc + lntp + cl + ix
+    te_value = itc * elig * model_total * TAX_EQUITY_MONETIZATION
+    model_net = max(0.0, model_total - upfront - te_value)
+    model_debt = model_net * DEBT_FRACTION_OF_NET
+    model_sponsor = model_net - model_debt
+
+    bible_upfront = 0.0
+    if market and isinstance(market.get(ROW_UPFRONT), (int, float)):
+        bible_upfront = float(market[ROW_UPFRONT])
+    bible_total = BIBLE_EPC_PER_W + BIBLE_LNTP_PER_W + BIBLE_CL_PER_W + BIBLE_IX_PER_W
+    bible_te = BIBLE_ITC_FRAC * BIBLE_ELIG_FRAC * bible_total * TAX_EQUITY_MONETIZATION
+    bible_net = max(0.0, bible_total - bible_upfront - bible_te)
+    bible_debt = bible_net * DEBT_FRACTION_OF_NET
+    bible_sponsor = bible_net - bible_debt
+
+    def _nn(x: float) -> float:
+        return round(max(0.0, float(x)), 3)
+
+    return {
+        "model": [_nn(model_sponsor), _nn(te_value), _nn(model_debt), _nn(upfront)],
+        "bible": [_nn(bible_sponsor), _nn(bible_te), _nn(bible_debt), _nn(bible_upfront)],
+    }
+
+
+def _build_cashflow(proj: dict) -> dict:
+    """25-year operating CF / tax benefits / terminal value (in $ thousands).
+
+    Revenue: yield × DC_MW × PPA rate × escalator, with 0.5%/yr degradation.
+    Tax benefits: ITC year-1 + MACRS depreciation shield years 1–6.
+    Terminal: ~2.5× final-year operating CF.
+    """
+    data = proj.get("data", {})
+    dc_mw = _num(data.get(ROW_DC_MW)) or 0
+    if dc_mw <= 0:
+        zero = [0] * 25
+        return {"opCF": zero, "taxBn": zero, "terminal": zero}
+
+    ppa_rate = _num(data.get(ROW_PPA_RATE))
+    if ppa_rate is None:
+        ppa_rate = 0.08
+    escalator = _num(data.get(ROW_ESCALATOR))
+    if escalator is None:
+        escalator = 0.015
+    elif abs(escalator) > 0.5:
+        escalator = escalator / 100.0
+
+    epc = _num(data.get(ROW_EPC_WRAPPED))
+    if epc is None:
+        epc = BIBLE_EPC_PER_W
+    itc_frac = _as_fraction(data.get(ROW_ITC_PCT))
+    if itc_frac is None:
+        itc_frac = 0.0
+    elig_frac = _as_fraction(data.get(ROW_ELIG_COSTS))
+    if elig_frac is None:
+        elig_frac = BIBLE_ELIG_FRAC
+
+    # In thousands of $: DC_MW × 1000 kW × yield (kWh/Wp) × 1000 = MWh, then × rate = $
+    annual_mwh = dc_mw * DEFAULT_YIELD_KWH_PER_WP * 1000
+    total_opex_mw_yr = DEFAULT_OM_PREV + DEFAULT_OM_CORR + DEFAULT_AM_FEE + DEFAULT_INSURANCE
+
+    basis_k = (epc * dc_mw * 1000) * (1 - itc_frac / 2)  # ITC basis reduction
+    itc_year1_k = itc_frac * elig_frac * epc * dc_mw * 1000
+
+    op_cf: list[int] = []
+    tax_bn: list[int] = []
+    terminal: list[int] = []
+    for yr_idx in range(OPEX_TERM_YEARS):
+        year = yr_idx + 1
+        prod_mwh = annual_mwh * ((1 - DEFAULT_DEGRADATION) ** yr_idx)
+        rev_k = prod_mwh * ppa_rate * ((1 + escalator) ** yr_idx)  # $ (MWh*$/kWh is $, OK on small rates)
+        # Rate is $/kWh; prod is MWh. MWh × $/kWh × 1000 → $. Then /1000 → $k.
+        rev_k = prod_mwh * 1000 * ppa_rate * ((1 + escalator) ** yr_idx) / 1000
+        opex_k = dc_mw * total_opex_mw_yr * ((1 + DEFAULT_OPEX_ESC) ** yr_idx) / 1000
+        op_cf.append(int(round(rev_k - opex_k)))
+
+        tb = 0.0
+        if year == 1:
+            tb += itc_year1_k
+        if yr_idx < len(MACRS_5YR):
+            tb += MACRS_5YR[yr_idx] * basis_k * CORPORATE_TAX_RATE
+        tax_bn.append(int(round(tb)))
+
+        terminal.append(int(round(op_cf[-1] * 2.5)) if year == OPEX_TERM_YEARS else 0)
+
+    return {"opCF": op_cf, "taxBn": tax_bn, "terminal": terminal}
+
+
+def _build_sensitivity(proj: dict) -> dict:
+    """±10% input shocks translated into ΔNPP $/W via _compute_impact rules.
+
+    Returns {labels, lo, hi} sorted by swing magnitude; truncated to 7 inputs.
+    """
+    data = proj.get("data", {})
+    dc_mw = _num(data.get(ROW_DC_MW)) or 0
+    dc_w = dc_mw * 1_000_000 if dc_mw > 0 else 0
+
+    candidates: list[dict] = []
+
+    def _add(label: str, delta_dollars_at_plus_10: float):
+        """delta_dollars_at_plus_10 = $ impact on sponsor proceeds if input goes +10%.
+        Stored as ΔNPP $/W (lo at -10%, hi at +10%)."""
+        if not dc_w:
+            return
+        per_w = delta_dollars_at_plus_10 / dc_w
+        candidates.append({"label": label, "lo": -per_w, "hi": per_w})
+
+    epc = _num(data.get(ROW_EPC_WRAPPED))
+    if epc:
+        # +10% EPC → more cost → negative impact on sponsor.
+        _add("EPC $/W", -0.10 * epc * dc_w)
+
+    itc = _as_fraction(data.get(ROW_ITC_PCT))
+    elig = _as_fraction(data.get(ROW_ELIG_COSTS)) or BIBLE_ELIG_FRAC
+    if itc and epc:
+        # +10% of 40% ITC = +4 pp ITC → positive impact.
+        _add("ITC %", (itc * 0.10) * elig * epc * dc_w)
+
+    upfront = _num(data.get(ROW_UPFRONT))
+    if upfront:
+        _add("Upfront Incentive $/W", 0.10 * upfront * dc_w)
+
+    ppa = _num(data.get(ROW_PPA_RATE))
+    if ppa:
+        annual_mwh = dc_mw * DEFAULT_YIELD_KWH_PER_WP * 1000
+        # +10% rate → ΔRevenue/yr × 25-yr × NPV dampener.
+        delta_annual = 0.10 * ppa * annual_mwh * 1000
+        _add("PPA Rate $/kWh", delta_annual * OPEX_TERM_YEARS * OPEX_NPV_FACTOR)
+
+    lntp = _num(data.get(ROW_LNTP))
+    if lntp:
+        _add("LNTP $/W", -0.10 * lntp * dc_w)
+
+    # OpEx (use benchmark total × DC_MW)
+    if dc_mw:
+        total_opex = DEFAULT_OM_PREV + DEFAULT_OM_CORR + DEFAULT_AM_FEE + DEFAULT_INSURANCE
+        _add("OpEx $/MW-yr",
+             -0.10 * total_opex * dc_mw * OPEX_TERM_YEARS * OPEX_NPV_FACTOR)
+
+    insurance = _num(data.get(ROW_INSURANCE))
+    if insurance and dc_mw:
+        _add("Insurance $/MW-yr",
+             -0.10 * insurance * dc_mw * OPEX_TERM_YEARS * OPEX_NPV_FACTOR)
+
+    # Rank by absolute swing, take top 7
+    candidates.sort(key=lambda c: -abs(c["hi"] - c["lo"]))
+    candidates = candidates[:7]
+
+    return {
+        "labels": [c["label"] for c in candidates],
+        "lo": [round(c["lo"], 3) for c in candidates],
+        "hi": [round(c["hi"], 3) for c in candidates],
+    }
+
+
 def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
     data = proj.get("data", {})
     findings = _build_findings(audit, data)
     summary = audit.get("summary", {}) or {}
     dc_mw = _num(data.get(ROW_DC_MW)) or 0
     rolled = _roll_up(findings, dc_mw)
-    # Scale chart multipliers roughly by project size
-    mul = max(0.5, min(3.5, dc_mw / 5.0)) if dc_mw else 1.0
+    # Look up market once so the capital stack's "bible upfront" is market-aware.
+    state = str(audit.get("state") or data.get(ROW_STATE) or "").strip().upper()
+    if state in ("MD", "DE"):
+        state = "MD/DE"
+    market = lookup_market(
+        state,
+        str(data.get(ROW_UTILITY) or "").strip(),
+        str(audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip(),
+    )
     return {
         "name": proj.get("name") or "Unnamed",
         "sub": _derive_sub(proj, audit, label),
@@ -480,14 +683,11 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
         "kpis": _build_kpis(proj, findings),
         "findings": findings,
         "variance": _build_variance(findings),
-        "stack": {
-            "model": [0.50, 0.70, 1.15, 0.85],
-            "bible": [0.50, 0.70, 1.15, 0.85],
-        },
+        "stack": _build_capital_stack(proj, market),
+        "cashflow": _build_cashflow(proj),
+        "tornado": _build_sensitivity(proj),
         "wrappedEpcComponents": _build_wrapped_epc(audit),
         "references": _build_references(proj, audit),
-        "cashflowMul": round(mul, 2),
-        "tornadoMul": round(mul, 2),
     }
 
 
@@ -543,6 +743,36 @@ def _safe_json(payload) -> str:
     return s.replace("</", "<\\/").replace("<!--", "<\\!--")
 
 
+# Status → heatmap code (0 OK, 1 OUT, 2 OFF, 3 MISSING/REVIEW).
+_STATUS_CODE = {"OK": 0, "OUT": 1, "OFF": 2, "MISSING": 3, "REVIEW": 3}
+# (heatmap column label, rows in the audit that flow into that column)
+_HEATMAP_COLUMNS = [
+    ("EPC",       [ROW_EPC_WRAPPED]),
+    ("LNTP",      [ROW_LNTP]),
+    ("C&L",       [ROW_CLOSING]),
+    ("ITC",       [ROW_ITC_PCT]),
+    ("Elig Cost", [ROW_ELIG_COSTS]),
+    ("Upfront",   [ROW_UPFRONT]),
+    ("Insurance", [ROW_INSURANCE]),
+    ("O&M",       [225, 226]),
+    ("AM Fee",    [230]),
+]
+
+
+def _build_heatmap_row(audit: dict) -> list[int]:
+    rows = audit.get("rows") or {}
+    out: list[int] = []
+    for _, audit_rows in _HEATMAP_COLUMNS:
+        worst = 0
+        for r in audit_rows:
+            status = (rows.get(r) or {}).get("status", "OK")
+            code = _STATUS_CODE.get(status, 0)
+            if code > worst:
+                worst = code
+        out.append(worst)
+    return out
+
+
 def build_payload(
     m1_projects: dict,
     *,
@@ -554,6 +784,8 @@ def build_payload(
     projects_list: list[dict] = []
     totals = {"OFF": 0, "OUT": 0, "MISSING": 0, "REVIEW": 0, "OK": 0}
     total_mw = 0.0
+    heatmap_z: list[list[int]] = []
+    heatmap_projects: list[str] = []
 
     for _, proj in _iter_projects(m1_projects):
         if not proj.get("toggle", True):
@@ -565,6 +797,8 @@ def build_payload(
             totals[k] += summary.get(k, 0) or 0
         mw = _num(proj.get("data", {}).get(ROW_DC_MW)) or 0
         total_mw += mw
+        heatmap_z.append(_build_heatmap_row(audit))
+        heatmap_projects.append(str(proj.get("name") or "Unnamed"))
 
     portfolio = {
         "off": totals["OFF"],
@@ -579,6 +813,11 @@ def build_payload(
         "bibleLabel": bible_label,
         "loadedDate": datetime.now().strftime("%b %d, %Y"),
         "reviewer": reviewer,
+        "heatmap": {
+            "projects": heatmap_projects,
+            "fields": [c[0] for c in _HEATMAP_COLUMNS],
+            "z": heatmap_z,
+        },
     }
     return projects_list, portfolio
 
