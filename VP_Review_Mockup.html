@@ -256,24 +256,24 @@
   </div>
   <div class="top-meta">
     <span>Model: <b id="modelName">Lightstar · IL</b></span>
-    <span>Bible: <b>Q1 '26</b></span>
-    <span>Loaded: <b>Apr 15, 2026</b></span>
-    <span>Reviewer: <b>Caroline Z.</b></span>
+    <span>Bible: <b id="bibleLabel">Q1 '26</b></span>
+    <span>Loaded: <b id="loadedDate">Apr 15, 2026</b></span>
+    <span>Reviewer: <b id="reviewer">Caroline Z.</b></span>
   </div>
 </div>
 
 <!-- Audit summary strip -->
 <div class="audit-strip">
   <span class="strip-label">Portfolio Audit</span>
-  <span class="pill off"><span class="num">47</span> OFF</span>
-  <span class="pill out"><span class="num">12</span> OUT</span>
-  <span class="pill miss"><span class="num">8</span> MISSING</span>
-  <span class="pill rev"><span class="num">3</span> REVIEW</span>
+  <span class="pill off"><span class="num" id="pillOff">0</span> OFF</span>
+  <span class="pill out"><span class="num" id="pillOut">0</span> OUT</span>
+  <span class="pill miss"><span class="num" id="pillMiss">0</span> MISSING</span>
+  <span class="pill rev"><span class="num" id="pillRev">0</span> REVIEW</span>
   <div class="strip-divider"></div>
-  <span class="pill"><span class="num">8</span> Projects</span>
-  <span class="pill"><span class="num">62.4 MW</span> Total DC</span>
-  <span class="pill" style="margin-left:auto;"><span class="num">3</span> Reviewed</span>
-  <span class="pill"><span class="num">5</span> Pending</span>
+  <span class="pill"><span class="num" id="pillCount">0</span> Projects</span>
+  <span class="pill"><span class="num" id="pillMw">0 MW</span> Total DC</span>
+  <span class="pill" style="margin-left:auto;"><span class="num" id="pillReviewed">0</span> Reviewed</span>
+  <span class="pill"><span class="num" id="pillPending">0</span> Pending</span>
 </div>
 
 <div class="layout">
@@ -281,77 +281,17 @@
   <!-- LEFT -->
   <div class="panel left">
     <div class="nav-header">
-      <span>Projects · 8</span>
-      <span style="color:var(--teal);cursor:pointer;">+ Filter</span>
+      <span id="navProjCount">Projects · 0</span>
+      <span style="color:var(--teal);cursor:pointer;" id="navFilterToggle">+ Filter</span>
     </div>
-    <input class="nav-search" placeholder="Search projects…" />
-    <div class="filter-row">
-      <span class="chip active">All</span>
-      <span class="chip">OFF only</span>
-      <span class="chip">IL</span>
-      <span class="chip">NY</span>
-      <span class="chip">MD/DE</span>
+    <input class="nav-search" id="navSearch" placeholder="Search projects…" />
+    <div class="filter-row" id="navFilters">
+      <span class="chip active" data-filter="all">All</span>
+      <span class="chip" data-filter="off">OFF only</span>
     </div>
-
-    <div class="proj-card selected">
-      <div class="pname">Joel</div>
-      <div class="pmeta">IL · Ameren · ABP — 4.85 MW</div>
-      <div class="pchips">
-        <span class="micro off">EPC OFF</span>
-        <span class="micro off">ITC OFF</span>
-        <span class="micro out">UPF OUT</span>
-        <span class="micro miss">EC</span>
-      </div>
-    </div>
-    <div class="proj-card">
-      <div class="pname">Bishop Hill</div>
-      <div class="pmeta">IL · ComEd · ABP — 7.20 MW</div>
-      <div class="pchips">
-        <span class="micro off">LNTP OFF</span>
-        <span class="micro out">OPEX OUT</span>
-      </div>
-    </div>
-    <div class="proj-card">
-      <div class="pname">Greenwood</div>
-      <div class="pmeta">NY · NYSEG · CDG — 5.00 MW</div>
-      <div class="pchips">
-        <span class="micro off">EPC OFF</span>
-        <span class="micro miss">INS</span>
-      </div>
-    </div>
-    <div class="proj-card">
-      <div class="pname">Marlboro</div>
-      <div class="pmeta">MD · BGE · CSEP — 3.10 MW</div>
-      <div class="pchips"><span class="micro ok">CLEAN</span></div>
-    </div>
-    <div class="proj-card">
-      <div class="pname">Sussex East</div>
-      <div class="pmeta">DE · Delmarva — 8.40 MW</div>
-      <div class="pchips">
-        <span class="micro off">EPC OFF</span>
-        <span class="micro off">UPF OFF</span>
-      </div>
-    </div>
-    <div class="proj-card">
-      <div class="pname">Lake Geneva</div>
-      <div class="pmeta">IL · ComEd · Non-ABP — 6.60 MW</div>
-      <div class="pchips"><span class="micro out">OPEX OUT</span></div>
-    </div>
-    <div class="proj-card">
-      <div class="pname">Stanton</div>
-      <div class="pmeta">NY · National Grid · VDER — 12.10 MW</div>
-      <div class="pchips">
-        <span class="micro" style="background:var(--rev-bg);color:var(--rev);">VDER REV</span>
-        <span class="micro off">EPC OFF</span>
-      </div>
-    </div>
-    <div class="proj-card">
-      <div class="pname">Ridge Run</div>
-      <div class="pmeta">MD · PEPCO · CSEP — 15.20 MW</div>
-      <div class="pchips">
-        <span class="micro off">EPC OFF</span>
-        <span class="micro out">INS OUT</span>
-      </div>
+    <div id="projList"></div>
+    <div id="projEmpty" style="display:none;padding:18px 10px;color:var(--muted);font-size:11.5px;text-align:center;">
+      No projects loaded. Upload a pricing model and click <b>Run Review</b>.
     </div>
   </div>
 
@@ -564,7 +504,17 @@ function setNegHTML(el, val, formatter){
   else { el.textContent = formatter(0,false); }
 }
 
-const PROJECTS = [
+/* __INJECT_DATA_START__
+   Everything between __INJECT_DATA_START__ and __INJECT_DATA_END__ is replaced
+   at render time by mockup_view.py with real model data. The demo values below
+   keep this file openable standalone for design preview. */
+let PORTFOLIO = {
+  off:47, out:12, missing:8, review:3,
+  count:8, totalMw:62.4, reviewed:3, pending:5,
+  modelName:'Lightstar · IL', bibleLabel:"Q1 '26",
+  loadedDate:'Apr 15, 2026', reviewer:'Caroline Z.',
+};
+let PROJECTS = [
   // For each project: full set of dynamic data so charts + table refresh on click
   {name:'Joel',        sub:"Lightstar Renewables · IL Ameren · ABP Community · COD Q3 '26", verdict:'REWORK REQUIRED',
     irrPct:-1.85, nppPerW:-0.29, equityK:-213,
@@ -670,8 +620,9 @@ const PROJECTS = [
     cashflowMul:3.1, tornadoMul:3.1
   },
 ];
+/* __INJECT_DATA_END__ */
 let currentIdx = 0;
-const projCards = document.querySelectorAll('.proj-card');
+let projCards = [];   // populated by renderProjectList()
 
 // ---- accounting helpers ----
 function fmtMoneyShort(absVal){
@@ -949,6 +900,7 @@ function renderWrappedEpc(p){
 }
 
 function selectProject(idx){
+  if(PROJECTS.length===0){ currentIdx = 0; return; }
   if(idx<0) idx = PROJECTS.length-1;
   if(idx>=PROJECTS.length) idx = 0;
   currentIdx = idx;
@@ -981,9 +933,8 @@ function selectProject(idx){
   // Sidebar selection
   projCards.forEach((c,i)=>c.classList.toggle('selected', i===idx));
   document.getElementById('navCount').textContent = (idx+1)+' of '+PROJECTS.length;
-  projCards[idx].scrollIntoView({block:'nearest', behavior:'smooth'});
+  if(projCards[idx]) projCards[idx].scrollIntoView({block:'nearest', behavior:'smooth'});
 }
-projCards.forEach((c,i)=>c.addEventListener('click', ()=>selectProject(i)));
 document.getElementById('btnNext').addEventListener('click', ()=>selectProject(currentIdx+1));
 document.getElementById('btnPrev').addEventListener('click', ()=>selectProject(currentIdx-1));
 // Keyboard: J / K or arrow keys
@@ -1011,10 +962,63 @@ function parseModelName(filename){
   n = n.replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
   return n.split(' ').filter(Boolean).join(' · ');
 }
-// Simulated upload — would be wired to the file_uploader in the real Streamlit app
-// e.g. st.session_state['model_filename'] = uploaded.name
-const SIMULATED_UPLOAD = '38DN-Lightstar-IL-Pricing Model-2026-04-15.xlsm';
-document.getElementById('modelName').textContent = parseModelName(SIMULATED_UPLOAD) || 'No model loaded';
+// ===== Portfolio / top-bar renderer =====
+function renderPortfolio(){
+  const P = PORTFOLIO || {};
+  const S = (id, v) => { const el=document.getElementById(id); if(el) el.textContent = v; };
+  S('modelName',  P.modelName  || 'No model loaded');
+  S('bibleLabel', P.bibleLabel || "Q1 '26");
+  S('loadedDate', P.loadedDate || '—');
+  S('reviewer',   P.reviewer   || '—');
+  S('pillOff',    P.off     ?? 0);
+  S('pillOut',    P.out     ?? 0);
+  S('pillMiss',   P.missing ?? 0);
+  S('pillRev',    P.review  ?? 0);
+  S('pillCount',  P.count   ?? PROJECTS.length);
+  S('pillMw',     (P.totalMw!=null ? P.totalMw.toFixed(1) : '0.0') + ' MW');
+  S('pillReviewed', P.reviewed ?? 0);
+  S('pillPending',  P.pending  ?? 0);
+  S('navProjCount', 'Projects · ' + (P.count ?? PROJECTS.length));
+}
+
+// ===== Project-list renderer (left nav) =====
+function projChipsHTML(p){
+  // Build micro-chip markers from the project's findings
+  const sigs = [];
+  (p.findings||[]).forEach(f=>{
+    if(f.status==='OFF' || f.status==='OUT' || f.status==='MISSING' || f.status==='REVIEW'){
+      sigs.push({code:(f.short||f.field).toString().split('(')[0].trim().slice(0,12).toUpperCase(), status:f.status});
+    }
+  });
+  const uniq = [];
+  const seen = new Set();
+  sigs.forEach(s=>{ const k=s.code+s.status; if(!seen.has(k)){seen.add(k); uniq.push(s);} });
+  const top = uniq.slice(0,4);
+  if(top.length===0) return '<span class="micro ok">CLEAN</span>';
+  return top.map(s=>{
+    const cls = s.status==='OFF'?'off':s.status==='OUT'?'out':s.status==='REVIEW'?'miss':'miss';
+    const tag = s.status==='OFF'?' OFF':s.status==='OUT'?' OUT':s.status==='REVIEW'?' REV':'';
+    return '<span class="micro '+cls+'">'+s.code+tag+'</span>';
+  }).join('');
+}
+function renderProjectList(){
+  const host = document.getElementById('projList');
+  const empty = document.getElementById('projEmpty');
+  if(!host) return;
+  if(!PROJECTS.length){ host.innerHTML=''; if(empty) empty.style.display='block'; projCards=[]; return; }
+  if(empty) empty.style.display='none';
+  host.innerHTML = PROJECTS.map((p,i)=>{
+    const meta = p.sub || '';
+    const dc = (p.kpis && p.kpis.dc) ? p.kpis.dc+' MW' : '';
+    return '<div class="proj-card" data-idx="'+i+'">'
+      + '<div class="pname">'+(p.name||'Unnamed')+'</div>'
+      + '<div class="pmeta">'+meta+(dc?' — '+dc:'')+'</div>'
+      + '<div class="pchips">'+projChipsHTML(p)+'</div>'
+      + '</div>';
+  }).join('');
+  projCards = Array.from(host.querySelectorAll('.proj-card'));
+  projCards.forEach((c,i)=>c.addEventListener('click', ()=>selectProject(i)));
+}
 
 // ----- Plotly bootstrap with retry + graceful fallback -----
 const NAVY='#050D25', INDIGO='#212B48', TEAL='#518484', TEAL_DEEP='#3d6868',
@@ -1144,16 +1148,28 @@ function bootCharts(){
     ['variance','stack','cashflow','tornado','heatmap'].forEach(id=>fallbackPlot(id));
     return;
   }
-  renderCharts(PROJECTS[currentIdx]);
+  if(PROJECTS.length) renderCharts(PROJECTS[currentIdx]);
 }
 
-// Initial render of KPIs + findings (does not require Plotly)
-selectProject(0);
+// ===== Boot =====
+renderPortfolio();
+renderProjectList();
+if(PROJECTS.length){
+  selectProject(0);
+} else {
+  // Empty state: clear center panel placeholders so nothing looks broken
+  const dt=document.getElementById('dealTitle'); if(dt) dt.textContent='No projects loaded';
+  const ds=document.getElementById('dealSub');   if(ds) ds.textContent='Upload a pricing model and click Run Review in the sidebar.';
+  const dv=document.getElementById('dealVerdict'); if(dv) dv.style.display='none';
+  const dk=document.getElementById('dealKpis');  if(dk) dk.innerHTML='';
+  const fb=document.getElementById('findingsBody'); if(fb) fb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted);font-style:italic;">Run a review to populate findings.</td></tr>';
+  document.getElementById('navCount').textContent = '0 of 0';
+}
 
 // Wait for Plotly script — including the onerror fallback chain
 let tries=0;
 (function waitForPlotly(){
-  if(typeof Plotly!=='undefined'){ renderCharts(PROJECTS[currentIdx]); return; }
+  if(typeof Plotly!=='undefined'){ if(PROJECTS.length) renderCharts(PROJECTS[currentIdx]); return; }
   if(tries++ > 40){ bootCharts(); return; }   // gives up after ~4s, shows fallback
   setTimeout(waitForPlotly, 100);
 })();
