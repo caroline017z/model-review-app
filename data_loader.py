@@ -2,10 +2,13 @@
 38DN Pricing Model Review — Data Loading
 Reads pricing model workbooks and extracts project data.
 """
+import logging
 import streamlit as st
 import openpyxl
 from pathlib import Path
 import re
+
+logger = logging.getLogger(__name__)
 
 from config import (
     INPUT_ROW_LABELS, OUTPUT_ROWS, TEXT_ROWS,
@@ -55,10 +58,11 @@ def _labels_match(canonical, actual):
     if c == a:
         return True
     # Conservative substring match: both must be ≥8 chars AND the shorter
-    # side must be ≥50% of the longer, to avoid over-generous matches.
+    # side must be ≥65% of the longer, to avoid over-generous matches like
+    # "Annual Premium" ⇆ "Decom Bond Annual Premium".
     if len(c) >= 8 and len(a) >= 8:
         shorter, longer = (c, a) if len(c) <= len(a) else (a, c)
-        if shorter in longer and len(shorter) >= 0.5 * len(longer):
+        if shorter in longer and len(shorter) >= 0.65 * len(longer):
             return True
     return False
 
@@ -273,10 +277,15 @@ def load_pricing_model(file):
                 ws = wb[sn]
                 break
     if ws is None:
+        logger.error(
+            "Project Inputs sheet not found. Sheets present: %s",
+            wb.sheetnames,
+        )
         raise KeyError(
             "Could not find a 'Project Inputs' sheet in this workbook. "
             f"Sheets present: {', '.join(wb.sheetnames)}"
         )
+    logger.info("Loaded workbook; Project Inputs sheet = %r", ws.title)
 
     # Detect label column and build per-model row mapping
     label_col = _detect_label_column(ws)
@@ -519,67 +528,6 @@ def get_rate_curves(model_result):
     return {}
 
 
-def load_gh25_reference(file_path):
-    """Load GH Summer 2025 reference rate curves from the OBBB file.
-
-    Returns dict with:
-        dates: {col: datetime}
-        curves: {curve_name: {datetime: rate_value}}
-        annual: {curve_name: {year: avg_rate}}
-        cagrs: {curve_name: float}
-    """
-    import openpyxl
-    from pathlib import Path
-
-    fp = Path(file_path)
-    if not fp.exists():
-        return {}
-
-    wb = openpyxl.load_workbook(str(fp), data_only=True, read_only=False)
-    if "2025 Table" not in wb.sheetnames:
-        wb.close()
-        return {}
-
-    ws = wb["2025 Table"]
-
-    # Read dates from row 5, col 6+
-    dates = {}
-    for c in range(6, min(402, ws.max_column + 1)):
-        d = ws.cell(row=5, column=c).value
-        if d is not None and hasattr(d, "year"):
-            dates[c] = d
-
-    # Curve definitions: row -> (name, cagr_col_D)
-    curve_defs = {
-        49: "Ameren Resi",
-        50: "Ameren Com",
-        51: "Ameren GH25",
-        53: "ComEd Resi",
-        54: "ComEd Com",
-        55: "ComEd GH25",
-    }
-
-    curves = {}
-    cagrs = {}
-    annual = {}
-
-    for row, name in curve_defs.items():
-        cagr = safe_float(ws.cell(row=row, column=4).value)
-        cagrs[name] = cagr
-
-        monthly = {}
-        yearly_buckets = {}
-        for c, dt in dates.items():
-            v = safe_float(ws.cell(row=row, column=c).value)
-            if v is not None:
-                monthly[dt] = v
-                yearly_buckets.setdefault(dt.year, []).append(v)
-
-        curves[name] = monthly
-        annual[name] = {yr: sum(vals) / len(vals) for yr, vals in yearly_buckets.items()}
-
-    wb.close()
-    return {"dates": dates, "curves": curves, "annual": annual, "cagrs": cagrs}
 
 
 @st.cache_data(show_spinner=False)

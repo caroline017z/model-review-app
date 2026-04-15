@@ -62,13 +62,14 @@ def _exact_check(actual, expected, tol, unit=""):
             return "REVIEW", f"Bible: {expected}"
         return "REVIEW", "Bible non-numeric"
 
-    # Pct/fraction normalization: if either unit is "%" or the magnitudes
-    # disagree by enough to suggest one side is whole-percent and the other
-    # fractional, scale both to fractions before comparing.
-    needs_norm = (str(unit or "").strip() == "%") or (
-        (abs(a) > 1.5 and abs(e) <= 1.5) or (abs(e) > 1.5 and abs(a) <= 1.5)
-    )
-    if needs_norm:
+    # Pct/fraction normalization: if the unit is explicitly "%" OR if one
+    # side is plausibly a whole percent (≥5) and the other a fraction (≤1),
+    # scale both to fractions before comparing. The ≥5 / ≤1 split is tight
+    # enough that we don't accidentally normalize money-like values (e.g.
+    # EPC $1.22 vs $1.65) whose magnitudes happen to bracket 1.5.
+    is_pct_unit = str(unit or "").strip() == "%"
+    is_cross_magnitude = (abs(a) >= 5 and abs(e) <= 1.0) or (abs(e) >= 5 and abs(a) <= 1.0)
+    if is_pct_unit or is_cross_magnitude:
         if abs(a) > 1.5:
             a = a / 100.0
         if abs(e) > 1.5:

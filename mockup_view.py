@@ -14,13 +14,23 @@ Everything between those markers is replaced at render time.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
 from bible_audit import audit_project
+
+logger = logging.getLogger(__name__)
 from bible_reference import CS_AVERAGE, CS_STATE_OVERRIDES, lookup_market
+from rows import (
+    ROW_DEVELOPER, ROW_DC_MW, ROW_AC_KW, ROW_STATE, ROW_UTILITY,
+    ROW_PROGRAM_A, ROW_PROGRAM_B, ROW_EPC_WRAPPED, ROW_LNTP, ROW_IX,
+    ROW_CLOSING, ROW_PPA_RATE, ROW_ESCALATOR, ROW_NPP, ROW_FMV_IRR,
+    ROW_UPFRONT, ROW_INSURANCE, ROW_ITC_PCT, ROW_ELIG_COSTS,
+    ROW_OM_PREV, ROW_OM_CORR, ROW_AM_FEE,
+)
 
 _TEMPLATE_PATH = Path(__file__).parent / "VP_Review_Mockup.html"
 _INJECT_RE = re.compile(
@@ -28,26 +38,11 @@ _INJECT_RE = re.compile(
     re.MULTILINE,
 )
 
-# Key input rows in the pricing model — see data_loader.py
-ROW_DEVELOPER = 10
-ROW_DC_MW = 11
-ROW_AC_KW = 12
-ROW_STATE = 18
-ROW_UTILITY = 19
-ROW_PROGRAM_A = 22
-ROW_PROGRAM_B = 21
-ROW_EPC_WRAPPED = 118
-ROW_LNTP = 119
-ROW_IX = 122
-ROW_CLOSING = 123
-ROW_PPA_RATE = 157
-ROW_ESCALATOR = 158
-ROW_NPP = 38
-ROW_FMV_IRR = 33
-ROW_UPFRONT = 216
-ROW_INSURANCE = 296
-ROW_ITC_PCT = 597
-ROW_ELIG_COSTS = 602
+# Row constants now sourced from rows.py. Heatmap references a couple of
+# extra rows that don't need top-level aliases here.
+HEATMAP_ROW_OM_PREV = ROW_OM_PREV
+HEATMAP_ROW_OM_CORR = ROW_OM_CORR
+HEATMAP_ROW_AM_FEE = ROW_AM_FEE
 
 # Rule-of-thumb: 1 cent/W swing in sponsor proceeds ≈ 0.18% FMV IRR.
 IRR_PCT_PER_CENT = 0.18
@@ -786,10 +781,11 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
     }
 
 
-def _safe_audit(proj_data: dict) -> dict:
+def _safe_audit(proj_data: dict, proj_name: str = "") -> dict:
     try:
         return audit_project(proj_data)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 — we want to surface any audit failure
+        logger.exception("audit_project failed for project %r: %s", proj_name, exc)
         return {
             "rows": {},
             "summary": {"OK": 0, "OFF": 0, "OUT": 0, "MISSING": 0, "REVIEW": 0},
@@ -922,8 +918,8 @@ _HEATMAP_COLUMNS = [
     ("Elig Cost", [ROW_ELIG_COSTS]),
     ("Upfront",   [ROW_UPFRONT]),
     ("Insurance", [ROW_INSURANCE]),
-    ("O&M",       [225, 226]),
-    ("AM Fee",    [230]),
+    ("O&M",       [ROW_OM_PREV, ROW_OM_CORR]),
+    ("AM Fee",    [ROW_AM_FEE]),
 ]
 
 
@@ -956,7 +952,7 @@ def build_payload(
     heatmap_projects: list[str] = []
 
     for _, proj in _iter_projects(m1_projects):
-        audit = _safe_audit(proj.get("data", {}))
+        audit = _safe_audit(proj.get("data", {}), proj.get("name", ""))
         projects_list.append(_build_mockup_project(proj, audit, model_label))
         summary = audit.get("summary", {}) or {}
         for k in totals:

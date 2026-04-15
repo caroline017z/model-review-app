@@ -1,3 +1,32 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual envs
 .env
+.venv/
+venv/
+env/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Working files — never commit uploaded/local models or outputs
+*.xlsm
+*.xlsx
+results.db
+*.sqlite
+*.sqlite-journal
+
+# OS noise
+.DS_Store
+Thumbs.db
