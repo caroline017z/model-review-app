@@ -48,25 +48,67 @@ st.markdown(APP_CSS, unsafe_allow_html=True)
 st.markdown(
     """
     <style>
-      /* Kill the default block-container gutters on the main area */
-      .main .block-container{
-        padding: 0.25rem 0.5rem 0 0.5rem !important;
+      /* Zero the default gutters on every layer Streamlit puts between the
+         sidebar edge and the component iframe. */
+      [data-testid="stAppViewContainer"] > section.main,
+      [data-testid="stMain"],
+      [data-testid="stMain"] > div,
+      section.main > div,
+      .main .block-container,
+      .block-container {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        padding-top: 0 !important;
         max-width: 100% !important;
       }
-      /* Remove the header padding that leaves dead space above the iframe */
-      header[data-testid="stHeader"]{
-        background: transparent;
-      }
-      /* Make the component iframe fill its row */
-      iframe[title="streamlit_component"]{
+      /* The block-container normally has top padding for the hidden header;
+         we want a thin gap instead of zero so the top bar isn't glued. */
+      .main .block-container { padding-top: 0.25rem !important; }
+
+      /* Make every vertical block and element container full width. */
+      [data-testid="stVerticalBlock"],
+      [data-testid="stVerticalBlockBorderWrapper"],
+      [data-testid="stElementContainer"],
+      .element-container {
         width: 100% !important;
+        max-width: 100% !important;
       }
-      /* When the sidebar is collapsed, the main column stretches — keep the
-         iframe responsive without horizontal scrollbars. */
-      section[data-testid="stSidebar"][aria-expanded="false"] + section .block-container{
-        padding-left: 0.5rem !important;
+
+      /* Component iframe: fill parent. Streamlit sometimes bakes a pixel
+         width as an HTML attribute — these rules force it back to 100%. */
+      iframe,
+      iframe[title="streamlit_component"],
+      iframe[title^="st."],
+      [data-testid="stIFrame"] iframe,
+      [data-testid="element-container"] iframe {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
       }
+
+      /* Hide the empty header strip and its shadow. */
+      header[data-testid="stHeader"] { background: transparent; height: 0; }
     </style>
+    <script>
+      // Streamlit measures component width at mount time and can leave the
+      // iframe at a frozen px value when the sidebar collapses/expands. Nudge
+      // the width back to 100% on every ResizeObserver hit.
+      (function () {
+        const forceFull = () => {
+          document.querySelectorAll('iframe').forEach(el => {
+            if (el.getAttribute('width')) el.removeAttribute('width');
+            el.style.width = '100%';
+          });
+        };
+        forceFull();
+        const ro = new ResizeObserver(forceFull);
+        ro.observe(document.documentElement);
+        window.addEventListener('resize', forceFull);
+        // Also watch the sidebar toggling.
+        const sb = document.querySelector('[data-testid="stSidebar"]');
+        if (sb) new MutationObserver(forceFull).observe(sb, {attributes:true});
+      })();
+    </script>
     """,
     unsafe_allow_html=True,
 )
