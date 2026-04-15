@@ -4,6 +4,7 @@ Validates Project Inputs against the Pricing Bible Q1 2026 and Developer Data Ro
 Supports Model 1 vs Model 2 comparison with delta analysis.
 """
 
+import os
 import sys
 import streamlit as st
 import streamlit.components.v1 as components
@@ -19,20 +20,26 @@ from styles import APP_CSS, SIDEBAR_CHECKBOX_CSS, run_button_css
 from data_loader import load_pricing_model, get_projects, load_mapper_output
 from benchmark_store import load_overrides, save_overrides, delete_overrides, apply_overrides
 
-# --- Macro Runner integration ---
-_MACRO_RUNNER_DIR = r"C:\Users\CarolineZepecki\projects\excel_macro_runner"
-if _MACRO_RUNNER_DIR not in sys.path:
-    sys.path.append(_MACRO_RUNNER_DIR)
-try:
-    from vp_bridge import (
-        list_available_runs as _mr_list_runs,
-        list_available_batches as _mr_list_batches,
-        load_run_as_model as _mr_load_run,
-        load_batch_as_model as _mr_load_batch,
-    )
-    _MACRO_RUNNER_AVAILABLE = True
-except ImportError:
-    _MACRO_RUNNER_AVAILABLE = False
+# --- Optional Macro Runner integration ---
+# Set VP_MACRO_RUNNER_DIR to enable; leave unset to keep the UI hidden.
+# Deployed Streamlit Cloud and other multi-user environments should NOT
+# ship with a default path, which would leak a local username.
+_MACRO_RUNNER_DIR = os.environ.get("VP_MACRO_RUNNER_DIR", "").strip()
+_MACRO_RUNNER_DB = os.environ.get("VP_MACRO_RUNNER_DB", "").strip()
+_MACRO_RUNNER_AVAILABLE = False
+if _MACRO_RUNNER_DIR and Path(_MACRO_RUNNER_DIR).is_dir():
+    if _MACRO_RUNNER_DIR not in sys.path:
+        sys.path.append(_MACRO_RUNNER_DIR)
+    try:
+        from vp_bridge import (
+            list_available_runs as _mr_list_runs,
+            list_available_batches as _mr_list_batches,
+            load_run_as_model as _mr_load_run,
+            load_batch_as_model as _mr_load_batch,
+        )
+        _MACRO_RUNNER_AVAILABLE = True
+    except ImportError:
+        _MACRO_RUNNER_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +182,7 @@ def render_sidebar():
             with st.expander("Load from Macro Runner"):
                 _mr_db_path = st.text_input(
                     "SQLite DB Path",
-                    value=r"C:\Users\CarolineZepecki\projects\excel_macro_runner\results.db",
+                    value=_MACRO_RUNNER_DB,
                     key="mr_db_path",
                 )
                 _mr_db_exists = Path(_mr_db_path).exists()

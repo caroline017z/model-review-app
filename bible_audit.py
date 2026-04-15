@@ -44,8 +44,14 @@ def _normalize_state(state):
     return s
 
 
-def _exact_check(actual, expected, tol):
-    """Return (status, note) for a single exact-match comparison."""
+def _exact_check(actual, expected, tol, unit=""):
+    """Return (status, note) for a single exact-match comparison.
+
+    When the field is a percentage (unit='%') or when the two sides disagree
+    by >100x in magnitude, normalize both to fractions (0.40) before diffing.
+    This prevents false OFFs when a model stores ITC as 40 and the bible
+    stores 0.40 — same economic value, different unit convention.
+    """
     a = safe_float(actual)
     e = safe_float(expected)
     if a is None:
@@ -55,6 +61,19 @@ def _exact_check(actual, expected, tol):
         if expected in (SSFA, TBD) or isinstance(expected, str):
             return "REVIEW", f"Bible: {expected}"
         return "REVIEW", "Bible non-numeric"
+
+    # Pct/fraction normalization: if either unit is "%" or the magnitudes
+    # disagree by enough to suggest one side is whole-percent and the other
+    # fractional, scale both to fractions before comparing.
+    needs_norm = (str(unit or "").strip() == "%") or (
+        (abs(a) > 1.5 and abs(e) <= 1.5) or (abs(e) > 1.5 and abs(a) <= 1.5)
+    )
+    if needs_norm:
+        if abs(a) > 1.5:
+            a = a / 100.0
+        if abs(e) > 1.5:
+            e = e / 100.0
+
     diff = abs(a - e)
     if diff <= (tol or 0) + _NUMERIC_EPSILON:
         return "OK", ""
@@ -123,11 +142,12 @@ def audit_project(proj_data):
             expected = override["value"]
             tol = override.get("tol", tol)
 
-        status, note = _exact_check(proj_data.get(row), expected, tol)
+        unit = spec.get("unit", "")
+        status, note = _exact_check(proj_data.get(row), expected, tol, unit)
         findings[row] = {
             "status": status, "expected": expected, "actual": proj_data.get(row),
             "tol": tol, "note": note, "source": "CS Average" + (f" [{state} override]" if override else ""),
-            "label": spec.get("label", ""), "unit": spec.get("unit", ""),
+            "label": spec.get("label", ""), "unit": unit,
         }
 
     # ---- 2. MARKET_BIBLE: per (state,utility,program) exact-match ----
@@ -138,6 +158,8 @@ def audit_project(proj_data):
             if not isinstance(k, int):
                 continue
             tol = 0.0  # tight match for market values
+            # Market values for pct rows (161, 162, 240) are stored as fractions;
+            # the _exact_check magnitude guard handles unit drift either way.
             status, note = _exact_check(proj_data.get(k), expected, tol)
             findings[k] = {
                 "status": status, "expected": expected, "actual": proj_data.get(k),

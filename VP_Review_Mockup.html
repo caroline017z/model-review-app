@@ -664,12 +664,13 @@ function fmtNegPerW(v){ return v<0 ? '<span class="neg-acct">($'+(-v).toFixed(2)
 function renderKpis(p){
   const k = p.kpis;
   const equityHTML = p.equityK<0 ? '<span class="neg-acct">($'+Math.abs(p.equityK)+'k)</span>' : (p.equityK===0?'$0':'$'+p.equityK+'k');
+  // equityHTML is pre-built from numeric p.equityK (below), safe to inject.
   document.getElementById('dealKpis').innerHTML = `
-    <div class="kpi k-accent"><div class="kpi-label">DC Size</div><div class="kpi-value">${k.dc} <span style="font-size:11px;color:var(--muted);">MW</span></div><div class="kpi-sub">${k.dcSub}</div></div>
-    <div class="kpi ${k.epcOff?'k-off':'k-accent'}"><div class="kpi-label">EPC</div><div class="kpi-value">${k.epc}<span style="font-size:11px;color:var(--muted);">/W</span></div><div class="kpi-sub${k.epcOff?' neg':''}">${k.epcSub}</div></div>
-    <div class="kpi k-accent"><div class="kpi-label">NPP</div><div class="kpi-value">${k.npp}<span style="font-size:11px;color:var(--muted);">/W</span></div><div class="kpi-sub">${k.nppSub}</div></div>
-    <div class="kpi ${k.itcOff?'k-off':'k-accent'}"><div class="kpi-label">ITC</div><div class="kpi-value">${k.itc}</div><div class="kpi-sub${k.itcOff?' neg':''}">${k.itcSub}</div></div>
-    <div class="kpi k-accent"><div class="kpi-label">FMV IRR</div><div class="kpi-value">${k.irr}</div><div class="kpi-sub">${k.irrSub}</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">DC Size</div><div class="kpi-value">${_esc(k.dc)} <span style="font-size:11px;color:var(--muted);">MW</span></div><div class="kpi-sub">${_esc(k.dcSub)}</div></div>
+    <div class="kpi ${k.epcOff?'k-off':'k-accent'}"><div class="kpi-label">EPC</div><div class="kpi-value">${_esc(k.epc)}<span style="font-size:11px;color:var(--muted);">/W</span></div><div class="kpi-sub${k.epcOff?' neg':''}">${_esc(k.epcSub)}</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">NPP</div><div class="kpi-value">${_esc(k.npp)}<span style="font-size:11px;color:var(--muted);">/W</span></div><div class="kpi-sub">${_esc(k.nppSub)}</div></div>
+    <div class="kpi ${k.itcOff?'k-off':'k-accent'}"><div class="kpi-label">ITC</div><div class="kpi-value">${_esc(k.itc)}</div><div class="kpi-sub${k.itcOff?' neg':''}">${_esc(k.itcSub)}</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">FMV IRR</div><div class="kpi-value">${_esc(k.irr)}</div><div class="kpi-sub">${_esc(k.irrSub)}</div></div>
     <div class="kpi ${p.equityK<0?'k-off':'k-accent'}"><div class="kpi-label">Equity Δ</div><div class="kpi-value">${equityHTML}</div><div class="kpi-sub${p.equityK<0?' neg':''}">vs bible-aligned</div></div>
   `;
 }
@@ -682,20 +683,25 @@ function renderFindings(p){
     return;
   }
   body.innerHTML = p.findings.map(f=>{
+    // Delta cell: f.delta is numeric and f.deltaUnit is a short unit code from
+    // Python. Escape the unit to keep the block safe against template drift.
+    const unitEsc = _esc(f.deltaUnit||'');
     const deltaCell = (f.delta===null) ? '<td class="num-cell" style="color:var(--muted);">missing</td>'
-      : (f.delta<0) ? `<td class="num-cell neg-acct">(${Math.abs(f.delta)}${f.deltaUnit==='$'?'':' '+f.deltaUnit})</td>`
-      : `<td class="num-cell" style="color:var(--text);font-weight:600;">+${f.deltaUnit==='$'?'$':''}${f.delta}${f.deltaUnit==='$'?'':' '+f.deltaUnit}</td>`;
+      : (f.delta<0) ? `<td class="num-cell neg-acct">(${Math.abs(f.delta)}${f.deltaUnit==='$'?'':' '+unitEsc})</td>`
+      : `<td class="num-cell" style="color:var(--text);font-weight:600;">+${f.deltaUnit==='$'?'$':''}${f.delta}${f.deltaUnit==='$'?'':' '+unitEsc}</td>`;
     const impactCell = (f.impact===null) ? '<td class="impact-cell" style="color:var(--muted);">—</td>'
       : `<td class="impact-cell neg-acct">(${fmtMoneyShort(Math.abs(f.impact))})</td>`;
     const statusCls = {OFF:'off',OUT:'out',MISSING:'miss',REVIEW:'rev'}[f.status]||'miss';
     const action = f.status==='MISSING' ? 'Flag' : 'Accept · Flag';
+    // Every string below is ultimately sourced from the uploaded Excel file,
+    // so every interpolation into innerHTML must go through _esc.
     return `<tr>
-      <td class="field">${f.field}</td>
-      <td class="num-cell">${f.bible??'—'}</td>
-      <td class="num-cell"${f.model===null?' style="color:var(--muted);"':''}>${f.model??'—'}</td>
+      <td class="field">${_esc(f.field)}</td>
+      <td class="num-cell">${_esc(f.bible??'—')}</td>
+      <td class="num-cell"${f.model===null?' style="color:var(--muted);"':''}>${_esc(f.model??'—')}</td>
       ${deltaCell}${impactCell}
-      <td><span class="status-tag ${statusCls}">${f.status}</span></td>
-      <td style="font-size:11px;color:var(--muted);">${f.source}</td>
+      <td><span class="status-tag ${statusCls}">${_esc(f.status)}</span></td>
+      <td style="font-size:11px;color:var(--muted);">${_esc(f.source)}</td>
       <td><span class="row-action">${action}</span></td>
     </tr>`;
   }).join('');
@@ -913,7 +919,7 @@ function renderWrappedEpc(p){
     : '<span style="color:var(--text);">+$'+delta.toFixed(2)+'/W vs bible $'+w.bibleTotal.toFixed(2)+'</span>';
   const rows = w.components.map(c=>`
     <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted rgba(0,0,0,0.08);">
-      <span style="color:var(--muted);">${c.label}</span>
+      <span style="color:var(--muted);">${_esc(c.label)}</span>
       <b style="font-variant-numeric:tabular-nums;">$${c.value.toFixed(3)}/W</b>
     </div>`).join('');
   document.getElementById('wepcBreakdown').innerHTML = rows + `

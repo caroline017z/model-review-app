@@ -165,21 +165,28 @@ def _compute_impact(info: dict, data: dict) -> float | None:
         return -delta * dc_w
 
     if unit in ("%", "ratio"):
-        epc = _num(data.get(ROW_EPC_WRAPPED)) or 1.65
+        # Anchor ITC / Eligible-Cost impacts to the BIBLE EPC, not the model's.
+        # Otherwise an EPC OFF finding is double-counted through these rows —
+        # the EPC delta is already scored by its own finding, so coupling it
+        # to tax-credit math inflates _roll_up's total.
         if "itc" in label or "tax credit" in label:
-            elig = _as_fraction(data.get(ROW_ELIG_COSTS)) or 0.97
+            elig = _as_fraction(data.get(ROW_ELIG_COSTS))
+            if elig is None:
+                elig = BIBLE_ELIG_FRAC
             exp_f = _as_fraction(exp)
             act_f = _as_fraction(act)
             if exp_f is None or act_f is None:
                 return None
-            return (act_f - exp_f) * elig * epc * dc_w
+            return (act_f - exp_f) * elig * BIBLE_EPC_PER_W * dc_w
         if "eligible" in label:
-            itc = _as_fraction(data.get(ROW_ITC_PCT)) or 0.40
+            itc = _as_fraction(data.get(ROW_ITC_PCT))
+            if itc is None:
+                itc = BIBLE_ITC_FRAC
             exp_f = _as_fraction(exp)
             act_f = _as_fraction(act)
             if exp_f is None or act_f is None:
                 return None
-            return (act_f - exp_f) * itc * epc * dc_w
+            return (act_f - exp_f) * itc * BIBLE_EPC_PER_W * dc_w
         return None
 
     if unit in ("$/MW/yr", "$/MW-dc/yr"):
@@ -594,8 +601,13 @@ def _build_cashflow(proj: dict) -> dict:
     annual_mwh = dc_mw * DEFAULT_YIELD_KWH_PER_WP * 1000
     total_opex_mw_yr = DEFAULT_OM_PREV + DEFAULT_OM_CORR + DEFAULT_AM_FEE + DEFAULT_INSURANCE
 
-    basis_k = (epc * dc_mw * 1000) * (1 - itc_frac / 2)  # ITC basis reduction
-    itc_year1_k = itc_frac * elig_frac * epc * dc_mw * 1000
+    # ITC basis reduction is half the ITC, applied ONLY to the eligible
+    # portion of CapEx. Ineligible CapEx still depreciates at full basis.
+    # Using itc_frac alone against total CapEx over-reduces the depreciable
+    # basis by ~3%, understating tax benefits.
+    total_capex_k = epc * dc_mw * 1000
+    basis_k = total_capex_k * (1 - itc_frac * elig_frac / 2)
+    itc_year1_k = itc_frac * elig_frac * total_capex_k
 
     op_cf: list[int] = []
     tax_bn: list[int] = []
@@ -603,8 +615,7 @@ def _build_cashflow(proj: dict) -> dict:
     for yr_idx in range(OPEX_TERM_YEARS):
         year = yr_idx + 1
         prod_mwh = annual_mwh * ((1 - DEFAULT_DEGRADATION) ** yr_idx)
-        rev_k = prod_mwh * ppa_rate * ((1 + escalator) ** yr_idx)  # $ (MWh*$/kWh is $, OK on small rates)
-        # Rate is $/kWh; prod is MWh. MWh × $/kWh × 1000 → $. Then /1000 → $k.
+        # Revenue in $k: (MWh → kWh) × ($/kWh) = $, then ÷ 1000 = $k.
         rev_k = prod_mwh * 1000 * ppa_rate * ((1 + escalator) ** yr_idx) / 1000
         opex_k = dc_mw * total_opex_mw_yr * ((1 + DEFAULT_OPEX_ESC) ** yr_idx) / 1000
         op_cf.append(int(round(rev_k - opex_k)))
@@ -829,9 +840,21 @@ def _default_json(o):
 
 
 def _safe_json(payload) -> str:
-    """json.dumps hardened for <script> embedding: neutralize </ and <!-- sequences."""
+    """json.dumps hardened for <script> embedding.
+
+    Neutralizes four breakout vectors:
+      * </script> and its friends (any </ opener)
+      * <!-- HTML comment opener
+      * U+2028 LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR, which terminate
+        JS string literals in older runtimes and break the embedded script
+    """
     s = json.dumps(payload, default=_default_json, ensure_ascii=False)
-    return s.replace("</", "<\\/").replace("<!--", "<\\!--")
+    return (
+        s.replace("</", "<\\/")
+         .replace("<!--", "<\\!--")
+         .replace("\u2028", "\\u2028")
+         .replace("\u2029", "\\u2029")
+    )
 
 
 # Status → heatmap code (0 OK, 1 OUT, 2 OFF, 3 MISSING/REVIEW).
