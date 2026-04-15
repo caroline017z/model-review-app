@@ -831,17 +831,22 @@ def list_candidate_projects(m1_projects: dict) -> list[dict]:
       * dc            DC size in MW
       * developer     row-10 developer name (for grouping)
       * state / utility / program
-      * toggled_on    whether the model's row-7 toggle is On (default suggest)
+      * toggled_on    whether the model's row-7 toggle is On
+      * suggested     True when the project is a default-on suggestion —
+                      either toggle=On itself, OR toggle=Off but same
+                      developer as at least one toggled-on project
+                      (portfolio-sibling rule)
 
-    Active projects (toggled_on=True) are the default review set; inactive
-    ones are still surfaced so the reviewer can opt them in.
+    The sidebar shows `suggested=True` candidates checked by default and
+    `suggested=False` under an 'Add off-toggled' expander.
     """
-    out: list[dict] = []
+    # First pass: collect raw candidates.
+    raw: list[dict] = []
     for col, proj in _iter_projects(m1_projects):
         if not _looks_real(proj):
             continue
         data = proj.get("data", {}) or {}
-        out.append({
+        raw.append({
             "id": str(col),
             "name": str(proj.get("name") or "Unnamed").strip(),
             "dc": round(_num(data.get(ROW_DC_MW)) or 0, 2),
@@ -851,7 +856,20 @@ def list_candidate_projects(m1_projects: dict) -> list[dict]:
             "program": str(data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip(),
             "toggled_on": bool(proj.get("toggle", False)),
         })
-    return out
+
+    # Second pass: mark `suggested` using the developer-sibling rule.
+    active_devs = {
+        (c["developer"] or "").lower()
+        for c in raw if c["toggled_on"] and (c["developer"] or "").strip()
+    }
+    for c in raw:
+        if c["toggled_on"]:
+            c["suggested"] = True
+        elif (c["developer"] or "").lower() in active_devs:
+            c["suggested"] = True
+        else:
+            c["suggested"] = False
+    return raw
 
 
 def filter_projects(m1_projects: dict, included_ids: set[str] | None) -> dict:

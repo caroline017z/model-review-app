@@ -67,9 +67,49 @@
   .impact b{color:var(--off);font-weight:700;font-size:13.5px;}
 
   /* ===== Layout ===== */
-  .layout{display:grid;grid-template-columns:280px 1fr 300px;gap:1px;background:var(--border);min-height:calc(100vh - 50px - 47px);}
-  .panel{background:var(--bg);padding:14px;overflow-y:auto;}
+  .layout{display:grid;grid-template-columns:260px 1fr 280px;gap:1px;background:var(--border);min-height:calc(100vh - 50px - 47px);transition:grid-template-columns 0.22s ease;}
+  .panel{background:var(--bg);padding:14px;overflow-y:auto;min-width:0;}
   .panel.center{padding:18px;}
+  .panel.right{min-width:0;}
+  /* Collapsed left nav — strip to a hover-reveal edge */
+  body.nav-collapsed .layout{grid-template-columns:34px 1fr 280px;}
+  body.nav-collapsed .panel.left > *:not(.nav-collapse-btn){display:none;}
+  /* Responsive: drop the right reference panel on narrower viewports
+     (reviewer can reach the same data via the Reference top-bar mode). */
+  @media (max-width:1380px){
+    .layout{grid-template-columns:260px 1fr 0;}
+    body.nav-collapsed .layout{grid-template-columns:34px 1fr 0;}
+    .panel.right{display:none;}
+  }
+  @media (max-width:1040px){
+    .layout{grid-template-columns:34px 1fr 0;}
+    body.layout .panel.left > *:not(.nav-collapse-btn){display:none;}
+  }
+
+  /* Left-nav collapse button (prominent arrow hit-target) */
+  .nav-collapse-btn{
+    position:sticky;top:0;z-index:2;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    width:100%;padding:8px 10px;margin:-14px -14px 10px -14px;
+    background:var(--indigo);color:#fff;
+    border:none;border-bottom:1px solid rgba(255,255,255,0.12);
+    cursor:pointer;font-size:11px;font-weight:700;letter-spacing:0.06em;
+    text-transform:uppercase;transition:background 0.15s ease;
+  }
+  .nav-collapse-btn:hover{background:var(--teal-deep);}
+  .nav-collapse-btn .nav-collapse-arrow{
+    display:inline-block;width:14px;height:14px;
+    border-right:2px solid #fff;border-bottom:2px solid #fff;
+    transform:rotate(135deg);transition:transform 0.22s ease;
+    margin-right:2px;
+  }
+  body.nav-collapsed .nav-collapse-arrow{transform:rotate(-45deg);}
+  body.nav-collapsed .nav-collapse-btn{
+    padding:8px 2px;margin:-14px -14px 0 -14px;
+    width:auto;justify-content:center;
+  }
+  body.nav-collapsed .nav-collapse-btn .nav-collapse-label{display:none;}
+  body.nav-collapsed .panel.left{padding:14px 4px;overflow:visible;}
 
   /* ===== Project navigator ===== */
   .nav-header{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between;}
@@ -173,8 +213,32 @@
   .status-tag.off{background:var(--off-bg);color:var(--off);}
   .status-tag.out{background:var(--out-bg);color:var(--out);}
   .status-tag.miss{background:var(--miss-bg);color:var(--miss);}
-  .row-action{font-size:10px;color:var(--teal);cursor:pointer;font-weight:600;letter-spacing:0.03em;}
+  .row-action{font-size:10px;color:var(--teal);cursor:pointer;font-weight:600;letter-spacing:0.03em;user-select:none;}
   .row-action:hover{color:var(--teal-deep);text-decoration:underline;}
+  .row-btn{padding:2px 6px;border-radius:3px;border:1px solid transparent;}
+  .row-btn.active-accept{background:var(--ok-bg);color:var(--ok);border-color:rgba(58,125,68,0.3);}
+  .row-btn.active-flag  {background:var(--off-bg);color:var(--off);border-color:rgba(184,50,48,0.3);}
+  .row-note-toggle.has-note{color:var(--blue);text-decoration:underline;}
+  .row-status-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:0.05em;padding:1px 5px;border-radius:2px;margin-right:6px;vertical-align:middle;}
+  .row-status-badge.accepted{background:var(--ok-bg);color:var(--ok);}
+  .row-status-badge.flagged {background:var(--off-bg);color:var(--off);}
+  .action-cell{white-space:nowrap;}
+  .finding-note-row td{border-bottom:1px solid var(--border);}
+
+  /* Project approval banner — lives at the top of the Findings card. */
+  .approval-banner{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--raised);border-bottom:1px solid var(--border);font-size:11.5px;}
+  .approval-banner .ap-counts{display:flex;gap:14px;flex:1;color:var(--text-2);}
+  .approval-banner .ap-counts b{color:var(--text);}
+  .approval-banner .ap-counts .ap-accepted b{color:var(--ok);}
+  .approval-banner .ap-counts .ap-flagged b{color:var(--off);}
+  .approval-banner .ap-counts .ap-unhandled b{color:var(--out);}
+  .approval-banner .ap-status{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 8px;border-radius:3px;margin-right:4px;}
+  .approval-banner .ap-status.pending{background:var(--inset);color:var(--muted);}
+  .approval-banner .ap-status.approved{background:var(--ok-bg);color:var(--ok);}
+  .approval-banner button{padding:6px 14px;border-radius:4px;font-size:11.5px;font-weight:600;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text-2);}
+  .approval-banner button.primary{background:var(--teal);color:#fff;border-color:var(--teal);}
+  .approval-banner button.primary:disabled{background:var(--inset);color:var(--muted);border-color:var(--border);cursor:not-allowed;}
+  .approval-banner button.primary:not(:disabled):hover{background:var(--teal-deep);}
 
   .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 
@@ -225,8 +289,10 @@
   body.mode-portfolio #heatmapCard .card-body > .plot { height: 520px !important; }
   body.mode-portfolio .layout { grid-template-columns: 280px 1fr !important; }
 
-  /* Portfolio summary table density */
-  .portfolio-summary-tbl th { font-size: 10px; }
+  /* Portfolio summary table density + responsive overflow guard */
+  .card-portfolio-summary .card-body { overflow-x: auto; }
+  .portfolio-summary-tbl { min-width: 820px; }
+  .portfolio-summary-tbl th { font-size: 10px; white-space: nowrap; }
   .portfolio-summary-tbl td { font-size: 11.5px; padding: 10px 12px; }
   .portfolio-summary-tbl tr { cursor: pointer; }
   .portfolio-summary-tbl tr:hover td { background: var(--inset); }
@@ -330,6 +396,11 @@
 
   <!-- LEFT -->
   <div class="panel left">
+    <button type="button" class="nav-collapse-btn" id="navCollapseBtn"
+      title="Collapse / expand project list" aria-label="Collapse project list">
+      <span class="nav-collapse-arrow" aria-hidden="true"></span>
+      <span class="nav-collapse-label">Collapse</span>
+    </button>
     <div class="nav-header">
       <span id="navProjCount">Projects · 0</span>
       <span style="color:var(--teal);cursor:pointer;" id="navFilterToggle">+ Filter</span>
@@ -467,7 +538,17 @@
     <div class="card">
       <div class="card-h">
         <h3>Bible Audit Findings</h3>
-        <div class="h-meta">4 findings · sorted by $-impact</div>
+        <div class="h-meta" id="findingsHeader">—</div>
+      </div>
+      <div class="approval-banner">
+        <span class="ap-status pending" id="approvalStatus">Pending</span>
+        <div class="ap-counts">
+          <span class="ap-accepted"><b id="approvalAccepted">0</b> accepted</span>
+          <span class="ap-flagged"><b id="approvalFlagged">0</b> flagged</span>
+          <span class="ap-unhandled"><b id="approvalUnhandled">0</b> unhandled</span>
+        </div>
+        <button id="approveProjectBtn" class="primary" disabled title="Accept or Flag every finding to enable">Approve project</button>
+        <button id="unapproveProjectBtn" style="display:none;">Unapprove</button>
       </div>
       <div class="card-body" style="padding:0;">
         <table class="findings-tbl">
@@ -506,8 +587,14 @@
         <div class="h-meta" id="portfolioSummaryMeta">Ranked by absolute equity impact</div>
       </div>
       <div class="card-body" style="padding:0;">
+        <div style="padding:8px 14px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;gap:12px;align-items:center;">
+          <span>Untick a row to temporarily hide a project from all charts and counts in this session.</span>
+          <span style="flex:1;"></span>
+          <button class="btn-tiny" id="portfolioRestoreAll">Restore all</button>
+        </div>
         <table class="findings-tbl portfolio-summary-tbl">
           <thead><tr>
+            <th style="width:28px;text-align:center;" title="Include in review">✓</th>
             <th>Rank</th>
             <th>Project</th>
             <th>Developer</th>
@@ -712,6 +799,44 @@ let PROJECTS = [
 /* __INJECT_DATA_END__ */
 let currentIdx = 0;
 let projCards = [];   // populated by renderProjectList()
+// Client-side "excluded from this session" set keyed by project index.
+// Sidebar remains the authoritative permanent-exclusion UI; this is purely
+// for fast in-session hide/restore from the portfolio summary table.
+let EXCLUDED_IDX = new Set();
+// Per-finding reviewer actions: {projectIdx: {fieldKey: {action: 'accept'|'flag'|null, note: string}}}
+// Persisted to sessionStorage so drill-outs don't lose state.
+const _ACTIONS_KEY = 'vpReview.findingActions';
+let FINDING_ACTIONS = (function(){
+  try { return JSON.parse(sessionStorage.getItem(_ACTIONS_KEY) || '{}') || {}; }
+  catch(_) { return {}; }
+})();
+function _saveActions(){
+  try { sessionStorage.setItem(_ACTIONS_KEY, JSON.stringify(FINDING_ACTIONS)); } catch(_){}
+}
+
+// Per-project approval state: {projectIdx: {approved: true, timestamp: iso, reviewer: '...'}}
+const _APPROVAL_KEY = 'vpReview.projectApprovals';
+let PROJECT_APPROVALS = (function(){
+  try { return JSON.parse(sessionStorage.getItem(_APPROVAL_KEY) || '{}') || {}; }
+  catch(_) { return {}; }
+})();
+function _saveApprovals(){
+  try { sessionStorage.setItem(_APPROVAL_KEY, JSON.stringify(PROJECT_APPROVALS)); } catch(_){}
+}
+function _isApproved(idx){ return !!(PROJECT_APPROVALS[idx] && PROJECT_APPROVALS[idx].approved); }
+function _getAction(projIdx, field){
+  return ((FINDING_ACTIONS[projIdx]||{})[field] || {action:null, note:''});
+}
+function _setAction(projIdx, field, patch){
+  FINDING_ACTIONS[projIdx] = FINDING_ACTIONS[projIdx] || {};
+  const prev = FINDING_ACTIONS[projIdx][field] || {action:null, note:''};
+  FINDING_ACTIONS[projIdx][field] = Object.assign({}, prev, patch);
+  _saveActions();
+}
+function isIncluded(idx) { return !EXCLUDED_IDX.has(idx); }
+function visibleProjects() {
+  return PROJECTS.map((p, i) => ({p, i})).filter(({i}) => isIncluded(i));
+}
 
 // ---- accounting helpers ----
 function fmtMoneyShort(absVal){
@@ -745,28 +870,153 @@ function renderFindings(p){
     body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-style:italic;">No bible findings — this project is clean.</td></tr>';
     return;
   }
-  body.innerHTML = p.findings.map(f=>{
-    // Delta cell: unit-aware formatting. $ units get a $ prefix (both signs);
-    // everything else puts the unit code as a suffix. Old code missed the
-    // $ prefix on the negative path and could double-prefix non-$ units.
+  body.innerHTML = p.findings.map((f, fIdx)=>{
     const deltaCell = (f.delta===null) ? '<td class="num-cell" style="color:var(--muted);">missing</td>'
       : `<td class="num-cell${f.delta<0?' neg-acct':''}" style="${f.delta<0?'':'color:var(--text);font-weight:600;'}">${_fmtDelta(f.delta, f.deltaUnit)}</td>`;
     const impactCell = (f.impact===null) ? '<td class="impact-cell" style="color:var(--muted);">—</td>'
       : `<td class="impact-cell neg-acct">(${fmtMoneyShort(Math.abs(f.impact))})</td>`;
     const statusCls = {OFF:'off',OUT:'out',MISSING:'miss',REVIEW:'rev'}[f.status]||'miss';
-    const action = f.status==='MISSING' ? 'Flag' : 'Accept · Flag';
-    // Every string below is ultimately sourced from the uploaded Excel file,
-    // so every interpolation into innerHTML must go through _esc.
-    return `<tr>
-      <td class="field">${_esc(f.field)}</td>
+    // Per-finding reviewer state (survives drill-out via sessionStorage).
+    const state = _getAction(currentIdx, f.field);
+    const canAccept = f.status !== 'MISSING';  // can't "accept" a blank cell
+    const acceptCls = 'row-action row-btn' + (state.action==='accept' ? ' active-accept' : '');
+    const flagCls   = 'row-action row-btn' + (state.action==='flag'   ? ' active-flag' : '');
+    const noteCls   = 'row-action row-note-toggle' + (state.note ? ' has-note' : '');
+    const fieldAttr = _esc(f.field);
+    const rowStatus = state.action === 'accept' ? 'accepted' : (state.action === 'flag' ? 'flagged' : '');
+    const rowBadge = rowStatus
+      ? '<span class="row-status-badge ' + rowStatus + '">' + rowStatus.toUpperCase() + '</span>'
+      : '';
+    const acceptBtn = canAccept
+      ? '<span class="' + acceptCls + '" data-action="accept" data-field="' + fieldAttr + '" tabindex="0">Accept</span>'
+      : '';
+    const flagBtn   = '<span class="' + flagCls   + '" data-action="flag"   data-field="' + fieldAttr + '" tabindex="0">Flag</span>';
+    const noteBtn   = '<span class="' + noteCls   + '" data-action="note"   data-field="' + fieldAttr + '" tabindex="0" title="Add a note">Note</span>';
+    const actions = [acceptBtn, flagBtn, noteBtn].filter(Boolean).join(' · ');
+    const noteOpen = !!state.note;
+    const noteRow = `<tr class="finding-note-row" data-field="${fieldAttr}" style="${noteOpen?'':'display:none;'}">
+        <td colspan="8" style="padding:6px 12px 10px;background:var(--inset);">
+          <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);display:block;margin-bottom:3px;">Reviewer note — ${_esc(f.field)}</label>
+          <textarea class="finding-note-input" data-field="${fieldAttr}" rows="2"
+            placeholder="Why is this acceptable / flagged? Cite a source."
+            style="width:100%;padding:6px 9px;border:1px solid var(--border);border-radius:3px;font-family:inherit;font-size:11.5px;color:var(--text);resize:vertical;background:var(--surface);">${_esc(state.note||'')}</textarea>
+        </td>
+      </tr>`;
+    return `<tr class="finding-row" data-field="${fieldAttr}" data-status="${rowStatus}">
+      <td class="field">${rowBadge}${_esc(f.field)}</td>
       <td class="num-cell">${_esc(f.bible??'—')}</td>
       <td class="num-cell"${f.model===null?' style="color:var(--muted);"':''}>${_esc(f.model??'—')}</td>
       ${deltaCell}${impactCell}
       <td><span class="status-tag ${statusCls}">${_esc(_statusLabel(f.status))}</span></td>
       <td style="font-size:11px;color:var(--muted);">${_esc(f.source)}</td>
-      <td><span class="row-action">${action}</span></td>
-    </tr>`;
+      <td class="action-cell">${actions}</td>
+    </tr>${noteRow}`;
   }).join('');
+
+  // Wire up per-finding actions (Accept / Flag / Note).
+  body.querySelectorAll('.row-action').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.preventDefault();
+      const action = btn.getAttribute('data-action');
+      const field  = btn.getAttribute('data-field');
+      if (action === 'note') {
+        const row = body.querySelector('tr.finding-note-row[data-field="'+CSS.escape(field)+'"]');
+        if (row) row.style.display = (row.style.display === 'none') ? '' : 'none';
+        return;
+      }
+      const state = _getAction(currentIdx, field);
+      const nextAction = (state.action === action) ? null : action;  // toggle off if same
+      _setAction(currentIdx, field, {action: nextAction});
+      renderFindings(PROJECTS[currentIdx]);
+      _updateProjectApprovalBanner();
+    });
+  });
+  body.querySelectorAll('.finding-note-input').forEach(ta=>{
+    ta.addEventListener('input', e=>{
+      const field = ta.getAttribute('data-field');
+      _setAction(currentIdx, field, {note: ta.value});
+      // Toggle the has-note class on the Note button without a full re-render.
+      const btn = body.querySelector('.row-note-toggle[data-field="'+CSS.escape(field)+'"]');
+      if (btn) btn.classList.toggle('has-note', !!ta.value.trim());
+    });
+  });
+
+  // Update Findings card header + approval banner.
+  const hdr = document.getElementById('findingsHeader');
+  if (hdr) hdr.textContent = p.findings.length + ' findings · sorted by $-impact';
+  _updateProjectApprovalBanner();
+}
+
+// Approval banner: counts, enable state, click handlers.
+function _updateProjectApprovalBanner(){
+  const p = PROJECTS[currentIdx];
+  if (!p) return;
+  const findings = p.findings || [];
+  let accepted = 0, flagged = 0, unhandled = 0;
+  findings.forEach(f => {
+    const st = _getAction(currentIdx, f.field);
+    if (st.action === 'accept') accepted++;
+    else if (st.action === 'flag') flagged++;
+    else if (f.status !== 'OK') unhandled++;   // OKs don't require action
+  });
+  document.getElementById('approvalAccepted').textContent = accepted;
+  document.getElementById('approvalFlagged').textContent  = flagged;
+  document.getElementById('approvalUnhandled').textContent = unhandled;
+
+  const approved = _isApproved(currentIdx);
+  const statusEl = document.getElementById('approvalStatus');
+  statusEl.textContent = approved ? 'Approved' : 'Pending';
+  statusEl.classList.toggle('approved', approved);
+  statusEl.classList.toggle('pending', !approved);
+
+  const approveBtn = document.getElementById('approveProjectBtn');
+  const unapproveBtn = document.getElementById('unapproveProjectBtn');
+  if (approved) {
+    approveBtn.style.display = 'none';
+    unapproveBtn.style.display = '';
+  } else {
+    approveBtn.style.display = '';
+    unapproveBtn.style.display = 'none';
+    approveBtn.disabled = (unhandled > 0);
+    approveBtn.title = unhandled > 0
+      ? `${unhandled} finding(s) need Accept or Flag before approval.`
+      : 'Record approval and stamp Reviewer Notes.';
+  }
+}
+
+(function wireApproval(){
+  const approveBtn = document.getElementById('approveProjectBtn');
+  const unapproveBtn = document.getElementById('unapproveProjectBtn');
+  if (!approveBtn || !unapproveBtn) return;
+  approveBtn.addEventListener('click', e=>{
+    e.preventDefault();
+    if (approveBtn.disabled) return;
+    const p = PROJECTS[currentIdx];
+    const reviewer = (PORTFOLIO && PORTFOLIO.reviewer) || '—';
+    const ts = new Date().toISOString().slice(0,16).replace('T',' ');
+    PROJECT_APPROVALS[currentIdx] = {
+      approved: true, timestamp: ts, reviewer: reviewer, project: p.name,
+    };
+    _saveApprovals();
+    // Stamp reviewer notes (prepend immutable line).
+    const notes = document.getElementById('reviewerNotes');
+    if (notes) {
+      const acts = (FINDING_ACTIONS[currentIdx]||{});
+      const accepted = Object.keys(acts).filter(k => acts[k].action==='accept').length;
+      const flagged  = Object.keys(acts).filter(k => acts[k].action==='flag').length;
+      const stamp = `[${ts}] APPROVED — ${p.name} · ${accepted} accepted · ${flagged} flagged — ${reviewer}`;
+      notes.value = stamp + (notes.value ? '\n' + notes.value : '');
+      document.getElementById('notesCount').textContent = notes.value.length;
+    }
+    _updateProjectApprovalBanner();
+  });
+  unapproveBtn.addEventListener('click', e=>{
+    e.preventDefault();
+    delete PROJECT_APPROVALS[currentIdx];
+    _saveApprovals();
+    _updateProjectApprovalBanner();
+  });
+})();
 }
 
 // ---- classification (auto-detected w/ override) ----
@@ -1112,15 +1362,27 @@ function renderPortfolio(){
   S('bibleLabel', P.bibleLabel || "Q1 '26");
   S('loadedDate', P.loadedDate || '—');
   S('reviewer',   P.reviewer   || '—');
-  S('pillOff',    P.off     ?? 0);
-  S('pillOut',    P.out     ?? 0);
-  S('pillMiss',   P.missing ?? 0);
-  S('pillRev',    P.review  ?? 0);
-  S('pillCount',  P.count   ?? PROJECTS.length);
-  S('pillMw',     (P.totalMw!=null ? P.totalMw.toFixed(1) : '0.0') + ' MW');
+  // Recompute FAIL/FLAG/MISSING/REVIEW + count + MW from currently-visible projects
+  // so in-session exclusions reflect in the audit strip.
+  const vis = visibleProjects();
+  const visCounts = {OFF:0, OUT:0, MISSING:0, REVIEW:0};
+  let visMw = 0;
+  vis.forEach(({p}) => {
+    (p.findings||[]).forEach(f => {
+      if (visCounts[f.status] != null) visCounts[f.status]++;
+    });
+    const dc = parseFloat(p.kpis && p.kpis.dc);
+    if (isFinite(dc)) visMw += dc;
+  });
+  S('pillOff',    visCounts.OFF);
+  S('pillOut',    visCounts.OUT);
+  S('pillMiss',   visCounts.MISSING);
+  S('pillRev',    visCounts.REVIEW);
+  S('pillCount',  vis.length);
+  S('pillMw',     visMw.toFixed(1) + ' MW');
   S('pillReviewed', P.reviewed ?? 0);
-  S('pillPending',  P.pending  ?? 0);
-  S('navProjCount', 'Projects · ' + (P.count ?? PROJECTS.length));
+  S('pillPending',  vis.length);
+  S('navProjCount', 'Projects · ' + vis.length);
 }
 
 // ===== Project-list renderer (left nav) =====
@@ -1180,7 +1442,7 @@ function renderProjectList(){
   if(!PROJECTS.length){ host.innerHTML=''; if(empty){ empty.style.display='block'; empty.innerHTML='No projects loaded. Upload a pricing model and click <b>Run Review</b>.'; } projCards=[]; return; }
   const filtered = PROJECTS
     .map((p,i)=>({p,i}))
-    .filter(({p})=>_projMatchesFilter(p) && _projMatchesSearch(p));
+    .filter(({p,i})=>isIncluded(i) && _projMatchesFilter(p) && _projMatchesSearch(p));
   // Sort by worst-first (largest |equityK|). Within ties, keep original order.
   filtered.sort((a,b)=>Math.abs(b.p.equityK||0) - Math.abs(a.p.equityK||0));
   if(!filtered.length){
@@ -1220,25 +1482,30 @@ function renderPortfolioSummary(){
   const meta = document.getElementById('portfolioSummaryMeta');
   if(!body) return;
   if(!PROJECTS.length){
-    body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted);font-style:italic;">No projects loaded.</td></tr>';
+    body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--muted);font-style:italic;">No projects loaded.</td></tr>';
     if(meta) meta.textContent = 'Ranked by absolute equity impact';
     return;
   }
+  // Every project renders in the table (even excluded), ranked by full-set
+  // equity magnitude, so the reviewer can see what's hidden.
   const ranked = PROJECTS.map((p,i)=>({p,i})).sort((a,b)=>Math.abs(b.p.equityK||0)-Math.abs(a.p.equityK||0));
-  const totalEquity = ranked.reduce((s,{p})=>s+(p.equityK||0), 0);
-  const totalMw = ranked.reduce((s,{p})=>{
+  // Totals count only included (not-excluded) projects.
+  const visible = ranked.filter(({i}) => isIncluded(i));
+  const totalEquity = visible.reduce((s,{p})=>s+(p.equityK||0), 0);
+  const totalMw = visible.reduce((s,{p})=>{
     const dc = parseFloat(p.kpis && p.kpis.dc);
     return s + (isFinite(dc) ? dc : 0);
   }, 0);
   if(meta){
     const totalHTML = (totalEquity<0?'('+fmtMoneyShort(Math.abs(totalEquity*1000))+')':fmtMoneyShort(totalEquity*1000));
-    meta.innerHTML = ranked.length + ' projects · ' + totalMw.toFixed(1) + ' MWdc · portfolio equity Δ ' + totalHTML;
+    const hiddenCount = ranked.length - visible.length;
+    meta.innerHTML = visible.length + ' in review · ' + totalMw.toFixed(1) + ' MWdc · portfolio equity Δ ' + totalHTML
+      + (hiddenCount ? ' <span style="color:var(--muted);">· ' + hiddenCount + ' hidden</span>' : '');
   }
   body.innerHTML = ranked.map(({p,i}, rank)=>{
-    const devRow = (p.references && p.references.bibleHeader) || '';
-    // Pull developer from sub when present ("Lightstar · IL Ameren · ABP")
-    const developer = (p.sub||'').split(' · ')[0] || '—';
-    const stateProgram = (p.sub||'').split(' · ').slice(1).join(' · ') || '—';
+    // Prefer first-class developer field; fall back to legacy sub[0] parse.
+    const developer = p.developer || (p.sub||'').split(' · ')[0] || '—';
+    const stateProgram = [p.state, p.program].filter(Boolean).join(' · ') || '—';
     const dcStr = (p.kpis && p.kpis.dc && p.kpis.dc !== '—') ? p.kpis.dc : '—';
     const verdict = p.verdict || 'REVIEW';
     const vClass = verdict==='CLEAN' ? 'clean' : (verdict==='REVIEW' ? 'review' : 'rework');
@@ -1247,7 +1514,10 @@ function renderPortfolioSummary(){
       ? '<span class="neg-acct">('+fmtMoneyShort(Math.abs(eqK*1000)).replace('$','$')+')</span>'
       : (eqK>0 ? fmtMoneyShort(eqK*1000) : '$0');
     const counts = (p.findings||[]).reduce((acc,f)=>{ acc[f.status]=(acc[f.status]||0)+1; return acc; }, {});
-    return '<tr data-idx="'+i+'">'
+    const included = isIncluded(i);
+    const rowStyle = included ? '' : 'opacity:0.45;';
+    return '<tr data-idx="'+i+'" style="'+rowStyle+'">'
+      + '<td style="text-align:center;"><input type="checkbox" class="portfolio-include-chk" data-idx="'+i+'" '+(included?'checked':'')+' aria-label="Include in review"></td>'
       + '<td class="rank-cell">#'+(rank+1)+'</td>'
       + '<td class="field">'+_esc(p.name||'Unnamed')+'</td>'
       + '<td>'+_esc(developer)+'</td>'
@@ -1259,15 +1529,47 @@ function renderPortfolioSummary(){
       + '<td class="num-cell">'+(counts.OUT||0)+'</td>'
       + '</tr>';
   }).join('');
-  // Row click → select project + switch to Deep-Dive.
+
+  // Checkbox: toggle in-session exclusion. Click bubbles from input, so
+  // the row-click handler below checks the event target first to avoid
+  // both firing on a single click.
+  body.querySelectorAll('.portfolio-include-chk').forEach(chk=>{
+    chk.addEventListener('click', e=>e.stopPropagation());
+    chk.addEventListener('change', e=>{
+      const idx = parseInt(chk.getAttribute('data-idx'));
+      if (chk.checked) EXCLUDED_IDX.delete(idx);
+      else EXCLUDED_IDX.add(idx);
+      _onInclusionChanged();
+    });
+  });
+  // Row click (not on checkbox) → select project + switch to Deep-Dive.
   body.querySelectorAll('tr[data-idx]').forEach(row=>{
-    row.addEventListener('click', ()=>{
+    row.addEventListener('click', e=>{
+      if (e.target && e.target.classList && e.target.classList.contains('portfolio-include-chk')) return;
       const idx = parseInt(row.getAttribute('data-idx'));
+      if (!isIncluded(idx)) return;   // excluded projects can't be drilled into
       selectProject(idx);
       const deepBtn = document.querySelector('#topModes .mode[data-mode="deep"]');
       if(deepBtn) deepBtn.click();
     });
   });
+}
+
+// Cross-cutting refresh when the in-session exclusion set changes.
+function _onInclusionChanged(){
+  renderPortfolio();
+  renderProjectList();
+  renderPortfolioSummary();
+  // If the currently-selected project was just hidden, promote the worst visible.
+  if (!isIncluded(currentIdx)) {
+    const vis = visibleProjects();
+    if (vis.length) selectProject(vis[0].i);
+  } else {
+    // Re-render charts to reflect new portfolio totals / heatmap row order.
+    if (typeof Plotly !== 'undefined' && PROJECTS.length) {
+      try { renderCharts(PROJECTS[currentIdx]); } catch(_){}
+    }
+  }
 }
 
 // Default-select the worst project on initial load rather than index 0.
@@ -1440,9 +1742,13 @@ function renderCharts(p){
 
   // ----- Heatmap (with current project highlighted via a row marker) -----
   const HM = (PORTFOLIO && PORTFOLIO.heatmap) || {projects:[], fields:[], z:[]};
-  const projects = HM.projects.length ? HM.projects : PROJECTS.map(x=>x.name);
+  // Filter by in-session exclusions so the heatmap only shows in-review projects.
+  const fullProjects = HM.projects.length ? HM.projects : PROJECTS.map(x=>x.name);
+  const fullZ = HM.z.length ? HM.z : fullProjects.map(()=>HM.fields.map(()=>0));
+  const keepMask = fullProjects.map((_, k) => isIncluded(k));
+  const projects = fullProjects.filter((_, k) => keepMask[k]);
+  const z = fullZ.filter((_, k) => keepMask[k]);
   const fields = HM.fields.length ? HM.fields : ['EPC','LNTP','C&L','ITC','Elig Cost','Upfront','Insurance','O&M','AM Fee'];
-  const z = HM.z.length ? HM.z : projects.map(()=>fields.map(()=>0));
   Plotly.react('heatmap', [{
     type:'heatmap', z, x:fields, y:projects,
     colorscale:[[0,'#f7f8fa'],[0.34,'rgba(81,132,132,0.25)'],[0.67,'rgba(184,50,48,0.55)'],[1,'#dfe2e8']],
@@ -1467,6 +1773,53 @@ function bootCharts(){
   }
   if(PROJECTS.length) renderCharts(PROJECTS[currentIdx]);
 }
+
+// ===== Left-nav collapse toggle =====
+(function wireNavCollapse(){
+  const btn = document.getElementById('navCollapseBtn');
+  if (!btn) return;
+  const _COLLAPSE_KEY = 'vpReview.navCollapsed';
+  // Restore state across reruns within the same session.
+  if (sessionStorage.getItem(_COLLAPSE_KEY) === '1') {
+    document.body.classList.add('nav-collapsed');
+  }
+  const setLabel = () => {
+    const isCollapsed = document.body.classList.contains('nav-collapsed');
+    btn.setAttribute('aria-label', isCollapsed ? 'Expand project list' : 'Collapse project list');
+    btn.title = isCollapsed ? 'Expand projects (Alt+P)' : 'Collapse projects (Alt+P)';
+    const label = btn.querySelector('.nav-collapse-label');
+    if (label) label.textContent = isCollapsed ? 'Expand' : 'Collapse';
+  };
+  setLabel();
+  btn.addEventListener('click', e => {
+    e.preventDefault();
+    document.body.classList.toggle('nav-collapsed');
+    try { sessionStorage.setItem(_COLLAPSE_KEY, document.body.classList.contains('nav-collapsed') ? '1' : '0'); } catch(_){}
+    setLabel();
+    // Plotly charts need a resize kick because the center column width changed.
+    if (typeof Plotly !== 'undefined' && PROJECTS.length) {
+      setTimeout(() => { try { renderCharts(PROJECTS[currentIdx]); } catch(_){} }, 240);
+    }
+  });
+  // Keyboard shortcut: Alt+P toggles the nav.
+  document.addEventListener('keydown', e => {
+    if (e.altKey && (e.key === 'p' || e.key === 'P')) {
+      e.preventDefault();
+      btn.click();
+    }
+  });
+})();
+
+// ===== Portfolio table: Restore-all button =====
+(function wireRestoreAll(){
+  const btn = document.getElementById('portfolioRestoreAll');
+  if (btn) btn.addEventListener('click', e => {
+    e.preventDefault();
+    if (EXCLUDED_IDX.size === 0) return;
+    EXCLUDED_IDX.clear();
+    _onInclusionChanged();
+  });
+})();
 
 // ===== Boot =====
 renderPortfolio();

@@ -393,10 +393,11 @@ def main():
     # default unchecked so the reviewer can opt them in.
     included_ids: set[str] = set()
     if candidates:
-        active = [c for c in candidates if c["toggled_on"]]
-        inactive = [c for c in candidates if not c["toggled_on"]]
+        # Default-on = toggle=On OR (toggle=Off AND shares developer with an On project).
+        # Everything else is opt-in via the expander.
+        suggested = [c for c in candidates if c.get("suggested")]
+        extras = [c for c in candidates if not c.get("suggested")]
 
-        # Group both lists by developer to make opt-in easier.
         def _grouped(items):
             buckets: dict[str, list[dict]] = {}
             for c in items:
@@ -406,20 +407,25 @@ def main():
         def _item_label(c):
             meta = " · ".join([x for x in [c["state"], c["utility"], c["program"]] if x])
             dc_str = f"{c['dc']:.2f} MW" if c["dc"] else ""
+            off_tag = "" if c["toggled_on"] else "  ·  *toggle=Off*"
             tail = " — ".join([x for x in [meta, dc_str] if x])
-            return f"**{c['name']}**" + (f"  \n{tail}" if tail else "")
+            return f"**{c['name']}**" + off_tag + (f"  \n{tail}" if tail else "")
 
         with st.sidebar:
             st.markdown("---")
             st.markdown("### Projects in review")
-            active_mw = sum(c["dc"] for c in active)
+            sug_mw = sum(c["dc"] for c in suggested)
+            n_on = sum(1 for c in suggested if c["toggled_on"])
+            n_dev = len(suggested) - n_on
             st.caption(
-                f"{len(active)} active · {active_mw:.1f} MWdc  •  "
-                f"{len(inactive)} available (toggle=Off)"
+                f"{len(suggested)} suggested · {sug_mw:.1f} MWdc  \n"
+                f"({n_on} toggled=On"
+                + (f" + {n_dev} same-developer" if n_dev else "")
+                + f" · {len(extras)} other available)"
             )
             model_key = getattr(model_file, "name", None) or m1_label or "model"
 
-            for dev, items in _grouped(active):
+            for dev, items in _grouped(suggested):
                 st.markdown(f"**{dev}**")
                 for c in items:
                     sig = f"inc::{model_key}::{c['id']}::{c['name']}"
@@ -427,9 +433,9 @@ def main():
                     if checked:
                         included_ids.add(str(c["id"]))
 
-            if inactive:
-                with st.expander(f"+ Add off-toggled projects ({len(inactive)})", expanded=False):
-                    for dev, items in _grouped(inactive):
+            if extras:
+                with st.expander(f"+ Add other projects ({len(extras)})", expanded=False):
+                    for dev, items in _grouped(extras):
                         st.markdown(f"**{dev}**")
                         for c in items:
                             sig = f"inc::{model_key}::{c['id']}::{c['name']}"
