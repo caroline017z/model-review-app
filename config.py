@@ -15,215 +15,10 @@ P = {
 }
 PLOTLY_BG = "#f6f7f9"
 PLOTLY_GRID = "rgba(5,13,37,0.05)"
-CHART_COLORS = [P["green"], P["blue"], P["teal"], P["navy2"], P["cyan"], P["dark_blue"]]
-
 
 # =====================================================================
 # PRICING BIBLE Q1 2026
 # =====================================================================
-
-CS_CAPEX = {
-    "Closing & Legal":   {"value": 0.06,  "unit": "$/W",    "row": 124, "note": ""},
-    "EPC (excl. LNTP)":  {"value": 1.65,  "unit": "$/W",    "row": 118, "note": ">5 MWdc; <5 MWdc = $1.75. PA 10c cheaper than NY. 6+ MW = $1.55 all-in; <4 MW = $1.75 all-in"},
-    "LNTP":              {"value": 0.10,  "unit": "$/W",    "row": 119, "note": "4-6 MW standard"},
-}
-
-CS_OPEX = {
-    "PV O&M Preventative":     {"value": 4750,   "unit": "$/MW/yr", "row": 225, "esc": 0.02, "note": "Up from $4,500 in Q2"},
-    "PV O&M Corrective":       {"value": 2000,   "unit": "$/MW/yr", "row": 226, "esc": 0.02, "note": ""},
-    "AM for Financing":        {"value": 3000,   "unit": "$/MW/yr", "row": 228, "esc": 0.02, "note": ""},
-    "AM - Internally Incurred":{"value": 2500,   "unit": "$/MW/yr", "row": 301, "esc": 0.02, "note": ""},
-    "Insurance":               {"value": 3500,   "unit": "$/MW/yr", "row": 296, "esc": 0.02, "note": "Increase to $4,815 for IL (higher hail risk)"},
-    "Customer Management":     {"value": None,   "unit": "$/kWh",   "row": 239, "esc": 0.02, "note": "See Market Specific Assumptions. NY: price to S-SFA"},
-    "Subscriber Churn":        {"value": 0.0256, "unit": "%",       "row": 245, "esc": None, "note": ""},
-    "Decom Bond Premium":      {"value": 0.025,  "unit": "% of bond","row": 281, "esc": 0.02, "note": "If no bond amt: use 1.5% of EPC"},
-}
-
-CS_CONSTRUCTION_LOAN = {
-    "CL Base Interest Rate":   {"value": 0.0365, "unit": "%", "note": "T6M SOFR = 3.65%"},
-    "CL Margin":               {"value": 0.0265, "unit": "%", "note": "Total CL rate ~6.30%"},
-    "CL Origination Fee":      {"value": 0.01,   "unit": "% of CapEx", "note": ""},
-    "Max CL Advance Rate":     {"value": 0.90,   "unit": "%", "note": "Dependent on Transfer Credit eligibility"},
-    "TE Commit Date":          {"value": "NTP+3mos", "unit": "", "note": ""},
-}
-
-CS_PERM_DEBT_FRONT = {
-    "Loan Tenor":              {"value": 25,     "unit": "years", "note": ""},
-    "Base Interest Rate (25yr)":{"value": 0.04995,"unit": "%", "note": "+18.4bps from Q3"},
-    "Base Interest Rate (7yr)": {"value": 0.04408,"unit": "%", "note": "-8.2bps from Q3"},
-    "Rate Step-Up (7yr only)":  {"value": 0.004,  "unit": "%", "note": ""},
-    "Interest Rate Margin":     {"value": 0.022,  "unit": "%", "note": "Total ~7.20% for 25yr"},
-    "USDA Project Fee":         {"value": 14500,  "unit": "$", "note": "Fixed"},
-    "Structuring Fee (USDA)":   {"value": 0.0105, "unit": "%", "note": ""},
-    "Structuring Fee (non-USDA)":{"value": 0.015, "unit": "%", "note": ""},
-}
-
-CS_DSCR_FRONT = {"Year 1": 2.00, "Year 2": 1.75, "Year 3": 1.60, "Year 4": 1.60, "Year 5": 1.60, "Year 6+": 1.35}
-
-CS_PERM_DEBT_BACK = {
-    "Loan Tenor":              {"value": 7,      "unit": "years", "note": ""},
-    "Base Interest Rate":      {"value": 0.0404, "unit": "%", "note": "Lesser of 7yr Treasury T6M + 25bps and current 40bps"},
-    "Interest Rate Margin":    {"value": 0.025,  "unit": "%", "note": "IL at 2.75%"},
-    "Closing Fee":             {"value": 0.015,  "unit": "%", "note": "IL 1.5%, others 1.0-1.25%"},
-}
-
-CS_DSCR_BACK = {"Year 1": 2.00, "Year 2": 1.75, "Year 3": 1.60, "Year 4": 1.60, "Year 5": 1.60,
-                "Year 6+ (Fixed Revenue)": 1.30, "Year 6+ (PTC/Retail)": 1.40, "Year 6+ (Wholesale)": 1.75}
-
-CS_TAX_EQUITY = {
-    "FMV Step Up Cap":          {"value": 0.30,   "unit": "%", "note": ""},
-    "FMV WACC":                 {"value": 0.0725, "unit": "%", "note": "NY = 7.00% (BDO adjusted); IL = 8.00%"},
-    "PPC":                      {"value": 1.06,   "unit": "$/ITC", "note": ""},
-    "TE Buyout":                {"value": 0.07,   "unit": "%", "note": ""},
-    "TE Pref":                  {"value": 0.025,  "unit": "%", "note": ""},
-    "IM TE Variable Cash":      {"value": 0.01,   "unit": "%", "note": ""},
-    "TE Insurance Coverage":    {"value": 0.035,  "unit": "%", "note": "Full ITC basis. Solcap: 4% on step-up only if PIS in 2026"},
-}
-
-CS_EPC_SPEND = {
-    "Month 0": 0.00, "Month 1 (NTP+)": 0.15, "Month 2": 0.05, "Month 3": 0.00,
-    "Month 4": 0.20, "Month 5": 0.10, "Month 6": 0.10, "Month 7": 0.15,
-    "Month 8": 0.05, "Month 9": 0.00, "Month 10": 0.05, "Month 11": 0.10,
-    "Month 12": 0.00, "Month 13": 0.00, "Month 14": 0.05,
-}
-
-STATE_NOTES = {
-    "IL": ["Insurance: $4,815/MW/yr (vs $3,500 standard) due to higher hail risk",
-           "FMV WACC: 8.00% (vs 7.25% standard)", "Back leverage margin: 2.75% (vs 2.50%)",
-           "Back leverage closing fee: 1.50%", "Rate curves: GH25 with 17.5% discount",
-           "Year 6+ DSCR (Fixed): can be 1.40x floor (already discounting rates by 20%)"],
-    "NY": ["FMV WACC: 7.00% (BDO adjusted down, vs 7.25% standard)", "Rate curves: 3Q25 TTM",
-           "Customer management: price to S-SFA",
-           "DRV: 25% IX deposit before July 2026 = Current DRV Y1-10, Staff PSC Y11+",
-           "REC rate: $31.03/MWh (25-year, part of VDER stack)"],
-    "MD": ["Rate curves: GH25 with 22.5% discount",
-           "REC rates: Karbone 10-yr strip (Y1: $43, declining to Y6-10: $18/MWh)",
-           "Post-REC rate: $3/MWh", "Property tax: CEH methodology \u2014 2.08% personal, 0.94% real"],
-    "PA": ["EPC: ~10 cents cheaper than NY", "No official CS program yet \u2014 PTC structure",
-           "Property tax: lease-based valuation, cap rate 8%"],
-}
-
-
-# =====================================================================
-# MARKET SPECIFIC ASSUMPTIONS
-# =====================================================================
-
-MARKET_CONFIGS = {
-    ("NY","National Grid","VDER (CS)"):{"col":"D","upfront_incentive":0.175,"incentive_lag":3,
-        "incentive_detail":"MW Block ($0.05) + Prevailing Wage ($0.125)",
-        "cust_resi":"S-SFA","cust_comm":"S-SFA","cust_anchor":"S-SFA","cust_lmi":"S-SFA",
-        "disc_resi":"S-SFA","disc_comm":"S-SFA","disc_anchor":"S-SFA","disc_lmi":"S-SFA","disc_blend":"S-SFA",
-        "cma_blend":0,"ucb":0.015,"rate_curve":"3Q25 TTM","rate_source":"NYGB",
-        "rec_rate":31.03,"rec_term":25,"post_rec":0,"post_rec_term":10,"rec_note":"Part of VDER Stack"},
-    ("NY","NYSEG","VDER (CS)"):{"col":"E","upfront_incentive":0.175,"incentive_lag":3,
-        "incentive_detail":"MW Block ($0.05) + Prevailing Wage ($0.125)",
-        "cust_resi":"S-SFA","cust_comm":"S-SFA","cust_anchor":"S-SFA","cust_lmi":"S-SFA",
-        "disc_resi":"S-SFA","disc_blend":"S-SFA","cma_blend":0,"ucb":0.015,
-        "rate_curve":"3Q25 TTM","rate_source":"NYGB",
-        "rec_rate":31.03,"rec_term":25,"post_rec":0,"post_rec_term":10},
-    ("NY","Other (Non-NG/NYSEG)","VDER (CS)"):{"col":"F","upfront_incentive":0.175,"incentive_lag":3,
-        "incentive_detail":"MW Block ($0.05) + Prevailing Wage ($0.125)",
-        "cust_resi":"S-SFA","cust_comm":"S-SFA","cust_anchor":"S-SFA","cust_lmi":"S-SFA",
-        "disc_resi":"S-SFA","disc_blend":"S-SFA","cma_blend":0,"ucb":0.015,
-        "rate_curve":"3Q25 TTM","rate_source":"NYGB",
-        "rec_rate":31.03,"rec_term":25,"post_rec":0,"post_rec_term":10},
-    ("MD/DE","Delmarva","MD PILOT"):{"col":"G","upfront_incentive":0,"incentive_lag":0,
-        "cust_resi":0.50,"cust_comm":0.50,"cust_anchor":0,"cust_lmi":0,
-        "disc_resi":0.10,"disc_comm":0.10,"disc_anchor":0.10,"disc_lmi":0.15,"disc_blend":0.10,
-        "cma_blend":0.0069,"ucb":0.01,
-        "acq_blend":0.092,"acq_resi":0.092,"acq_comm":0.092,"acq_anchor":0.05,"acq_lmi":0.136,
-        "rate_curve":"GH25 | 22.5% discount","rate_source":"GH",
-        "rec_rate":"Y1-5: $43/33/31/26/21; Y6-10: $18","rec_term":10,"post_rec":3,"post_rec_term":30},
-    ("MD/DE","Delmarva","MD Permanent"):{"col":"H","upfront_incentive":0,"incentive_lag":0,
-        "cust_resi":0.30,"cust_comm":0.20,"cust_anchor":0,"cust_lmi":0.50,
-        "disc_resi":0.10,"disc_comm":0.10,"disc_anchor":0.10,"disc_lmi":0.30,"disc_blend":0.20,
-        "cma_blend":0.0083,"ucb":0.01,
-        "acq_blend":0.0739,"rate_curve":"GH25 | 22.5% discount","rate_source":"GH",
-        "rec_rate":"Y1-5: $43/33/31/26/21; Y6-10: $18","rec_term":5,"post_rec":3,"post_rec_term":30},
-    ("MD/DE","Potomac Edison","MD PILOT"):{"col":"I","upfront_incentive":0,"incentive_lag":0,
-        "cust_resi":0.50,"cust_comm":0.50,"cust_anchor":0,"cust_lmi":0,
-        "disc_resi":0.10,"disc_comm":0.10,"disc_anchor":0.10,"disc_lmi":0.20,"disc_blend":0.10,
-        "cma_blend":0.00655,"ucb":0.01,"acq_blend":0.0655,
-        "rate_curve":"GH25 | 22.5% discount","rate_source":"GH",
-        "rec_rate":"Y1-5: $43/33/31/26/21; Y6-10: $18","rec_term":10,"post_rec":3,"post_rec_term":30},
-    ("MD/DE","Potomac Edison","MD Permanent"):{"col":"J","upfront_incentive":0,"incentive_lag":0,
-        "cust_resi":0.50,"cust_comm":0,"cust_anchor":0,"cust_lmi":0.50,
-        "disc_resi":0.10,"disc_comm":0.10,"disc_anchor":0.10,"disc_lmi":0.20,"disc_blend":0.15,
-        "cma_blend":0.0072,"ucb":0.01,"acq_blend":0.0735,
-        "rate_curve":"GH25 | 22.5% discount","rate_source":"GH",
-        "rec_rate":"Y1-5: $43/33/31/26/21; Y6-10: $18","rec_term":5,"post_rec":3,"post_rec_term":30},
-    ("MD/DE","BGE","MD PILOT"):{"col":"K","upfront_incentive":0,"incentive_lag":0,
-        "cust_resi":0.60,"cust_comm":0.40,"cust_anchor":0,"cust_lmi":0,
-        "disc_resi":0.10,"disc_comm":0.05,"disc_anchor":0.05,"disc_lmi":0.15,"disc_blend":0.08,
-        "cma_blend":0.00672,"ucb":0.01,"acq_blend":0.0666,
-        "rate_curve":"GH25 | 22.5% discount","rate_source":"GH",
-        "rec_rate":"Y1-5: $43/33/31/26/21; Y6-10: $18","rec_term":10,"post_rec":3,"post_rec_term":30},
-    ("MD/DE","BGE","MD Permanent"):{"col":"L","upfront_incentive":0,"incentive_lag":0,
-        "cust_resi":0.10,"cust_comm":0.40,"cust_anchor":0,"cust_lmi":0.50,
-        "disc_resi":0.10,"disc_comm":0.05,"disc_anchor":0.05,"disc_lmi":0.20,"disc_blend":0.13,
-        "cma_blend":0.00717,"ucb":0.01,"acq_blend":0.0701,
-        "rate_curve":"GH25 | 22.5% discount","rate_source":"GH",
-        "rec_rate":"Y1-5: $43/33/31/26/21; Y6-10: $18","rec_term":5,"post_rec":3,"post_rec_term":30},
-    ("MD/DE","PEPCO","MD PILOT"):{"col":"M","upfront_incentive":0,"incentive_lag":0,
-        "cust_resi":0.60,"cust_comm":0.40,"cust_anchor":0,"cust_lmi":0,
-        "disc_resi":0.10,"disc_comm":0.05,"disc_anchor":0.05,"disc_lmi":0.15,"disc_blend":0.08,
-        "cma_blend":0.00682,"ucb":0.01,"acq_blend":0.0666,
-        "rate_curve":"GH25 | 22.5% discount","rate_source":"GH",
-        "rec_rate":"Y1-5: $43/33/31/26/21; Y6-10: $18","rec_term":10,"post_rec":3,"post_rec_term":30},
-    ("MD/DE","PEPCO","MD Permanent"):{"col":"N","upfront_incentive":0,"incentive_lag":0,
-        "cust_resi":0.30,"cust_comm":0.20,"cust_anchor":0,"cust_lmi":0.50,
-        "disc_resi":0.10,"disc_comm":0.05,"disc_anchor":0.05,"disc_lmi":0.30,"disc_blend":0.19,
-        "cma_blend":0.00741,"ucb":0.01,"acq_blend":0.0713,
-        "rate_curve":"GH25 | 22.5% discount","rate_source":"GH",
-        "rec_rate":"Y1-5: $43/33/31/26/21; Y6-10: $18","rec_term":5,"post_rec":3,"post_rec_term":30},
-    ("IL","Ameren","ABP"):{"col":"O","upfront_incentive":0.25,"incentive_lag":3,
-        "incentive_detail":"Smart Inverter Rebate",
-        "cust_resi":0.50,"cust_comm":0.50,"cust_anchor":0,"cust_lmi":0,
-        "disc_resi":0.10,"disc_comm":0.10,"disc_anchor":0.10,"disc_lmi":0.15,"disc_blend":0.10,
-        "cma_blend":0.0049,"ucb":0.01,
-        "acq_blend":0.0366,"acq_resi":0.0442,"acq_comm":0.0289,
-        "rate_curve":"GH25 | 17.5% discount","rate_source":"GH",
-        "rec_rate":"Project Dependent","rec_term":20,"post_rec":3,"post_rec_term":20},
-    ("IL","Ameren","Non-ABP / PTC"):{"col":"P","upfront_incentive":0.25,"incentive_lag":3,
-        "incentive_detail":"Smart Inverter Rebate",
-        "cust_resi":0.50,"cust_comm":0.50,"cust_anchor":0,"cust_lmi":0,
-        "disc_resi":0.10,"disc_comm":0.10,"disc_anchor":0.10,"disc_lmi":0.15,"disc_blend":0.10,
-        "cma_blend":0.0049,"ucb":0.01,"acq_blend":0.0366,
-        "rate_curve":"GH25 | 17.5% discount","rate_source":"GH",
-        "rec_rate":3,"rec_term":"Full project life","post_rec":3,"post_rec_term":"Remaining project life"},
-    ("IL","ComEd","ABP"):{"col":"Q","upfront_incentive":0.25,"incentive_lag":3,
-        "incentive_detail":"Smart Inverter Rebate",
-        "cust_resi":0.50,"cust_comm":0.50,"cust_anchor":0,"cust_lmi":0,
-        "disc_resi":0.10,"disc_comm":0.10,"disc_anchor":0.10,"disc_lmi":0.15,"disc_blend":0.10,
-        "cma_blend":0.00478,"ucb":0.01,"acq_blend":0.0334,
-        "rate_curve":"GH25 | 17.5% discount","rate_source":"GH",
-        "rec_rate":"Project Dependent","rec_term":20,"post_rec":3,"post_rec_term":20},
-    ("IL","ComEd","Non-ABP / PTC"):{"col":"R","upfront_incentive":0.25,"incentive_lag":3,
-        "incentive_detail":"Smart Inverter Rebate",
-        "cust_resi":0.50,"cust_comm":0.50,"cust_anchor":0,"cust_lmi":0,
-        "disc_resi":0.10,"disc_comm":0.10,"disc_anchor":0.10,"disc_lmi":0.15,"disc_blend":0.10,
-        "cma_blend":0.00478,"ucb":0.01,"acq_blend":0.0334,
-        "rate_curve":"GH25 | 17.5% discount","rate_source":"GH",
-        "rec_rate":18.5,"rec_term":10,"post_rec":3,"post_rec_term":"Remaining project life",
-        "rec_note":"Karbone 10-year strip"},
-    ("PA","ALL","PTC"):{"col":"S","upfront_incentive":0,"incentive_lag":0,
-        "cust_resi":0,"cust_comm":0,"cust_anchor":0,"cust_lmi":0,
-        "disc_resi":0,"disc_comm":0,"disc_anchor":0,"disc_lmi":0,"disc_blend":0,
-        "cma_blend":0,"ucb":0.01,"acq_blend":0,
-        "rate_curve":"Trailing 12-month average","rate_source":"GH (PTC)",
-        "rec_rate":18.5,"rec_term":10,"post_rec":3,"post_rec_term":25},
-    ("MN","Xcel","LMI-Accessible CS"):{"col":"T","upfront_incentive":0,"incentive_lag":0,
-        "cust_resi":0.45,"cust_comm":0,"cust_anchor":0,"cust_lmi":0.60,
-        "disc_resi":0.10,"disc_comm":0.10,"disc_anchor":0.10,"disc_lmi":0.10,"disc_blend":0.105,
-        "cma_blend":0.00749,"ucb":0.01,"acq_blend":0.0599,
-        "rate_curve":"Trailing 12-month average","rate_source":"GH",
-        "rec_rate":0,"rec_term":0,"post_rec":0,"post_rec_term":0},
-}
-
-MARKET_HIERARCHY = {}
-for (state, util, prog) in MARKET_CONFIGS:
-    MARKET_HIERARCHY.setdefault(state, {}).setdefault(util, []).append(prog)
-
 
 # =====================================================================
 # VALIDATION BENCHMARKS
@@ -260,7 +55,6 @@ BIBLE_BENCHMARKS = {
         "System Life (yrs)":     {"row": 16,  "min": 20,    "max": 40,    "unit": "years"},
     },
 }
-
 
 # =====================================================================
 # ROW MAPPINGS
@@ -316,60 +110,10 @@ DPW_ROWS = {32, 33, 38, 118, 119, 120, 121, 122, 123, 124, 126, 129, 157, 167, 2
 # Integer / dollar rows — no decimals (e.g. $3,500/MW/yr, 2027, 25 kWac)
 INT_ROWS = {15, 16, 17, 24, 25, 143, 160, 170, 217, 225, 226, 228, 230, 235,
             240, 256, 258, 284, 285, 292, 296, 298, 302}
-NUMERIC_WEIGHT_ROWS = {11, 12, 13, 14, 15, 16, 17, 24, 25, 30, 31, 32, 33, 36, 37, 38, 39,
-                       118, 119, 120, 121, 122, 123, 124, 126, 129,
-                       143, 157, 158, 160, 161, 162, 167, 168, 170,
-                       216, 217, 218, 225, 226, 230, 240, 256, 258,
-                       282, 284, 292, 296, 298, 302, 597, 602}
-
 # Display order — controls row sequence in comparison tables
 # Rate Comp 1 fields grouped together, then Rate Comp 2 fields, etc.
-DISPLAY_ORDER = [
-    # Project Details
-    4, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25,
-    30, 31, 36, 37,
-    # Milestones
-    68, 69, 70, 71, 72, 73, 76, 77, 78, 80,
-    # CapEx
-    117, 118, 119, 120, 121, 122, 123, 124, 126, 129,
-    # Revenue
-    143,
-    # Rate Component 1
-    147, 155, 156, 157, 158, 160, 161, 162,
-    # Rate Component 2
-    148, 165, 166, 167, 168, 170,
-    # Incentives
-    216, 217, 218, 219, 220, 221,
-    # OpEx
-    225, 226, 227, 228, 230, 231,
-    234, 235, 236, 237,
-    240, 241,
-    255, 256, 258,
-    # Decom
-    282, 283, 284, 285, 286,
-    # Prop Tax & Insurance
-    291, 292, 293, 296, 297, 298, 299,
-    302,
-    # Tax
-    587, 591, 596, 597, 602,
-    # Outputs
-    32, 33, 38, 39,
-]
-
-SECTION_BREAKS = {
-    4: "Project Details", 68: "Milestones",
-    118: "CapEx", 143: "Revenue",
-    147: "Rate Component 1", 148: "Rate Component 2",
-    216: "Incentives", 225: "OpEx",
-    282: "Decommissioning", 291: "Property Tax & Insurance",
-    587: "Tax & Depreciation",
-    32: "Outputs",
-}
-
 # Rate component layout in Project Inputs
 RATE_COMP_STARTS = [154, 164, 174, 184, 194, 204]
-RATE_FIELDS = {0: "Section", 1: "Rate Name", 2: "Custom/Generic", 3: "Energy Rate ($/kWh)",
-               4: "Escalator (%)", 5: "Start Date", 6: "Term (yrs)", 7: "Discount (%)", 8: "UCB Fee (%)"}
 EQUITY_RATE_TOGGLE_START = 147
 DEBT_RATE_TOGGLE_START = 403
 APPRAISAL_RATE_TOGGLE_START = 515

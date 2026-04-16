@@ -27,6 +27,7 @@ from bible_reference import (
     CS_AVERAGE, CS_STATE_OVERRIDES, MARKET_BIBLE, lookup_market, SSFA, TBD,
 )
 from config import BIBLE_BENCHMARKS
+from rows import ROW_STATE, ROW_UTILITY, ROW_PROGRAM_A, ROW_PROGRAM_B
 
 
 # Tolerance defaults when CS_AVERAGE entry omits "tol"
@@ -104,10 +105,10 @@ def audit_project(proj_data):
 
     proj_data: dict {row_number: cell_value} — typically projects[col]["data"].
     """
-    state = _normalize_state(proj_data.get(18))
-    utility = proj_data.get(19)
+    state = _normalize_state(proj_data.get(ROW_STATE))
+    utility = proj_data.get(ROW_UTILITY)
     # Program lives in different rows depending on model — try a couple
-    program = proj_data.get(22) or proj_data.get(21)
+    program = proj_data.get(ROW_PROGRAM_A) or proj_data.get(ROW_PROGRAM_B)
 
     # ABP REC LIVE OVERRIDE -------------------------------------------------
     # If an "ABP REC" rate component is toggled on for the equity model,

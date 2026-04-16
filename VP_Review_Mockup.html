@@ -1200,12 +1200,13 @@ function recomputeImpactFromClassify(p){
 
 // ===== Classification override: live warnings, required reason, audit log =====
 function _clsBeforeAfterDiff(before, after){
+  const show = v => (v == null || v === '' ? '—' : v);
   const parts = [];
-  if (before.program !== after.program) parts.push('program ' + before.program + '→' + after.program);
-  if (before.state   !== after.state)   parts.push('state ' + before.state + '→' + after.state);
+  if (before.program !== after.program) parts.push('program ' + show(before.program) + '→' + show(after.program));
+  if (before.state   !== after.state)   parts.push('state '   + show(before.state)   + '→' + show(after.state));
   const bm = before.mix||[], am = after.mix||[];
   if (bm[0]!==am[0] || bm[1]!==am[1] || bm[2]!==am[2]) {
-    parts.push('mix ' + (bm.join('/')||'?') + ' → ' + (am.join('/')||'?'));
+    parts.push('mix ' + (bm.join('/')||'—') + ' → ' + (am.join('/')||'—'));
   }
   return parts.join('; ');
 }

@@ -346,7 +346,16 @@ def load_pricing_model(file):
         if name_cell is None or not str(name_cell).strip():
             continue
         toggle_cell = ws.cell(row=toggle_row, column=col).value
-        is_on = str(toggle_cell).strip().lower() in ("1", "on", "true") if toggle_cell is not None else False
+        # openpyxl may return 1 as int or 1.0 as float depending on cell format.
+        # Accept numeric truthiness first, then fall back to a text check.
+        if toggle_cell is None:
+            is_on = False
+        else:
+            num = safe_float(toggle_cell)
+            if num is not None:
+                is_on = num != 0
+            else:
+                is_on = str(toggle_cell).strip().lower() in ("1", "on", "true", "yes", "y")
 
         data = {}
         for canonical_r in all_needed_canonical:

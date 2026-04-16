@@ -4,11 +4,20 @@ Validates Project Inputs against the Pricing Bible Q1 2026 and Developer Data Ro
 Supports Model 1 vs Model 2 comparison with delta analysis.
 """
 
+import logging
 import os
 import sys
 import streamlit as st
 import streamlit.components.v1 as components
 from pathlib import Path
+
+# Configure logging once at app entry. Level is env-tunable; default INFO so
+# _build_row_mapping / _safe_audit warnings surface in Streamlit Cloud's
+# stderr without needing extra config.
+logging.basicConfig(
+    level=os.environ.get("VP_LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 from mockup_view import (
     render_html as render_mockup_html,
@@ -246,8 +255,14 @@ def render_sidebar():
         st.markdown("---")
         st.markdown(SIDEBAR_CHECKBOX_CSS, unsafe_allow_html=True)
         # --- Persistent benchmark tuning ---
+        # Operate on a session-scoped copy of BIBLE_BENCHMARKS so one reviewer's
+        # overrides don't bleed into another reviewer's session on the shared
+        # Streamlit Cloud process.
+        if "bible_benchmarks" not in st.session_state:
+            import copy as _copy
+            st.session_state["bible_benchmarks"] = _copy.deepcopy(BIBLE_BENCHMARKS)
         overrides = load_overrides()
-        apply_overrides(BIBLE_BENCHMARKS, overrides)
+        apply_overrides(st.session_state["bible_benchmarks"], overrides)
 
         bench_on = st.checkbox("Benchmark Tuning", value=False, key="bench_toggle")
         if bench_on:
@@ -256,22 +271,22 @@ def render_sidebar():
                 st.caption(f"{len(overrides)} benchmark(s) custom-tuned")
 
             all_checks = {}
-            for cat, checks in BIBLE_BENCHMARKS.items():
+            for cat, checks in st.session_state["bible_benchmarks"].items():
                 for label, spec in checks.items():
                     if not spec.get("derived"):
                         all_checks[f"{cat} | {label}"] = (cat, label)
             sel_bench = st.selectbox("Select parameter", options=sorted(all_checks.keys()), key="bench_sel")
             if sel_bench and sel_bench in all_checks:
                 cat_key, label_key = all_checks[sel_bench]
-                spec = BIBLE_BENCHMARKS[cat_key][label_key]
+                spec = st.session_state["bible_benchmarks"][cat_key][label_key]
                 override_key = f"{cat_key}|{label_key}"
                 bc1, bc2 = st.columns(2)
                 with bc1:
                     new_min = st.number_input("Lower bound", value=float(spec["min"]), step=0.01, format="%.3f", key="bench_min")
                 with bc2:
                     new_max = st.number_input("Upper bound", value=float(spec["max"]), step=0.01, format="%.3f", key="bench_max")
-                BIBLE_BENCHMARKS[cat_key][label_key]["min"] = new_min
-                BIBLE_BENCHMARKS[cat_key][label_key]["max"] = new_max
+                st.session_state["bible_benchmarks"][cat_key][label_key]["min"] = new_min
+                st.session_state["bible_benchmarks"][cat_key][label_key]["max"] = new_max
                 # Persist change if different from current stored value
                 cur = overrides.get(override_key, {})
                 if cur.get("min") != new_min or cur.get("max") != new_max:

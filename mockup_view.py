@@ -44,7 +44,11 @@ HEATMAP_ROW_OM_PREV = ROW_OM_PREV
 HEATMAP_ROW_OM_CORR = ROW_OM_CORR
 HEATMAP_ROW_AM_FEE = ROW_AM_FEE
 
-# Rule-of-thumb: 1 cent/W swing in sponsor proceeds ≈ 0.18% FMV IRR.
+# Rule-of-thumb: 1 cent/W swing in sponsor proceeds ≈ 0.18% FMV IRR, calibrated
+# at CALIBRATION_SPONSOR_FRACTION (45% sponsor equity). _roll_up rescales
+# linearly for other leverage profiles (clamped to [0.5×, 2.0×]). Ships to JS
+# via PORTFOLIO.constants.irrPctPerCent so the override recompute path stays
+# in sync.
 IRR_PCT_PER_CENT = 0.18
 # NPV dampener for multi-year OpEx deltas (rough 7% WACC, 25-yr).
 OPEX_NPV_FACTOR = 0.55
@@ -748,11 +752,9 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
     summary = audit.get("summary", {}) or {}
     dc_mw = _num(data.get(ROW_DC_MW)) or 0
     # Look up market once so the capital stack's "bible upfront" is market-aware.
-    state = str(audit.get("state") or data.get(ROW_STATE) or "").strip().upper()
-    if state in ("MD", "DE"):
-        state = "MD/DE"
+    # (lookup_market itself handles MD/DE normalization; no need to pre-normalize.)
     market = lookup_market(
-        state,
+        str(audit.get("state") or data.get(ROW_STATE) or "").strip(),
         str(data.get(ROW_UTILITY) or "").strip(),
         str(audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip(),
     )
