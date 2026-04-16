@@ -149,10 +149,10 @@
   .impact-obj.impact-equity .iov{font-size:18px;}
   .impact-obj.bad .iov{color:var(--off);}
   .deal-header-body{padding:14px 18px;}
-  .deal-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;}
+  .deal-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;}
   /* Reflow on the SAME boundary where the right panel drops (1380px) so
      there's never a moment when 6 KPIs squeeze into a narrowed 3-col layout. */
-  @media (max-width:1380px){.deal-kpis{grid-template-columns:repeat(3,minmax(0,1fr));}}
+  @media (max-width:1380px){.deal-kpis{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));}}
   /* Header wraps below ~1040px so the equity/IRR/NPP chips don't clip. */
   @media (max-width:1080px){
     .deal-header-bar{flex-wrap:wrap;row-gap:8px;}
@@ -965,13 +965,26 @@ function renderKpis(p){
   const k = p.kpis;
   const equityHTML = p.equityK<0 ? '<span class="neg-acct">($'+Math.abs(p.equityK)+'k)</span>' : (p.equityK===0?'$0':'$'+p.equityK+'k');
   // equityHTML is pre-built from numeric p.equityK (below), safe to inject.
+  // Rate Component 1 info
+  const rc1 = p.rateComp1 || {};
+  const rc1Line = rc1.name && rc1.name !== '—'
+    ? '<div class="kpi-sub" title="'+_esc(rc1.name)+'">RC1: '+_esc(rc1.rateDisplay||'—')+(rc1.haircut ? ' · -'+rc1.haircut+'% haircut' : '')+'</div>'
+    : '';
+  // Property tax (only when custom toggle is on)
+  const ptax = p.propertyTax || {};
+  const ptaxLine = ptax.customToggle
+    ? '<div class="kpi k-accent"><div class="kpi-label">Prop Tax (Yr 1)</div><div class="kpi-value">'+_esc(ptax.yr1Display)+'</div><div class="kpi-sub">Esc '+_esc(ptax.escalator)+'</div></div>'
+    : '';
   document.getElementById('dealKpis').innerHTML = `
     <div class="kpi k-accent"><div class="kpi-label">DC Size</div><div class="kpi-value">${_esc(k.dc)} <span style="font-size:11px;color:var(--muted);">MW</span></div><div class="kpi-sub">${_esc(k.dcSub)}</div></div>
     <div class="kpi ${k.epcOff?'k-off':'k-accent'}"><div class="kpi-label">EPC</div><div class="kpi-value">${_esc(k.epc)}<span style="font-size:11px;color:var(--muted);">/W</span></div><div class="kpi-sub${k.epcOff?' neg':''}">${_esc(k.epcSub)}</div></div>
     <div class="kpi k-accent"><div class="kpi-label">NPP</div><div class="kpi-value">${_esc(k.npp)}<span style="font-size:11px;color:var(--muted);">/W</span></div><div class="kpi-sub">${_esc(k.nppSub)}</div></div>
     <div class="kpi ${k.itcOff?'k-off':'k-accent'}"><div class="kpi-label">ITC</div><div class="kpi-value">${_esc(k.itc)}</div><div class="kpi-sub${k.itcOff?' neg':''}">${_esc(k.itcSub)}</div></div>
-    <div class="kpi k-accent"><div class="kpi-label">FMV IRR</div><div class="kpi-value">${_esc(k.irr)}</div><div class="kpi-sub">${_esc(k.irrSub)}</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">${_esc(k.irrLabel||'Appraisal IRR')}</div><div class="kpi-value">${_esc(k.irr)}</div><div class="kpi-sub">${_esc(k.irrSub)}</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">Levered PT IRR</div><div class="kpi-value">${_esc(k.levIrr||'—')}</div><div class="kpi-sub">${k.activeMfv && k.activeMfv!=='—' ? 'MFV '+_esc(k.activeMfv) : ''}</div></div>
     <div class="kpi ${p.equityK<0?'k-off':'k-accent'}"><div class="kpi-label">Equity Δ</div><div class="kpi-value">${equityHTML}</div><div class="kpi-sub${p.equityK<0?' neg':''}">vs bible-aligned</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">Revenue Rate</div><div class="kpi-value">${_esc(rc1.rateDisplay||'—')}</div>${rc1Line}</div>
+    ${ptaxLine}
   `;
 }
 
