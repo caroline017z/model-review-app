@@ -14,6 +14,7 @@ export function ProjectNavigator() {
   const navFilter = useUiStore((s) => s.navFilter);
   const setNavFilter = useUiStore((s) => s.setNavFilter);
   const isApproved = useReviewerStore((s) => s.isApproved);
+  const approvals = useReviewerStore((s) => s.approvals);
 
   const filters = ["all", "OFF", "OUT", "MISSING", "REVIEW"];
   const filterLabels: Record<string, string> = {
@@ -86,7 +87,10 @@ export function ProjectNavigator() {
               )}
               {p.name}
               {isApproved(i) && (
-                <span className="ml-auto text-[9px] bg-[var(--teal)] text-white px-[6px] py-px rounded font-bold tracking-[0.05em]">
+                <span
+                  className="ml-auto text-[9px] bg-[var(--teal)] text-white px-[6px] py-px rounded font-bold tracking-[0.05em] cursor-default"
+                  title={`Approved by ${approvals[i]?.reviewer || "—"} at ${approvals[i]?.timestamp || "—"}`}
+                >
                   APPROVED
                 </span>
               )}

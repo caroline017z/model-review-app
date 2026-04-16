@@ -23,7 +23,8 @@ export function CashflowChart({ opCF, taxBn, terminal }: Props) {
         xaxis: { ...baseLayout.xaxis, title: { text: "Year", standoff: 12 }, dtick: 5, automargin: true },
         yaxis: { ...baseLayout.yaxis, title: { text: "$ thousands", standoff: 14 }, tickprefix: "$", tickformat: ",.0f" },
         legend: { orientation: "h", y: -0.25, font: { size: 10 } },
-        margin: { l: 10, r: 10, t: 14, b: 60} ,
+        title: { text: "25-Year Cash Flow ($k)", font: { size: 11, color: "#7d8694" }, x: 0.01, y: 0.98 },
+        margin: { l: 10, r: 10, t: 24, b: 60} ,
       }}
       config={cfg}
       className="w-full"

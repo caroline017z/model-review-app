@@ -27,8 +27,9 @@ export function VarianceChart({ labels, x, txt, colors }: Props) {
       }]}
       layout={{
         ...baseLayout,
-        margin: { l: 10, r: 10, t: 14, b: 50, pad: 4} ,
-        xaxis: { ...baseLayout.xaxis, title: { text: "Equity $-impact (thousands)", standoff: 14 }, tickprefix: "$", ticksuffix: "k", range: [minX - pad, maxX + pad] },
+        margin: { l: 10, r: 10, t: 24, b: 50, pad: 4} ,
+        title: { text: "Equity Impact ($k)", font: { size: 11, color: "#7d8694" }, x: 0.01, y: 0.98 },
+        xaxis: { ...baseLayout.xaxis, title: { text: "Impact ($k)", standoff: 14 }, tickprefix: "$", ticksuffix: "k", range: [minX - pad, maxX + pad] },
         yaxis: { ...baseLayout.yaxis, automargin: true },
       }}
       config={cfg}

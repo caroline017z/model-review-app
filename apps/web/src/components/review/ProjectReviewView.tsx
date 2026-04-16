@@ -208,6 +208,23 @@ export function ProjectReviewView() {
           <TornadoChart labels={project.tornado.labels} lo={project.tornado.lo} hi={project.tornado.hi} />
         </div>
       </div>
+
+      {/* Reviewer Notes */}
+      <div className="rounded border border-[var(--border)] overflow-hidden" style={{ background: "var(--surface)" }}>
+        <div className="px-4 py-2 border-b border-[var(--border)] text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--muted)" }}>
+          Reviewer Notes
+        </div>
+        <div className="p-4">
+          <textarea
+            value={getAction(selectedIdx, "__project_note__").note || ""}
+            onChange={(e) => setNoteStore(selectedIdx, "__project_note__", e.target.value)}
+            placeholder="Add review notes for this project — rationale, conditions, follow-ups..."
+            rows={3}
+            className="w-full px-3 py-2 border border-[var(--border)] rounded text-xs resize-y"
+            style={{ background: "var(--raised)", color: "var(--text)" }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

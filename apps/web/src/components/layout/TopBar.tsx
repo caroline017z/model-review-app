@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useUiStore, type ViewMode } from "@/stores/ui";
 import { usePortfolioStore } from "@/stores/portfolio";
 import { useReviewerStore } from "@/stores/reviewer";
+import { exportReview } from "@/lib/api";
 
 const modes: { key: ViewMode; label: string; requiresTwo?: boolean }[] = [
   { key: "portfolio", label: "Portfolio" },
@@ -17,6 +19,57 @@ export function TopBar() {
   const portfolio = usePortfolioStore((s) => s.portfolio);
   const model2 = usePortfolioStore((s) => s.model2);
   const clearReviewer = useReviewerStore((s) => s.clearAll);
+  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
+  const approvals = useReviewerStore((s) => s.approvals);
+  const actions = useReviewerStore((s) => s.actions);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!portfolio || !reviewProjects.length) return;
+    setExporting(true);
+    try {
+      const projects = reviewProjects.map((p, i) => {
+        const projActions = actions[i] || {};
+        const approval = approvals[i];
+        return {
+          name: p.name,
+          verdict: p.verdict,
+          nppPerW: p.nppPerW,
+          irrPct: p.irrPct,
+          equityK: p.equityK,
+          approved: !!approval?.approved,
+          approvalTimestamp: approval?.timestamp || null,
+          approvalReviewer: approval?.reviewer || null,
+          projectNote: projActions["__project_note__"]?.note || null,
+          findings: (p.findings || []).map((f) => ({
+            field: f.field,
+            status: f.status,
+            bible: f.bible,
+            model: f.model,
+            impact: f.impact,
+            action: projActions[f.field]?.action || null,
+            note: projActions[f.field]?.note || null,
+          })),
+        };
+      });
+      const blob = await exportReview({
+        model_label: portfolio.modelName,
+        reviewer: portfolio.reviewer,
+        bible_label: portfolio.bibleLabel,
+        projects,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Review_Summary_${portfolio.modelName}.xlsx`.replace(/ /g, "_");
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Export failed:", e);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleReset = () => {
     // Reset all stores to initial state
@@ -59,6 +112,13 @@ export function TopBar() {
             <span>Model: <b className="text-white/90 font-semibold">{portfolio.modelName}</b></span>
             <span>Bible: <b className="text-white/90 font-semibold">{portfolio.bibleLabel}</b></span>
             <span>Reviewer: <b className="text-white/90 font-semibold">{portfolio.reviewer}</b></span>
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="px-2 py-1 rounded text-[10px] font-semibold border border-[var(--teal)] bg-[var(--teal)] text-white hover:bg-[var(--teal-deep)] transition cursor-pointer disabled:opacity-50"
+            >
+              {exporting ? "Exporting..." : "Export Review"}
+            </button>
             <button
               onClick={handleReset}
               className="px-2 py-1 rounded text-[10px] font-semibold border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition cursor-pointer"

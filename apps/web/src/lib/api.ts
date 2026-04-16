@@ -156,6 +156,21 @@ export async function downloadWalk(
   return res.blob();
 }
 
+export async function exportReview(body: {
+  model_label: string;
+  reviewer: string;
+  bible_label: string;
+  projects: unknown[];
+}): Promise<Blob> {
+  const res = await fetch(`${API_BASE}/api/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Export failed: ${await res.text()}`);
+  return res.blob();
+}
+
 export async function getBenchmarks() {
   return apiFetch<{ benchmarks: Record<string, unknown>; overrides: Record<string, unknown> }>(
     "/api/benchmarks",

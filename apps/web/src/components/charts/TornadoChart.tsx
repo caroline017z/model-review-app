@@ -27,7 +27,8 @@ export function TornadoChart({ labels, lo, hi }: Props) {
         xaxis: { ...baseLayout.xaxis, title: { text: "ΔNPP ($/W)", standoff: 14 }, tickprefix: "$", tickformat: ".2f", zeroline: true, zerolinewidth: 2, zerolinecolor: "#212B48", range: [tMin - pad, tMax + pad] },
         yaxis: { ...baseLayout.yaxis, automargin: true },
         legend: { orientation: "h", y: -0.25, font: { size: 10 } },
-        margin: { l: 10, r: 10, t: 14, b: 60} ,
+        title: { text: "Sensitivity (±10% ΔNPP $/W)", font: { size: 11, color: "#7d8694" }, x: 0.01, y: 0.98 },
+        margin: { l: 10, r: 10, t: 24, b: 60} ,
       }}
       config={cfg}
       className="w-full"

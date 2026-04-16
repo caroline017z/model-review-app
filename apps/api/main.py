@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from apps.api.routers import models, review, walk, benchmarks
+from apps.api.routers import models, review, walk, benchmarks, export
 
 app = FastAPI(
     title="38DN Pricing Model Review API",
@@ -22,6 +22,7 @@ app.include_router(models.router, prefix="/api/models", tags=["Models"])
 app.include_router(review.router, prefix="/api/review", tags=["Review"])
 app.include_router(walk.router, prefix="/api/walk", tags=["Walk"])
 app.include_router(benchmarks.router, prefix="/api/benchmarks", tags=["Benchmarks"])
+app.include_router(export.router, prefix="/api/export", tags=["Export"])
 
 
 @app.get("/api/health")
