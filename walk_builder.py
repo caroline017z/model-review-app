@@ -119,6 +119,9 @@ def match_projects(
 ) -> list[dict]:
     """Match projects between two models by Project # (row 2).
 
+    Falls back to name-based matching or column-position-inferred project
+    numbers when row 2 data is missing/unresolved.
+
     Returns list of {proj_number, name, m1_col, m2_col} sorted by proj_number.
     """
     def _build_index(projects: dict) -> dict[int, int]:
@@ -146,6 +149,79 @@ def match_projects(
             "m1_col": m1_col,
             "m2_col": m2_idx[pnum],
         })
+
+    if matched:
+        return matched
+
+    # ----- Fallback 1: infer project numbers from column position -----
+    # Typical models have projects starting at column F (6), so col - 5 = project #.
+    # Try this for projects whose data[ROW_PROJECT_NUMBER] is None.
+    def _build_index_positional(projects: dict) -> dict[int, int]:
+        idx: dict[int, int] = {}
+        for col, proj in projects.items():
+            if not isinstance(proj, dict) or "data" not in proj:
+                continue
+            pnum = safe_float(proj["data"].get(ROW_PROJECT_NUMBER))
+            if pnum is not None:
+                idx[int(pnum)] = col
+            elif proj.get("name"):
+                # Infer project number from column position (col F=6 -> #1)
+                inferred = col - 5
+                if inferred >= 1:
+                    idx[inferred] = col
+        return idx
+
+    m1_pos = _build_index_positional(m1_projects)
+    m2_pos = _build_index_positional(m2_projects)
+    already_matched = {m["proj_number"] for m in matched}
+    common_pos = sorted(set(m1_pos.keys()) & set(m2_pos.keys()))
+    for pnum in common_pos:
+        if pnum in already_matched:
+            continue
+        m1_col = m1_pos[pnum]
+        m1_proj = m1_projects[m1_col]
+        matched.append({
+            "proj_number": pnum,
+            "name": str(m1_proj.get("name") or "Unnamed").strip(),
+            "m1_col": m1_col,
+            "m2_col": m2_pos[pnum],
+        })
+
+    if matched:
+        logger.info(
+            "Project # matching yielded 0 results; positional fallback matched %d projects.",
+            len(matched),
+        )
+        return matched
+
+    # ----- Fallback 2: match by project name (exact string match) -----
+    def _build_name_index(projects: dict) -> dict[str, int]:
+        idx: dict[str, int] = {}
+        for col, proj in projects.items():
+            if not isinstance(proj, dict):
+                continue
+            name = str(proj.get("name") or "").strip()
+            if name:
+                idx[name] = col
+        return idx
+
+    m1_names = _build_name_index(m1_projects)
+    m2_names = _build_name_index(m2_projects)
+    common_names = sorted(set(m1_names.keys()) & set(m2_names.keys()))
+    for i, name in enumerate(common_names, start=1):
+        m1_col = m1_names[name]
+        matched.append({
+            "proj_number": i,
+            "name": name,
+            "m1_col": m1_col,
+            "m2_col": m2_names[name],
+        })
+
+    if matched:
+        logger.info(
+            "Project # matching yielded 0 results; name-based fallback matched %d projects.",
+            len(matched),
+        )
     return matched
 
 
@@ -184,19 +260,27 @@ def diff_inputs(
     m1_projects: dict,
     m2_projects: dict,
 ) -> list[dict]:
-    """Find all Project Inputs rows that differ between the two models.
+    """Find ALL Project Inputs rows that differ between the two models.
+
+    Uses two passes:
+    1. Canonical rows (INPUT_ROW_LABELS) — compared by row number via row mapping
+    2. ALL column B labels (_all_inputs) — compared by label text, catching any
+       hardcoded input not in our canonical list
 
     Returns list of {row, label, unit, category, values: {proj_number: (m1, m2)}}.
-    Only includes rows where at least one matched project has different values.
     """
     diffs: list[dict] = []
+    seen_labels: set[str] = set()
 
-    # Model-sourced units (by canonical row); prefer model over hardcoded.
+    # Model-sourced units (by canonical row and by label); prefer model over hardcoded.
     _m1_units_by_row: dict[int, str] = {}
+    _m1_units_by_label: dict[str, str] = {}
     if matched:
         first_data = m1_projects[matched[0]["m1_col"]]["data"]
         _m1_units_by_row = first_data.get("_units_by_row") or {}
+        _m1_units_by_label = first_data.get("_all_units") or {}
 
+    # --- Pass 1: Canonical rows (by mapped row number) ---
     for row_num, label in INPUT_ROW_LABELS.items():
         if row_num in _SKIP_ROWS:
             continue
@@ -233,6 +317,50 @@ def diff_inputs(
                 "category": _categorize_row(row_num),
                 "values": per_project,
             })
+        seen_labels.add(label.strip().lower())
+
+    # --- Pass 2: ALL inputs by column B label (catches non-canonical rows) ---
+    if matched:
+        # Collect all unique labels across both models
+        first_m = matched[0]
+        m1_all = m1_projects[first_m["m1_col"]]["data"].get("_all_inputs", {})
+        m2_all = m2_projects[first_m["m2_col"]]["data"].get("_all_inputs", {})
+        all_labels = set(m1_all.keys()) | set(m2_all.keys())
+
+        for label in sorted(all_labels):
+            if label.strip().lower() in seen_labels:
+                continue  # already compared in Pass 1
+
+            per_project = {}
+            any_diff = False
+            for m in matched:
+                m1_inputs = m1_projects[m["m1_col"]]["data"].get("_all_inputs", {})
+                m2_inputs = m2_projects[m["m2_col"]]["data"].get("_all_inputs", {})
+                m1_val = m1_inputs.get(label)
+                m2_val = m2_inputs.get(label)
+
+                if m1_val is None and m2_val is None:
+                    continue
+
+                f1 = safe_float(m1_val)
+                f2 = safe_float(m2_val)
+                if f1 is not None and f2 is not None:
+                    if abs(f1 - f2) > 1e-6:
+                        any_diff = True
+                elif str(m1_val or "").strip() != str(m2_val or "").strip():
+                    any_diff = True
+
+                per_project[m["proj_number"]] = (m1_val, m2_val)
+
+            if any_diff and per_project:
+                unit = _m1_units_by_label.get(label, "")
+                diffs.append({
+                    "row": 0,  # unknown canonical row
+                    "label": label,
+                    "unit": unit,
+                    "category": "Other",
+                    "values": per_project,
+                })
 
     return diffs
 
@@ -260,8 +388,13 @@ def build_walk_xlsx(
     m2_result: dict,
     m1_label: str,
     m2_label: str,
+    include_proj_numbers: set[int] | None = None,
 ) -> tuple[io.BytesIO, dict]:
     """Build a formatted Walk Summary .xlsx comparing two models.
+
+    Args:
+        include_proj_numbers: If provided, only include projects whose
+            proj_number is in this set (i.e. the confirmed portfolio selection).
 
     Returns (BytesIO with xlsx data, summary dict for UI).
     """
@@ -269,8 +402,17 @@ def build_walk_xlsx(
     m2_projects = get_projects(m2_result) or {}
 
     matched = match_projects(m1_projects, m2_projects)
+
+    # Filter to only portfolio-selected projects when a filter is provided
+    if include_proj_numbers is not None:
+        matched = [m for m in matched if m["proj_number"] in include_proj_numbers]
+
     if not matched:
         logger.warning("No projects matched between the two models by Project #.")
+        # Flag so we can write an explanatory message into the xlsx below
+        _no_matches = True
+    else:
+        _no_matches = False
 
     metrics = extract_metrics(matched, m1_projects, m2_projects)
     variances = diff_inputs(matched, m1_projects, m2_projects)
@@ -283,6 +425,7 @@ def build_walk_xlsx(
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Build Walk"
+    ws.sheet_view.showGridLines = False  # Clean look matching reference files
 
     case_labels = [m1_label, m2_label]
     n_cases = 2
@@ -552,6 +695,15 @@ def build_walk_xlsx(
                     cell.border = THIN_BOTTOM
 
             cur_row += 1
+
+    # If no projects matched, write an explanatory message
+    if _no_matches:
+        cell = ws.cell(
+            row=3, column=2,
+            value="No projects matched between models. Check that Project # "
+                  "(row 2) is populated in both models.",
+        )
+        cell.font = Font(color="FF0000", bold=True, size=11)
 
     # Save to BytesIO
     buf = io.BytesIO()

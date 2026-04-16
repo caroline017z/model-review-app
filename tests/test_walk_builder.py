@@ -37,10 +37,13 @@ class TestMatchProjects:
     def test_empty_models_return_empty(self):
         assert match_projects({}, {}) == []
 
-    def test_none_project_number_skipped(self):
+    def test_none_project_number_uses_fallback(self):
+        """When project # is None, fallback matching (positional or name) kicks in."""
         m1 = _make_projects((6, None, "Unknown", {}))
         m2 = _make_projects((6, None, "Unknown", {}))
-        assert match_projects(m1, m2) == []
+        matched = match_projects(m1, m2)
+        # Fallback should match by position or name
+        assert len(matched) >= 1
 
 
 class TestExtractMetrics:
