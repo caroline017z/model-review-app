@@ -260,13 +260,19 @@ def diff_inputs(
     m1_projects: dict,
     m2_projects: dict,
 ) -> list[dict]:
-    """Find all Project Inputs rows that differ between the two models.
+    """Find ALL Project Inputs rows that differ between the two models.
+
+    Uses two passes:
+    1. Canonical rows (INPUT_ROW_LABELS) — compared by row number via row mapping
+    2. ALL column B labels (_all_inputs) — compared by label text, catching any
+       hardcoded input not in our canonical list
 
     Returns list of {row, label, unit, category, values: {proj_number: (m1, m2)}}.
-    Only includes rows where at least one matched project has different values.
     """
     diffs: list[dict] = []
+    seen_labels: set[str] = set()
 
+    # --- Pass 1: Canonical rows (by mapped row number) ---
     for row_num, label in INPUT_ROW_LABELS.items():
         if row_num in _SKIP_ROWS:
             continue
@@ -302,6 +308,49 @@ def diff_inputs(
                 "category": _categorize_row(row_num),
                 "values": per_project,
             })
+        seen_labels.add(label.strip().lower())
+
+    # --- Pass 2: ALL inputs by column B label (catches non-canonical rows) ---
+    if matched:
+        # Collect all unique labels across both models
+        first_m = matched[0]
+        m1_all = m1_projects[first_m["m1_col"]]["data"].get("_all_inputs", {})
+        m2_all = m2_projects[first_m["m2_col"]]["data"].get("_all_inputs", {})
+        all_labels = set(m1_all.keys()) | set(m2_all.keys())
+
+        for label in sorted(all_labels):
+            if label.strip().lower() in seen_labels:
+                continue  # already compared in Pass 1
+
+            per_project = {}
+            any_diff = False
+            for m in matched:
+                m1_inputs = m1_projects[m["m1_col"]]["data"].get("_all_inputs", {})
+                m2_inputs = m2_projects[m["m2_col"]]["data"].get("_all_inputs", {})
+                m1_val = m1_inputs.get(label)
+                m2_val = m2_inputs.get(label)
+
+                if m1_val is None and m2_val is None:
+                    continue
+
+                f1 = safe_float(m1_val)
+                f2 = safe_float(m2_val)
+                if f1 is not None and f2 is not None:
+                    if abs(f1 - f2) > 1e-6:
+                        any_diff = True
+                elif str(m1_val or "").strip() != str(m2_val or "").strip():
+                    any_diff = True
+
+                per_project[m["proj_number"]] = (m1_val, m2_val)
+
+            if any_diff and per_project:
+                diffs.append({
+                    "row": 0,  # unknown canonical row
+                    "label": label,
+                    "unit": "",
+                    "category": "Other",
+                    "values": per_project,
+                })
 
     return diffs
 

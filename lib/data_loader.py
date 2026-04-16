@@ -440,6 +440,20 @@ def load_pricing_model(file):
             # canonical row, which would yield misleading values).
             data[canonical_r] = ws.cell(row=actual_r, column=col).value if actual_r else None
 
+        # Read ALL non-empty cells for this project column, keyed by the
+        # column B label. This enables the walk builder to compare ANY
+        # hardcoded input between two models by matching on label text,
+        # not just the rows we have canonical definitions for.
+        all_inputs: dict[str, Any] = {}
+        for r in range(1, max_row + 1):
+            label_val = ws.cell(row=r, column=label_col).value
+            cell_val = ws.cell(row=r, column=col).value
+            if label_val is not None and cell_val is not None:
+                label_str = str(label_val).strip()
+                if label_str:
+                    all_inputs[label_str] = cell_val
+        data["_all_inputs"] = all_inputs
+
         rate_comps = {}
         for i, start in enumerate(RATE_COMP_STARTS, 1):
             rate_comps[i] = {
