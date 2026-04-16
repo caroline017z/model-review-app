@@ -64,6 +64,74 @@ st.set_page_config(
 
 st.markdown(APP_CSS, unsafe_allow_html=True)
 
+# Make Streamlit's native sidebar collapse/expand handle prominent and keep
+# it visible even when the sidebar is collapsed. Ships as an always-on
+# teal pill on the top-left so the reviewer can toggle the panel without
+# hunting for a faint chevron.
+st.markdown(
+    """
+    <style>
+      /* Collapsed-state handle — the floating chevron Streamlit shows when
+         the sidebar is hidden. Make it a teal pill that pops off the page. */
+      [data-testid="collapsedControl"],
+      [data-testid="stSidebarCollapsedControl"] {
+        position: fixed !important;
+        top: 8px !important;
+        left: 8px !important;
+        z-index: 9999 !important;
+        background: #518484 !important;   /* 38DN teal */
+        color: #fff !important;
+        border: 1px solid #3d6868 !important;
+        border-radius: 6px !important;
+        padding: 6px 10px !important;
+        box-shadow: 0 2px 6px rgba(5,13,37,0.18) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+      [data-testid="collapsedControl"]:hover,
+      [data-testid="stSidebarCollapsedControl"]:hover {
+        background: #3d6868 !important;
+      }
+      [data-testid="collapsedControl"] svg,
+      [data-testid="stSidebarCollapsedControl"] svg {
+        color: #fff !important;
+        fill: #fff !important;
+        width: 18px !important;
+        height: 18px !important;
+      }
+
+      /* Expanded-state collapse button (lives inside the sidebar header). */
+      [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"],
+      [data-testid="stSidebar"] button[kind="header"] {
+        background: #518484 !important;
+        color: #fff !important;
+        border: 1px solid #3d6868 !important;
+        border-radius: 6px !important;
+        padding: 4px 8px !important;
+      }
+      [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] svg,
+      [data-testid="stSidebar"] button[kind="header"] svg {
+        color: #fff !important;
+        fill: #fff !important;
+      }
+
+      /* Partial collapse: keep a slim strip on the left even when the
+         sidebar reports as hidden, so the teal handle always has a home.
+         Streamlit hides the sidebar via aria-expanded="false"; we nudge
+         the main column to leave ~48px of headroom on the left. */
+      section[data-testid="stSidebar"][aria-expanded="false"] {
+        min-width: 0 !important;
+        width: 0 !important;
+      }
+      section[data-testid="stSidebar"][aria-expanded="false"] ~ section .block-container,
+      section[data-testid="stSidebar"][aria-expanded="false"] + section .block-container {
+        padding-left: 44px !important;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # Let the embedded mockup extend to the viewport edges.
 st.markdown(
     """

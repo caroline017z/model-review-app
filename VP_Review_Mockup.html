@@ -67,49 +67,19 @@
   .impact b{color:var(--off);font-weight:700;font-size:13.5px;}
 
   /* ===== Layout ===== */
-  .layout{display:grid;grid-template-columns:260px 1fr 280px;gap:1px;background:var(--border);min-height:calc(100vh - 50px - 47px);transition:grid-template-columns 0.22s ease;}
+  .layout{display:grid;grid-template-columns:260px 1fr 280px;gap:1px;background:var(--border);min-height:calc(100vh - 50px - 47px);}
   .panel{background:var(--bg);padding:14px;overflow-y:auto;min-width:0;}
   .panel.center{padding:18px;}
   .panel.right{min-width:0;}
-  /* Collapsed left nav — strip to a hover-reveal edge */
-  body.nav-collapsed .layout{grid-template-columns:34px 1fr 280px;}
-  body.nav-collapsed .panel.left > *:not(.nav-collapse-btn){display:none;}
   /* Responsive: drop the right reference panel on narrower viewports
      (reviewer can reach the same data via the Reference top-bar mode). */
   @media (max-width:1380px){
     .layout{grid-template-columns:260px 1fr 0;}
-    body.nav-collapsed .layout{grid-template-columns:34px 1fr 0;}
     .panel.right{display:none;}
   }
   @media (max-width:1040px){
-    .layout{grid-template-columns:34px 1fr 0;}
-    body.layout .panel.left > *:not(.nav-collapse-btn){display:none;}
+    .layout{grid-template-columns:220px 1fr 0;}
   }
-
-  /* Left-nav collapse button (prominent arrow hit-target) */
-  .nav-collapse-btn{
-    position:sticky;top:0;z-index:2;
-    display:flex;align-items:center;justify-content:center;gap:6px;
-    width:100%;padding:8px 10px;margin:-14px -14px 10px -14px;
-    background:var(--indigo);color:#fff;
-    border:none;border-bottom:1px solid rgba(255,255,255,0.12);
-    cursor:pointer;font-size:11px;font-weight:700;letter-spacing:0.06em;
-    text-transform:uppercase;transition:background 0.15s ease;
-  }
-  .nav-collapse-btn:hover{background:var(--teal-deep);}
-  .nav-collapse-btn .nav-collapse-arrow{
-    display:inline-block;width:14px;height:14px;
-    border-right:2px solid #fff;border-bottom:2px solid #fff;
-    transform:rotate(135deg);transition:transform 0.22s ease;
-    margin-right:2px;
-  }
-  body.nav-collapsed .nav-collapse-arrow{transform:rotate(-45deg);}
-  body.nav-collapsed .nav-collapse-btn{
-    padding:8px 2px;margin:-14px -14px 0 -14px;
-    width:auto;justify-content:center;
-  }
-  body.nav-collapsed .nav-collapse-btn .nav-collapse-label{display:none;}
-  body.nav-collapsed .panel.left{padding:14px 4px;overflow:visible;}
 
   /* ===== Project navigator ===== */
   .nav-header{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between;}
@@ -396,11 +366,6 @@
 
   <!-- LEFT -->
   <div class="panel left">
-    <button type="button" class="nav-collapse-btn" id="navCollapseBtn"
-      title="Collapse / expand project list" aria-label="Collapse project list">
-      <span class="nav-collapse-arrow" aria-hidden="true"></span>
-      <span class="nav-collapse-label">Collapse</span>
-    </button>
     <div class="nav-header">
       <span id="navProjCount">Projects · 0</span>
       <span style="color:var(--teal);cursor:pointer;" id="navFilterToggle">+ Filter</span>
@@ -1813,42 +1778,6 @@ function bootCharts(){
   }
   if(PROJECTS.length) renderCharts(PROJECTS[currentIdx]);
 }
-
-// ===== Left-nav collapse toggle =====
-(function wireNavCollapse(){
-  const btn = document.getElementById('navCollapseBtn');
-  if (!btn) return;
-  const _COLLAPSE_KEY = 'vpReview.navCollapsed';
-  // Restore state across reruns within the same session.
-  if (sessionStorage.getItem(_COLLAPSE_KEY) === '1') {
-    document.body.classList.add('nav-collapsed');
-  }
-  const setLabel = () => {
-    const isCollapsed = document.body.classList.contains('nav-collapsed');
-    btn.setAttribute('aria-label', isCollapsed ? 'Expand project list' : 'Collapse project list');
-    btn.title = isCollapsed ? 'Expand projects (Alt+P)' : 'Collapse projects (Alt+P)';
-    const label = btn.querySelector('.nav-collapse-label');
-    if (label) label.textContent = isCollapsed ? 'Expand' : 'Collapse';
-  };
-  setLabel();
-  btn.addEventListener('click', e => {
-    e.preventDefault();
-    document.body.classList.toggle('nav-collapsed');
-    try { sessionStorage.setItem(_COLLAPSE_KEY, document.body.classList.contains('nav-collapsed') ? '1' : '0'); } catch(_){}
-    setLabel();
-    // Plotly charts need a resize kick because the center column width changed.
-    if (typeof Plotly !== 'undefined' && PROJECTS.length) {
-      setTimeout(() => { try { renderCharts(PROJECTS[currentIdx]); } catch(_){} }, 240);
-    }
-  });
-  // Keyboard shortcut: Alt+P toggles the nav.
-  document.addEventListener('keydown', e => {
-    if (e.altKey && (e.key === 'p' || e.key === 'P')) {
-      e.preventDefault();
-      btn.click();
-    }
-  });
-})();
 
 // ===== Portfolio table: Restore-all button =====
 (function wireRestoreAll(){
