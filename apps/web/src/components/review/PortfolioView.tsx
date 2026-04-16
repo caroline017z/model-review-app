@@ -8,14 +8,19 @@ import { fmtEquity } from "@/lib/format";
 export function PortfolioView() {
   const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
   const portfolio = usePortfolioStore((s) => s.portfolio);
+  const model1 = usePortfolioStore((s) => s.model1);
+  const model2 = usePortfolioStore((s) => s.model2);
   const excludedIds = usePortfolioStore((s) => s.excludedIds);
   const toggleExcluded = usePortfolioStore((s) => s.toggleExcluded);
   const setMode = useUiStore((s) => s.setMode);
   const setSelected = useUiStore((s) => s.setSelectedProject);
   const selectedIdx = useUiStore((s) => s.selectedProjectIdx);
+  const activeModelTab = useUiStore((s) => s.activeModelTab);
+  const setActiveModelTab = useUiStore((s) => s.setActiveModelTab);
+  const hasTwoModels = !!(model1 && model2);
 
   if (!reviewProjects.length) {
-    return <p className="text-center py-12 italic" style={{ color: "var(--muted)" }}>No projects loaded.</p>;
+    return <p className="text-center py-12 italic text-[11px]" style={{ color: "var(--muted)" }}>No projects loaded.</p>;
   }
 
   const ranked = reviewProjects
@@ -29,10 +34,31 @@ export function PortfolioView() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="rounded border border-[var(--border)] overflow-hidden" style={{ background: "var(--surface)" }}>
-        <div className="px-4 py-2 border-b border-[var(--border)] flex justify-between items-center">
-          <span className="text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--muted)" }}>
+        {/* Model tabs for portfolio */}
+        {hasTwoModels && (
+          <div className="flex border-b border-[var(--border)]">
+            {[
+              { tab: 1 as const, label: model1!.label, count: model1!.projects.length },
+              { tab: 2 as const, label: model2!.label, count: model2!.projects.length },
+            ].map(({ tab, label, count }) => (
+              <button
+                key={tab}
+                onClick={() => setActiveModelTab(tab)}
+                className={`flex-1 px-3 py-2 text-[11px] font-semibold border-b-2 transition cursor-pointer ${
+                  activeModelTab === tab
+                    ? "border-[var(--teal)] text-[var(--teal)] bg-[var(--surface)]"
+                    : "border-transparent text-[var(--muted)] hover:text-[var(--text-2)]"
+                }`}
+              >
+                {label} <span className="text-[9px] font-normal ml-1">({count})</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="px-4 py-1.5 border-b border-[var(--border)] flex justify-between items-center">
+          <span className="text-[9px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--muted)" }}>
             Portfolio Summary &middot; {ranked.length} projects
           </span>
         </div>
