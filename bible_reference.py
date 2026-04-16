@@ -44,7 +44,7 @@ CS_AVERAGE = {
     # Row mappings approximate; FMV WACC and TE pref aren't all on Project Inputs
     # but are useful for IC narrative checks.
 
-    # Eligible costs — ITC Rate itself is NOT a bible benchmark
+    # Eligible costs — ITC Rate itself is NOT a bible benchmark (varies by deal)
     602: {"value": 0.97,   "unit": "%",         "tol": 0.03,   "label": "Eligible Costs %"},
 }
 
@@ -285,10 +285,23 @@ def _build_market_index():
 MARKET_INDEX = _build_market_index()
 
 
+# Program aliases: common model labels → MARKET_BIBLE program keys
+_PROGRAM_ALIASES: dict[str, list[str]] = {
+    "community": ["ABP", "Non-ABP / PTC", "MD Permanent", "MD PILOT"],
+    "community solar": ["ABP", "Non-ABP / PTC", "MD Permanent"],
+    "cs": ["ABP", "Non-ABP / PTC"],
+    "vder": ["VDER (CS)"],
+    "vder (cs)": ["VDER (CS)"],
+    "ptc": ["PTC", "Non-ABP / PTC"],
+    "abp": ["ABP"],
+    "lmi": ["LMI-Accessible CS"],
+}
+
+
 def lookup_market(state, utility, program):
     """Return bible dict for (state, utility, program), or None if no match.
 
-    O(1) exact lookup first, then fuzzy fallback on utility/program.
+    O(1) exact lookup first, then program aliases, then fuzzy fallback.
     Tolerant: case-insensitive, strips whitespace, normalizes MD/DE.
     """
     s = normalize_state(state)
@@ -301,6 +314,13 @@ def lookup_market(state, utility, program):
     exact = _NORMALIZED_INDEX.get((s, u.lower(), p.lower()))
     if exact is not None:
         return exact
+
+    # Try program aliases (e.g., "Community" → "ABP" for IL)
+    aliases = _PROGRAM_ALIASES.get(p.lower(), [])
+    for alias in aliases:
+        aliased = _NORMALIZED_INDEX.get((s, u.lower(), alias.lower()))
+        if aliased is not None:
+            return aliased
 
     # Fuzzy fallback: utility substring match
     candidates = MARKET_INDEX.get(s, [])
