@@ -105,9 +105,20 @@ function UploadPanel() {
               <span className="text-[8px] font-bold px-1 py-px rounded" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>READY</span>
             )}
             {m1Loading && (
-              <span className="text-[9px] animate-pulse font-semibold" style={{ color: "var(--teal)" }}>{m1Status}</span>
+              <span className="text-[9px] font-semibold" style={{ color: "var(--teal)" }}>{m1Status}</span>
             )}
           </div>
+          {m1Loading && (
+            <div className="w-full h-[3px] rounded-full overflow-hidden mb-1" style={{ background: "var(--inset)" }}>
+              <div
+                className="h-full rounded-full transition-all duration-1000 ease-out"
+                style={{
+                  background: "var(--teal)",
+                  width: m1Status === "Running audit..." ? "75%" : m1Status === "Uploading..." ? "30%" : "100%",
+                }}
+              />
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <div
               onClick={() => !m1Loading && fileRef1.current?.click()}
@@ -145,9 +156,20 @@ function UploadPanel() {
               <span className="text-[8px] font-bold px-1 py-px rounded" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>READY</span>
             )}
             {m2Loading && (
-              <span className="text-[9px] animate-pulse font-semibold" style={{ color: "var(--indigo)" }}>{m2Status}</span>
+              <span className="text-[9px] font-semibold" style={{ color: "var(--indigo)" }}>{m2Status}</span>
             )}
           </div>
+          {m2Loading && (
+            <div className="w-full h-[3px] rounded-full overflow-hidden mb-1" style={{ background: "var(--inset)" }}>
+              <div
+                className="h-full rounded-full transition-all duration-1000 ease-out"
+                style={{
+                  background: "var(--indigo)",
+                  width: m2Status === "Running audit..." ? "75%" : m2Status === "Uploading..." ? "30%" : "100%",
+                }}
+              />
+            </div>
+          )}
           <div
             onClick={() => !m2Loading && fileRef2.current?.click()}
             className={`border rounded px-3 py-2 cursor-pointer transition text-[11px] ${m2Loading ? "opacity-60 pointer-events-none" : "hover:border-[var(--indigo)]"}`}

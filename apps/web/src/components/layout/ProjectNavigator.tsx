@@ -114,16 +114,21 @@ export function ProjectNavigator() {
             {reviewProjects.length === 0 ? "Upload a model to begin." : "No projects match filter."}
           </p>
         )}
-        {filtered.map(({ p, i }) => (
+        {filtered.map(({ p, i }) => {
+          const isSel = selectedIdx === i;
+          const isDone = isApproved(i);
+          return (
           <button
             key={i}
             onClick={() => setSelected(i)}
-            className={`w-full text-left border rounded p-[6px_8px] cursor-pointer transition-all border-l-2 ${
-              selectedIdx === i
+            className={`w-full text-left border rounded p-[6px_8px] cursor-pointer transition-all border-l-3 ${
+              isSel
                 ? "border-l-[var(--teal)] bg-white shadow-[0_1px_3px_rgba(5,13,37,0.06)] border-[var(--border)]"
-                : "border-l-transparent border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[var(--raised)]"
+                : isDone
+                  ? "border-l-[var(--ok)] border-[var(--border)] opacity-70"
+                  : "border-l-transparent border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[var(--raised)]"
             }`}
-            style={{ background: selectedIdx === i ? "var(--surface)" : undefined }}
+            style={{ background: isSel ? "var(--surface)" : isDone ? "rgba(58,125,68,0.04)" : undefined }}
           >
             <div className="font-bold text-[11px] flex items-center gap-1">
               {p.projNumber != null && (
@@ -143,7 +148,8 @@ export function ProjectNavigator() {
             </div>
             <div className="text-[9px] mt-px truncate" style={{ color: "var(--muted)" }}>{p.sub}</div>
           </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
