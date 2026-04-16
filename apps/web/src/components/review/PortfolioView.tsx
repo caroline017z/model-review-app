@@ -14,7 +14,14 @@ export function PortfolioView() {
   const confirmedExclusions = usePortfolioStore((s) => s.confirmedExclusions);
   const togglePending = usePortfolioStore((s) => s.togglePending);
   const confirmPortfolio = usePortfolioStore((s) => s.confirmPortfolio);
-  const hasPendingChanges = usePortfolioStore((s) => s.hasPendingChanges);
+
+  // Compute pending changes reactively (not via store get() which isn't reactive)
+  const hasPending = (() => {
+    const pKeys = Object.keys(pendingExclusions);
+    const cKeys = Object.keys(confirmedExclusions);
+    if (pKeys.length !== cKeys.length) return true;
+    return pKeys.some((k) => !confirmedExclusions[Number(k)]);
+  })();
   const setMode = useUiStore((s) => s.setMode);
   const setSelected = useUiStore((s) => s.setSelectedProject);
   const selectedIdx = useUiStore((s) => s.selectedProjectIdx);
@@ -173,7 +180,7 @@ export function PortfolioView() {
         <div className="px-4 py-2.5 border-t border-[var(--border)] flex items-center justify-between" style={{ background: "var(--raised)" }}>
           <span className="text-[10px] tabular-nums" style={{ color: "var(--muted)" }}>
             {ranked.filter(({ i }) => !pendingExclusions[i]).length} selected
-            {hasPendingChanges() && (
+            {hasPending && (
               <span className="ml-1 text-[var(--rev)] font-semibold">
                 (pending changes)
               </span>
@@ -181,9 +188,9 @@ export function PortfolioView() {
           </span>
           <button
             onClick={confirmPortfolio}
-            disabled={!hasPendingChanges()}
+            disabled={!hasPending}
             className={`px-4 py-1.5 rounded text-[11px] font-bold transition cursor-pointer ${
-              hasPendingChanges()
+              hasPending
                 ? "bg-[var(--teal)] text-white hover:opacity-90"
                 : "bg-[var(--inset)] text-[var(--muted)] cursor-not-allowed"
             }`}

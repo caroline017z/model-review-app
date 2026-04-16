@@ -40,7 +40,7 @@ function RefSection({ title, items, empty }: { title: string; items?: RefItem[];
 function KpiSummary({ project }: { project: Record<string, unknown> }) {
   const pills: { label: string; value: string }[] = [
     { label: "Proj #", value: String(project.projNumber ?? "—") },
-    { label: "MWdc", value: String((project.kpis as Record<string, string>)?.["Size (MWdc)"] ?? "—") },
+    { label: "MWdc", value: String((project.kpis as Record<string, string>)?.dc ?? "—") },
     { label: "State", value: String(project.state ?? "—") },
     { label: "Utility", value: String(project.utility ?? "—") },
     { label: "Program", value: String(project.program ?? "—") },

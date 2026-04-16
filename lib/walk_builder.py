@@ -173,8 +173,11 @@ def match_projects(
 
     m1_pos = _build_index_positional(m1_projects)
     m2_pos = _build_index_positional(m2_projects)
+    already_matched = {m["proj_number"] for m in matched}
     common_pos = sorted(set(m1_pos.keys()) & set(m2_pos.keys()))
     for pnum in common_pos:
+        if pnum in already_matched:
+            continue
         m1_col = m1_pos[pnum]
         m1_proj = m1_projects[m1_col]
         matched.append({
