@@ -1100,6 +1100,8 @@ def render_html(
     model_label: str = "Model",
     reviewer: str = "Caroline Z.",
     bible_label: str = "Q1 '26",
+    walk_available: bool = False,
+    walk_summary: dict | None = None,
 ) -> str:
     """Return the mockup HTML with real project data injected."""
     projects_list, portfolio = build_payload(
@@ -1113,6 +1115,8 @@ def render_html(
         "/* __INJECT_DATA_START__ (runtime) */\n"
         f"let PORTFOLIO = {_safe_json(portfolio)};\n"
         f"let PROJECTS = {_safe_json(projects_list)};\n"
+        f"let WALK_AVAILABLE = {'true' if walk_available else 'false'};\n"
+        f"let WALK_SUMMARY = {_safe_json(walk_summary or {})};\n"
         "/* __INJECT_DATA_END__ */"
     )
     if not _INJECT_RE.search(template):

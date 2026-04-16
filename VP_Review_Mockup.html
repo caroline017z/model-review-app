@@ -311,6 +311,30 @@
   body.mode-portfolio #heatmapCard .card-body > .plot { height: 520px !important; }
   body.mode-portfolio .layout { grid-template-columns: 280px 1fr !important; }
 
+  /* Build Walk mode: hide deep-dive detail, show walk panel */
+  #walkPanel { display: none; }
+  body.mode-walk #walkPanel { display: block !important; }
+  body.mode-walk .deal-header,
+  body.mode-walk .classify-strip,
+  body.mode-walk .panel.center > .card:not(#walkPanel),
+  body.mode-walk .panel.center > .grid-2,
+  body.mode-walk .panel.right {
+    display: none !important;
+  }
+  body.mode-walk .layout { grid-template-columns: 280px 1fr !important; }
+  #walkPanel .walk-summary {
+    max-width: 640px; margin: 40px auto; padding: 32px;
+    background: var(--surface); border-radius: 8px;
+    border: 1px solid var(--border); text-align: center;
+  }
+  #walkPanel .walk-summary h2 { font-size: 18px; margin-bottom: 12px; color: var(--navy); }
+  #walkPanel .walk-summary .walk-stats { font-size: 13px; color: var(--text-2); line-height: 1.8; }
+  #walkPanel .walk-summary .walk-stats b { color: var(--teal); }
+  #walkPanel .walk-download-hint {
+    margin-top: 20px; font-size: 12px; color: var(--muted);
+    padding: 12px; background: var(--inset); border-radius: 4px;
+  }
+
   /* Portfolio summary table density + responsive overflow guard */
   .card-portfolio-summary .card-body { overflow-x: auto; }
   .portfolio-summary-tbl { min-width: 720px; }
@@ -396,6 +420,7 @@
     <div class="mode" data-mode="portfolio">Portfolio</div>
     <div class="mode active" data-mode="deep">Project Review</div>
     <div class="mode" data-mode="reference">Reference</div>
+    <div class="mode" data-mode="walk" id="walkModeBtn">Build Walk</div>
   </div>
   <div class="top-meta">
     <span>Model: <b id="modelName">Lightstar · IL</b></span>
@@ -600,6 +625,19 @@
     <div class="card">
       <div class="card-h"><h3>25-Year Cash Flow</h3><div class="h-meta">Operating CF + tax benefits + terminal</div></div>
       <div class="card-body"><div id="cashflow" class="plot" style="height:260px;"></div></div>
+    </div>
+
+    <!-- Build Walk mode: summary + download hint -->
+    <div class="card" id="walkPanel">
+      <div class="walk-summary">
+        <h2>Build Walk</h2>
+        <div class="walk-stats" id="walkStats">
+          Upload two models to generate a Walk Summary comparing NPP, IRR, and input drivers.
+        </div>
+        <div class="walk-download-hint">
+          Use the <b>Download Build Walk (.xlsx)</b> button below the review panel to get the formatted Walk Summary file.
+        </div>
+      </div>
     </div>
 
     <!-- Portfolio mode only: project-level summary table above the heatmap. -->
@@ -1983,6 +2021,29 @@ if(PROJECTS.length){
   const nc=document.getElementById('navCount'); if(nc) nc.textContent = '0 of 0';
   renderReferences({references:{bibleHeader:'Bible', marketHeader:'Market', bible:[], market:[], opex:[], marketMatched:false}});
 }
+
+// ===== Build Walk: conditional visibility + summary rendering =====
+(function wireWalkPanel(){
+  const walkBtn = document.getElementById('walkModeBtn');
+  if(!walkBtn) return;
+  // Hide the Build Walk button if WALK_AVAILABLE is not set
+  if(typeof WALK_AVAILABLE === 'undefined' || !WALK_AVAILABLE){
+    walkBtn.style.display = 'none';
+    return;
+  }
+  // Render walk summary stats if available
+  const statsEl = document.getElementById('walkStats');
+  if(statsEl && typeof WALK_SUMMARY !== 'undefined' && WALK_SUMMARY.n_matched){
+    const W = WALK_SUMMARY;
+    statsEl.innerHTML =
+      'Comparing <b>' + _esc(W.m1_label) + '</b> vs <b>' + _esc(W.m2_label) + '</b><br>' +
+      '<b>' + W.n_matched + '</b> projects matched by Project #<br>' +
+      '<b>' + W.n_diffs + '</b> input differences found across <b>' +
+      (W.categories||[]).length + '</b> categories' +
+      ((W.categories||[]).length ? '<br><span style="font-size:11px;color:var(--muted);">' +
+        (W.categories||[]).join(' · ') + '</span>' : '');
+  }
+})();
 
 // Wait for Plotly script — including the onerror fallback chain
 let tries=0;

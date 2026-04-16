@@ -157,7 +157,7 @@ class TestRenderHtmlIntegration:
         html = render_html(fake, model_label="T")
         # Extract the injected JS block
         import re
-        m = re.search(r'let PORTFOLIO = (\{[\s\S]*?\});\s*let PROJECTS = (\[[\s\S]*?\]);\s*/\* __INJECT_DATA_END__', html)
+        m = re.search(r'let PORTFOLIO = (\{[\s\S]*?\});\s*let PROJECTS = (\[[\s\S]*?\]);\s*let WALK_AVAILABLE', html)
         assert m, "Inject block not found"
         portfolio = json.loads(m.group(1))
         projects = json.loads(m.group(2))

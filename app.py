@@ -478,6 +478,8 @@ def main():
     # Load data once — only what the review mockup actually consumes.
     merged_projects: dict = {}
     candidates: list[dict] = []
+    m1_result = None
+    m2_result = None
     if review_active and has_any_model:
         with st.status("Loading review data…", expanded=True) as _status:
             # Model 1: prefer uploaded file, fall back to macro runner
@@ -488,8 +490,11 @@ def main():
                 _status.update(label=f"Loading pricing model from macro runner: {mr_label}…")
                 m1_result = mr_model
                 m1_label = mr_label
-            else:
-                m1_result = None
+
+            # Model 2: comparison model (optional)
+            if model_file_2:
+                _status.update(label=f"Parsing comparison model: {getattr(model_file_2, 'name', m2_label)}…")
+                m2_result = load_pricing_model(model_file_2)
 
             _status.update(label="Extracting projects…")
             m1_projects = get_projects(m1_result) if m1_result else {}
@@ -686,11 +691,24 @@ def main():
             "Project Review panel."
         )
 
+    # Build Walk summary (computed before render so we can inject the flag)
+    walk_available = bool(m1_result and m2_result)
+    walk_summary: dict | None = None
+    walk_bytes: bytes | None = None
+    if walk_available:
+        from walk_builder import build_walk_xlsx
+        _walk_buf, walk_summary = build_walk_xlsx(
+            m1_result, m2_result, m1_label or "Model 1", m2_label or "Model 2",
+        )
+        walk_bytes = _walk_buf.getvalue()
+
     mockup_html = render_mockup_html(
         review_projects,
         model_label=m1_label or "Model 1",
         reviewer="Caroline Z.",
         bible_label="Q1 '26",
+        walk_available=walk_available,
+        walk_summary=walk_summary,
     )
     # Cache-bust the iframe by suffixing a deterministic hash of the payload
     # as an HTML comment. Streamlit's component diffing reuses the iframe when
@@ -705,6 +723,18 @@ def main():
         f"<!-- vp-review payload sig: {payload_sig} -->\n</body>",
     )
     components.html(mockup_html, height=1400, scrolling=True)
+
+    # Build Walk download button — shown below the iframe when both models loaded
+    if walk_available and walk_bytes:
+        _wl1 = m1_label or "Model_1"
+        _wl2 = m2_label or "Model_2"
+        _fname = f"Build_Walk_{_wl1}_vs_{_wl2}.xlsx".replace(" ", "_")
+        st.download_button(
+            "\u2b07 Download Build Walk (.xlsx)",
+            walk_bytes,
+            file_name=_fname,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
 
 if __name__ == "__main__":
