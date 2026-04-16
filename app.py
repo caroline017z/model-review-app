@@ -64,6 +64,37 @@ st.set_page_config(
 
 st.markdown(APP_CSS, unsafe_allow_html=True)
 
+# Override Streamlit's default primary/accent color (red) with teal globally.
+# This affects checkboxes, buttons, sliders, and any widget that uses the accent.
+st.markdown("""
+<style>
+  :root {
+    --primary-color: #518484 !important;
+  }
+  /* Streamlit injects its primary color via a <style> tag with .st-emotion-cache
+     selectors. Override at the broadest level. */
+  [data-testid="stSidebar"] [data-baseweb="checkbox"] [data-testid="stCheckbox"] > div:first-child,
+  [data-testid="stSidebar"] [data-baseweb="checkbox"] span[role="checkbox"] {
+    border-color: #518484 !important;
+  }
+  [data-testid="stSidebar"] [data-baseweb="checkbox"] [aria-checked="true"] > div:first-child,
+  [data-testid="stSidebar"] [data-baseweb="checkbox"] span[role="checkbox"][aria-checked="true"] {
+    background-color: #518484 !important;
+    border-color: #518484 !important;
+  }
+  /* Streamlit primary button: force teal everywhere */
+  button[kind="primary"], button[kind="primaryFormSubmit"],
+  .stButton > button[kind="primary"] {
+    background-color: #518484 !important;
+    border-color: #3d6868 !important;
+    color: #fff !important;
+  }
+  button[kind="primary"]:hover {
+    background-color: #3d6868 !important;
+  }
+</style>
+""", unsafe_allow_html=True)
+
 # Make Streamlit's native sidebar collapse/expand handle prominent and keep
 # it visible even when the sidebar is collapsed. Ships as an always-on
 # teal pill on the top-left so the reviewer can toggle the panel without

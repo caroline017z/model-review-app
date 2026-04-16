@@ -918,10 +918,18 @@ def list_candidate_projects(m1_projects: dict) -> list[dict]:
         # Important when project NAMES collide (e.g. two 'IL Joel' columns):
         # the proj-number disambiguates them.
         pnum_raw = data.get(ROW_PROJECT_NUMBER)
-        try:
-            proj_number = int(pnum_raw) if pnum_raw not in (None, "") else None
-        except (TypeError, ValueError):
-            proj_number = None
+        proj_number = None
+        if pnum_raw not in (None, ""):
+            # Handle float (1.0), int (1), or string ("1", "Project 1")
+            pf = _num(pnum_raw)
+            if pf is not None:
+                proj_number = int(pf)
+            elif isinstance(pnum_raw, str):
+                # Extract trailing digits from strings like "Project 1"
+                import re as _pnum_re
+                m = _pnum_re.search(r'\d+', str(pnum_raw))
+                if m:
+                    proj_number = int(m.group())
         col_idx = int(col) if isinstance(col, (int, float)) else None
         raw.append({
             "id": str(col),

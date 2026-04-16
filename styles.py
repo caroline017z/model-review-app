@@ -302,24 +302,37 @@ div[data-baseweb="select"] > div:focus-within {
 
 SIDEBAR_CHECKBOX_CSS = """
 <style>
+/* Sidebar checkbox labels */
 div[data-testid="stSidebar"] .stCheckbox span[data-testid="stCheckboxLabel"] {
     font-size: 0.82rem !important; font-weight: 700 !important;
     font-family: 'Century Gothic', sans-serif !important;
 }
-/* Checked state: teal fill */
+/* Checked state: teal fill — broad selectors to catch all Streamlit versions */
+div[data-testid="stSidebar"] .stCheckbox input[type="checkbox"]:checked + div,
+div[data-testid="stSidebar"] .stCheckbox input[type="checkbox"]:checked + span,
 div[data-testid="stSidebar"] .stCheckbox [data-testid="stCheckbox"] input:checked + div,
-div[data-testid="stSidebar"] .stCheckbox input[type="checkbox"]:checked + div {
-    background-color: #518484 !important; border-color: #518484 !important;
+div[data-testid="stSidebar"] .stCheckbox [aria-checked="true"],
+div[data-testid="stSidebar"] .stCheckbox div[role="checkbox"][aria-checked="true"] {
+    background-color: #518484 !important;
+    border-color: #518484 !important;
+    color: #fff !important;
 }
-/* Unchecked state: teal border so it looks cohesive */
+/* Unchecked state: teal border */
+div[data-testid="stSidebar"] .stCheckbox div[role="checkbox"],
 div[data-testid="stSidebar"] .stCheckbox [data-testid="stCheckbox"] > div:first-child,
-div[data-testid="stSidebar"] .stCheckbox div[role="checkbox"] {
+div[data-testid="stSidebar"] .stCheckbox input[type="checkbox"] + div,
+div[data-testid="stSidebar"] .stCheckbox input[type="checkbox"] + span {
     border-color: #518484 !important;
 }
-/* Hover: slightly deeper teal */
+/* Hover: deeper teal */
 div[data-testid="stSidebar"] .stCheckbox:hover div[role="checkbox"],
 div[data-testid="stSidebar"] .stCheckbox:hover [data-testid="stCheckbox"] > div:first-child {
     border-color: #3d6868 !important;
+}
+/* Force Streamlit's accent color to teal globally for checkboxes */
+div[data-testid="stSidebar"] .stCheckbox svg {
+    fill: #fff !important;
+    stroke: #fff !important;
 }
 </style>
 """

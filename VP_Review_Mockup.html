@@ -635,9 +635,9 @@
       <div class="walk-summary">
         <h2>Build Walk</h2>
         <div class="walk-stats" id="walkStats">
-          Upload two models to generate a Walk Summary comparing NPP, IRR, and input drivers.
+          Loading walk comparison...
         </div>
-        <div class="walk-download-hint">
+        <div class="walk-download-hint" id="walkDownloadHint" style="display:none;">
           Use the <b>Download Build Walk (.xlsx)</b> button below the review panel to get the formatted Walk Summary file.
         </div>
       </div>
@@ -1765,7 +1765,7 @@ function _worstProjectIdx(){
   const modes = document.getElementById('topModes');
   if(!modes) return;
   function applyMode(mode){
-    document.body.classList.remove('mode-portfolio','mode-deep','mode-reference');
+    document.body.classList.remove('mode-portfolio','mode-deep','mode-reference','mode-walk');
     document.body.classList.add('mode-' + mode);
     modes.querySelectorAll('.mode').forEach(m =>
       m.classList.toggle('active', m.getAttribute('data-mode') === mode)
@@ -2034,17 +2034,31 @@ if(PROJECTS.length){
     walkBtn.style.display = 'none';
     return;
   }
-  // Render walk summary stats if available
+  // Render walk summary stats
   const statsEl = document.getElementById('walkStats');
-  if(statsEl && typeof WALK_SUMMARY !== 'undefined' && WALK_SUMMARY.n_matched){
+  const hintEl = document.getElementById('walkDownloadHint');
+  if(statsEl && typeof WALK_SUMMARY !== 'undefined' && WALK_SUMMARY.m1_label){
     const W = WALK_SUMMARY;
-    statsEl.innerHTML =
-      'Comparing <b>' + _esc(W.m1_label) + '</b> vs <b>' + _esc(W.m2_label) + '</b><br>' +
-      '<b>' + W.n_matched + '</b> projects matched by Project #<br>' +
-      '<b>' + W.n_diffs + '</b> input differences found across <b>' +
-      (W.categories||[]).length + '</b> categories' +
-      ((W.categories||[]).length ? '<br><span style="font-size:11px;color:var(--muted);">' +
-        (W.categories||[]).join(' · ') + '</span>' : '');
+    const matched = W.n_matched || 0;
+    const diffs = W.n_diffs || 0;
+    const cats = W.categories || [];
+    if(matched > 0){
+      statsEl.innerHTML =
+        'Comparing <b>' + _esc(W.m1_label) + '</b> vs <b>' + _esc(W.m2_label) + '</b><br>' +
+        '<b>' + matched + '</b> projects matched by Project #<br>' +
+        '<b>' + diffs + '</b> input differences found across <b>' +
+        cats.length + '</b> categories' +
+        (cats.length ? '<br><span style="font-size:11px;color:var(--muted);">' +
+          cats.join(' \u00b7 ') + '</span>' : '');
+    } else {
+      statsEl.innerHTML =
+        'Comparing <b>' + _esc(W.m1_label) + '</b> vs <b>' + _esc(W.m2_label) + '</b><br>' +
+        '<span style="color:var(--off);">No projects matched by Project # between the two models.</span><br>' +
+        '<span style="font-size:11px;color:var(--muted);">Check that both models have the same Project # values in row 2 of Project Inputs.</span>';
+    }
+    if(hintEl) hintEl.style.display = '';
+  } else {
+    statsEl.innerHTML = 'Upload two models in the sidebar and click <b>Run Review</b> to generate a Walk Summary.';
   }
 })();
 
