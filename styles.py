@@ -304,8 +304,20 @@ div[data-testid="stSidebar"] .stCheckbox span[data-testid="stCheckboxLabel"] {
     font-size: 0.82rem !important; font-weight: 700 !important;
     font-family: 'Century Gothic', sans-serif !important;
 }
-div[data-testid="stSidebar"] .stCheckbox [data-testid="stCheckbox"] input:checked + div {
+/* Checked state: teal fill */
+div[data-testid="stSidebar"] .stCheckbox [data-testid="stCheckbox"] input:checked + div,
+div[data-testid="stSidebar"] .stCheckbox input[type="checkbox"]:checked + div {
     background-color: #518484 !important; border-color: #518484 !important;
+}
+/* Unchecked state: teal border so it looks cohesive */
+div[data-testid="stSidebar"] .stCheckbox [data-testid="stCheckbox"] > div:first-child,
+div[data-testid="stSidebar"] .stCheckbox div[role="checkbox"] {
+    border-color: #518484 !important;
+}
+/* Hover: slightly deeper teal */
+div[data-testid="stSidebar"] .stCheckbox:hover div[role="checkbox"],
+div[data-testid="stSidebar"] .stCheckbox:hover [data-testid="stCheckbox"] > div:first-child {
+    border-color: #3d6868 !important;
 }
 </style>
 """

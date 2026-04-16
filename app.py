@@ -174,17 +174,22 @@ st.markdown(
       [data-testid="stAppViewContainer"] > section.main,
       [data-testid="stMain"],
       [data-testid="stMain"] > div,
-      section.main > div,
-      .main .block-container,
-      .block-container {
+      section.main > div {
         padding-right: 0 !important;
         padding-top: 0 !important;
         max-width: 100% !important;
       }
-      /* Small breathing-room strip between the sidebar edge and the mockup. */
+      .main .block-container,
+      .block-container {
+        padding-top: 0 !important;
+        max-width: 100% !important;
+      }
+      /* Small breathing-room strip between the sidebar edge and the mockup,
+         plus a matching buffer on the right edge of the window. */
       .main .block-container {
         padding-top: 0.25rem !important;
-        padding-left: 10px !important;
+        padding-left: 5px !important;
+        padding-right: 5px !important;
       }
       /* When the sidebar is collapsed, keep the 44px reserved for the
          always-visible teal chevron (set below) — no extra gap needed. */
@@ -537,13 +542,11 @@ def main():
             return sorted(buckets.items(), key=lambda kv: kv[0].lower())
 
         def _item_label(c):
-            # Disambiguates duplicate-named projects via the model's own
-            # Project # (row 2 of Project Inputs). The Excel column letter
-            # is intentionally NOT shown — Project # is the canonical
-            # identifier reviewers track in the Returns sheets.
+            # Always show project ID (row 2 of Project Inputs) next to the
+            # name to disambiguate duplicates (e.g. two 'IL Joel' columns).
             head_parts = []
             if c.get("proj_number") is not None:
-                head_parts.append(f"`P{c['proj_number']}`")
+                head_parts.append(f"**#{c['proj_number']}**")
             head_parts.append(f"**{c['name']}**")
             head = " ".join(head_parts)
             meta = " · ".join([x for x in [c["state"], c["utility"], c["program"]] if x])
