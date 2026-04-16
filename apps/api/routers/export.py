@@ -99,28 +99,27 @@ def export_review(req: ExportRequest):
         status_cell.fill = TEAL_FILL if proj.approved else NAVY_FILL
         status_cell.alignment = CENTER
 
-        # Metrics — labeled inline on the project header row
-        c4 = ws.cell(row=r, column=4, value=proj.nppPerW)
-        c4.number_format = '0.000_);[Red]\\(0.000\\)'
-        c4.font = Font(color="FFFFFF", size=11)
-        c4.fill = NAVY_FILL
-        # Label above value
-        ws.cell(row=r, column=3, value="NPP ($/W)")
-        ws.cell(row=r, column=3).font = Font(color="FFFFFF", size=9, italic=True)
-        ws.cell(row=r, column=3).fill = NAVY_FILL
-        ws.cell(row=r, column=3).alignment = CENTER
+        # Metrics inline: NPP in col D with label, IRR in col E with label
+        ws.cell(row=r, column=4, value="NPP:").font = Font(color="FFFFFF", size=9, italic=True)
+        ws.cell(row=r, column=4).fill = NAVY_FILL
+        ws.cell(row=r, column=4).alignment = Alignment(horizontal="right", vertical="center")
 
-        irr_frac = proj.irrPct / 100 if abs(proj.irrPct) > 1 else proj.irrPct
-        c5 = ws.cell(row=r, column=5, value=irr_frac)
-        c5.number_format = '0.00%'
+        c5 = ws.cell(row=r, column=5, value=proj.nppPerW)
+        c5.number_format = '0.000_);[Red]\\(0.000\\)'
         c5.font = Font(color="FFFFFF", size=11)
         c5.fill = NAVY_FILL
-        ws.cell(row=r, column=6, value="IRR")
-        ws.cell(row=r, column=6).font = Font(color="FFFFFF", size=9, italic=True)
-        ws.cell(row=r, column=6).fill = NAVY_FILL
 
-        for c in range(7, 9):
-            ws.cell(row=r, column=c).fill = NAVY_FILL
+        ws.cell(row=r, column=6, value="IRR:").font = Font(color="FFFFFF", size=9, italic=True)
+        ws.cell(row=r, column=6).fill = NAVY_FILL
+        ws.cell(row=r, column=6).alignment = Alignment(horizontal="right", vertical="center")
+
+        irr_frac = proj.irrPct / 100 if abs(proj.irrPct) > 1 else proj.irrPct
+        c7 = ws.cell(row=r, column=7, value=irr_frac)
+        c7.number_format = '0.00%'
+        c7.font = Font(color="FFFFFF", size=11)
+        c7.fill = NAVY_FILL
+
+        ws.cell(row=r, column=8).fill = NAVY_FILL
         r += 1
 
         if proj.approvalTimestamp:
