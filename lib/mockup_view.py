@@ -282,8 +282,15 @@ def _build_references(proj: dict, audit: dict) -> dict:
     utility = str(data.get(ROW_UTILITY) or "").strip()
     program = str(audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip()
 
-    # Bible (cross-market + per-state overrides, e.g. IL hail insurance)
+    # Pricing reference (cross-market + per-state overrides + size-dependent EPC)
     cs = {**CS_AVERAGE, **CS_STATE_OVERRIDES.get(state, {})}
+
+    # Size-dependent EPC: <5 MWdc = $1.75/W, >=5 MWdc = $1.65/W
+    dc_mw = _num(data.get(ROW_DC_MW)) or 0
+    if dc_mw > 0 and dc_mw < 5:
+        cs = dict(cs)  # don't mutate global
+        cs[ROW_EPC_WRAPPED] = {"value": 1.75, "unit": "$/W", "tol": 0.10,
+                               "label": "PV EPC Cost", "note": f"<5 MWdc ({dc_mw:.1f} MW): $1.75/W"}
 
     def _cs_item(row: int, pretty: str) -> dict | None:
         info = cs.get(row)
@@ -296,10 +303,9 @@ def _build_references(proj: dict, audit: dict) -> dict:
         }
 
     bible_items = [_cs_item(r, p) for r, p in [
-        (ROW_EPC_WRAPPED, "EPC ($/W)"),
+        (ROW_EPC_WRAPPED, f"EPC ($/W) {'<5MW' if dc_mw < 5 else '≥5MW'}"),
         (ROW_LNTP, "LNTP ($/W)"),
         (ROW_CLOSING, "Closing & Legal ($/W)"),
-        (ROW_ITC_PCT, "ITC Rate"),
         (ROW_ELIG_COSTS, "Eligible Costs %"),
     ]]
     bible_items = [x for x in bible_items if x]
@@ -362,7 +368,7 @@ def _build_references(proj: dict, audit: dict) -> dict:
         })
 
     return {
-        "bibleHeader": f"Q1 '26 Bible · {state} {utility} {program}".strip(),
+        "bibleHeader": f"Q1 '26 Pricing Reference",
         "bible": bible_items,
         "marketHeader": market_header if market else f"Market — (no match for {state}/{utility}/{program})",
         "market": market_items,

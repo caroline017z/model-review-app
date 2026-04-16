@@ -92,7 +92,7 @@ function rateComp1Items(rc: Record<string, unknown> | undefined): RefItem[] {
   items.push({
     k: "GH Discount (from RC1 name)",
     v: haircutVal,
-    s: match === "OK" ? `Bible: ${bibleVal} ✓` : match === "OFF" ? `Bible: ${bibleVal} ✗` : bibleVal !== "—" ? `Bible: ${bibleVal}` : "",
+    s: match === "OK" ? `Ref: ${bibleVal} ✓` : match === "OFF" ? `Ref: ${bibleVal} ✗` : bibleVal !== "—" ? `Ref: ${bibleVal}` : "",
   });
   items.push({
     k: "Customer Discount %",
@@ -189,16 +189,16 @@ export function ReferencePanel() {
         />
       )}
 
-      {/* Bible */}
+      {/* Pricing Reference */}
       <RefSection
-        title={refs?.bibleHeader || "Bible"}
+        title="Q1 '26 Pricing Reference"
         items={refs?.bible}
-        empty="No bible entries"
+        empty="No reference entries"
       />
 
       {/* Market */}
       <RefSection
-        title={refs?.marketHeader || "Market"}
+        title="Market Assumptions"
         items={refs?.market}
         empty={refs?.marketMatched === false ? "No market match" : "No market entries"}
       />

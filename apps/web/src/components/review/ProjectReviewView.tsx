@@ -44,11 +44,12 @@ export function ProjectReviewView() {
   const flagged = findings.filter((f) => getAction(selectedIdx, f.field).action === "flag").length;
   const skipped = findings.filter((f) => getAction(selectedIdx, f.field).action === "skip").length;
   const unhandled = findings.length - accepted - flagged - skipped;
-  const canApprove = unhandled === 0 && findings.length > 0;
+  const isClean = findings.length === 0;
+  const canApprove = (unhandled === 0 && findings.length > 0) || isClean;
   const approved = isApproved(selectedIdx);
 
-  const handleApprove = () => {
-    approveProject(selectedIdx, "Caroline Z.");
+  const handleApproveOrNext = () => {
+    if (!isClean) approveProject(selectedIdx, "Caroline Z.");
     // Auto-advance to next unreviewed project
     const nextIdx = reviewProjects.findIndex((_, i) => i !== selectedIdx && !isApproved(i));
     if (nextIdx >= 0) setTimeout(() => setSelected(nextIdx), 300);
@@ -123,12 +124,12 @@ export function ProjectReviewView() {
         <span className="font-semibold" style={{ color: "var(--muted)" }}>{skipped} Skipped</span>
         <span style={{ color: unhandled > 0 ? "var(--off)" : "var(--muted)" }}>{unhandled} Unhandled</span>
         <button
-          disabled={!canApprove || approved}
-          onClick={handleApprove}
-          className="ml-auto px-4 py-1.5 rounded text-xs font-bold text-white transition disabled:opacity-40"
-          style={{ background: approved ? "var(--ok)" : canApprove ? "var(--teal)" : "var(--muted)" }}
+          disabled={approved && !isClean}
+          onClick={handleApproveOrNext}
+          className="ml-auto px-4 py-1.5 rounded text-xs font-bold text-white transition disabled:opacity-40 cursor-pointer"
+          style={{ background: approved ? "var(--ok)" : isClean ? "var(--teal)" : canApprove ? "var(--teal)" : "var(--muted)" }}
         >
-          {approved ? "Approved" : "Approve Project"}
+          {approved ? "Approved" : isClean ? "Next Project →" : canApprove ? "Approve Project" : `${unhandled} Unhandled`}
         </button>
       </div>
 

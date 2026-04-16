@@ -88,19 +88,24 @@ export function ProjectNavigator() {
       />
 
       <div className="flex gap-1 flex-wrap mb-3">
-        {filters.map((f) => (
-          <button
-            key={f}
-            onClick={() => setNavFilter(f)}
-            className={`text-[9px] px-1.5 py-[2px] rounded-[10px] border cursor-pointer transition ${
-              navFilter === f
-                ? "bg-[var(--indigo)] text-white border-transparent"
-                : "bg-[var(--inset)] text-[var(--text-2)] border-transparent hover:border-[var(--border-strong)]"
-            }`}
-          >
-            {filterLabels[f]}
-          </button>
-        ))}
+        {filters.map((f) => {
+          const count = f === "all"
+            ? reviewProjects.filter((_, i) => !excludedIds[i]).length
+            : reviewProjects.filter((p, i) => !excludedIds[i] && p.findings?.some((fi) => fi.status === f)).length;
+          return (
+            <button
+              key={f}
+              onClick={() => setNavFilter(f)}
+              className={`text-[9px] px-1.5 py-[2px] rounded-[10px] border cursor-pointer transition ${
+                navFilter === f
+                  ? "bg-[var(--indigo)] text-white border-transparent"
+                  : "bg-[var(--inset)] text-[var(--text-2)] border-transparent hover:border-[var(--border-strong)]"
+              }`}
+            >
+              {filterLabels[f]} <span className="tabular-nums">{count}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="space-y-1">
