@@ -356,6 +356,7 @@ def build_walk_xlsx(
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Build Walk"
+    ws.sheet_view.showGridLines = False  # Clean look matching reference files
 
     case_labels = [m1_label, m2_label]
     n_cases = 2
