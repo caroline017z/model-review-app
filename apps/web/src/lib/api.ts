@@ -76,6 +76,24 @@ export interface ProjectPayload {
   };
   rateComp1: Record<string, unknown>;
   propertyTax: Record<string, unknown>;
+  fullMapping?: BibleMappingCategory[];
+}
+
+export interface BibleMappingRow {
+  row: number;
+  label: string;
+  unit: string;
+  expected: string | number | null;
+  actual: string | number | null;
+  status: "OK" | "OFF" | "OUT" | "MISSING" | "REVIEW";
+  source: string;
+  tol: number | null;
+  range: [number, number] | null;
+}
+
+export interface BibleMappingCategory {
+  category: string;
+  rows: BibleMappingRow[];
 }
 
 export interface Finding {

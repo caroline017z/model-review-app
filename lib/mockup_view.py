@@ -24,6 +24,7 @@ from lib.bible_audit import audit_project
 
 logger = logging.getLogger(__name__)
 from lib.bible_reference import CS_AVERAGE, CS_STATE_OVERRIDES, lookup_market
+from lib.config import BIBLE_BENCHMARKS, INPUT_ROW_LABELS as _INPUT_ROW_LABELS
 from lib.rows import (
     ROW_PROJECT_NUMBER, ROW_DEVELOPER, ROW_DC_MW, ROW_AC_KW, ROW_STATE, ROW_UTILITY,
     ROW_PROGRAM_A, ROW_PROGRAM_B, ROW_EPC_WRAPPED, ROW_LNTP, ROW_IX,
@@ -883,6 +884,65 @@ def _build_property_tax(data: dict) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Full Bible Mapping — includes ALL audit rows (OK + failures), grouped
+# ---------------------------------------------------------------------------
+
+_ROW_CATEGORY: dict[int, str] = {}
+for _cat, _checks in BIBLE_BENCHMARKS.items():
+    for _lbl, _spec in _checks.items():
+        if "row" in _spec:
+            _ROW_CATEGORY[_spec["row"]] = _cat
+
+_ROW_CATEGORY_FALLBACK: dict[int, str] = {
+    118: "CapEx", 119: "CapEx", 121: "CapEx", 122: "CapEx", 123: "CapEx", 126: "CapEx",
+    225: "OpEx", 226: "OpEx", 227: "OpEx", 228: "OpEx", 230: "OpEx", 231: "OpEx",
+    240: "OpEx", 241: "OpEx", 286: "OpEx", 296: "OpEx", 297: "OpEx", 302: "OpEx",
+    157: "Revenue", 158: "Revenue", 160: "Revenue", 161: "Revenue", 162: "Revenue",
+    216: "Incentives & Tax", 217: "Incentives & Tax",
+    597: "Incentives & Tax", 602: "Incentives & Tax",
+}
+
+_MAPPING_CATEGORY_ORDER = [
+    "CapEx", "System Sizing", "Revenue", "Incentives & Tax",
+    "OpEx", "System Details", "Other",
+]
+
+
+def _categorize_audit_row(row_num: int) -> str:
+    return _ROW_CATEGORY.get(row_num) or _ROW_CATEGORY_FALLBACK.get(row_num) or "Other"
+
+
+def _build_full_mapping(audit: dict) -> list[dict]:
+    """Build the complete bible mapping including OK rows, grouped by category."""
+    groups: dict[str, list[dict]] = {}
+    for row_num, info in (audit.get("rows") or {}).items():
+        cat = _categorize_audit_row(row_num)
+        label = info.get("label") or _INPUT_ROW_LABELS.get(row_num) or f"Row {row_num}"
+        groups.setdefault(cat, []).append({
+            "row": row_num,
+            "label": label,
+            "unit": info.get("unit", ""),
+            "expected": info.get("expected"),
+            "actual": info.get("actual"),
+            "status": info.get("status", "OK"),
+            "source": info.get("source", ""),
+            "tol": info.get("tol"),
+            "range": list(info["range"]) if info.get("range") else None,
+        })
+    result = []
+    for cat in _MAPPING_CATEGORY_ORDER:
+        rows = groups.pop(cat, [])
+        if rows:
+            rows.sort(key=lambda r: r["row"])
+            result.append({"category": cat, "rows": rows})
+    for cat in sorted(groups):
+        rows = groups[cat]
+        rows.sort(key=lambda r: r["row"])
+        result.append({"category": cat, "rows": rows})
+    return result
+
+
 def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
     data = proj.get("data", {})
     findings = _build_findings(audit, data)
@@ -938,6 +998,7 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
         "wrappedEpcComponents": _build_wrapped_epc(audit),
         "references": _build_references(proj, audit),
         "rateComp1": _build_rate_comp1(proj),
+        "fullMapping": _build_full_mapping(audit),
         "propertyTax": _build_property_tax(data),
     }
 

@@ -7,7 +7,9 @@ import { useReviewerStore } from "@/stores/reviewer";
 import { VarianceChart } from "@/components/charts/VarianceChart";
 import { CashflowChart } from "@/components/charts/CashflowChart";
 import { TornadoChart } from "@/components/charts/TornadoChart";
+import { BibleMapping } from "@/components/review/BibleMapping";
 import { fmtNpp, fmtIrr, fmtEquity, fmtImpact } from "@/lib/format";
+import type { BibleMappingCategory } from "@/lib/api";
 
 export function ProjectReviewView() {
   const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
@@ -222,6 +224,11 @@ export function ProjectReviewView() {
           <CashflowChart opCF={project.cashflow.opCF} taxBn={project.cashflow.taxBn} terminal={project.cashflow.terminal} />
         </div>
       </div>
+
+      {/* Full Bible Mapping dropdown */}
+      {(project.fullMapping as BibleMappingCategory[] | undefined)?.length ? (
+        <BibleMapping categories={project.fullMapping as BibleMappingCategory[]} />
+      ) : null}
 
       {/* Reviewer Notes */}
       <div className="rounded border border-[var(--border)] overflow-hidden" style={{ background: "var(--surface)" }}>
