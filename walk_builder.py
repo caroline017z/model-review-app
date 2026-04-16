@@ -49,8 +49,20 @@ BLUE_FONT = Font(color="0000FF", size=11)
 BOLD_FONT = Font(bold=True, size=11)
 NORMAL_FONT = Font(size=11)
 
-THIN_BOTTOM = Border(bottom=Side(style="thin"))
-DOUBLE_BOTTOM = Border(bottom=Side(style="double"))
+_THIN = Side(style="thin")
+_DOUBLE = Side(style="double")
+THIN_BOTTOM = Border(bottom=_THIN)
+DOUBLE_BOTTOM = Border(bottom=_DOUBLE)
+# Column separators for the NPP/IRR/delta grid
+THIN_LEFT = Border(left=_THIN)
+THIN_LEFT_RIGHT = Border(left=_THIN, right=_THIN)
+THIN_BOTTOM_LEFT = Border(bottom=_THIN, left=_THIN)
+THIN_BOTTOM_LEFT_RIGHT = Border(bottom=_THIN, left=_THIN, right=_THIN)
+# Boxed cell for variance section values
+THIN_BOX = Border(top=_THIN, bottom=_THIN, left=_THIN, right=_THIN)
+# Header row: bottom + left separator
+HDR_NPP = Border(bottom=_THIN, left=_THIN, top=_THIN)
+HDR_DELTA = Border(bottom=_THIN, left=_THIN, right=_THIN, top=_THIN)
 
 CENTER = Alignment(horizontal="center", vertical="center")
 CENTER_WRAP = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -67,6 +79,25 @@ FMT_PCT = "0.00%"
 
 # Rows to skip in variance detection (identity / metadata rows)
 _SKIP_ROWS = {2, 4, 7, 8, 10, 18, 19}
+
+# Labels to EXCLUDE from the walk variance section (covered elsewhere or outputs)
+_WALK_EXCLUDE_LABELS = {
+    "live appraisal model irr", "live appraisal irr",
+    "max fmv w/ constraint", "max fmv with constraint",
+    "minimum equity dscr multiple",
+    "npp ($)", "npp ($/w) - solve", "npp ($/w)",
+    "other upfront costs",
+    "project toggle (on/off)", "toggle (on/off)",
+    "step up dev fee - solve", "step up dev fee",
+    "te pre-commitment amount for cl sizing",
+    "tax equity insurance costs",
+    "total capex excl. financing costs", "total capex excl. financing",
+    "total capex incl. financing costs", "total capex incl. financing",
+    "total itc",
+    "unconstrained (calculated) fmv", "unconstrained fmv",
+    "live levered pre-tax irr", "levered pre-tax irr",
+    "active fmv", "active fair market value",
+}
 
 # Category display order
 _CATEGORY_ORDER = [
@@ -284,6 +315,8 @@ def diff_inputs(
     for row_num, label in INPUT_ROW_LABELS.items():
         if row_num in _SKIP_ROWS:
             continue
+        if label.strip().lower() in _WALK_EXCLUDE_LABELS:
+            continue
 
         is_text = row_num in TEXT_ROWS or row_num in DATE_ROWS
         per_project: dict[int, tuple[Any, Any]] = {}
@@ -328,8 +361,19 @@ def diff_inputs(
         all_labels = set(m1_all.keys()) | set(m2_all.keys())
 
         for label in sorted(all_labels):
+            if not label or not label.strip():
+                continue  # skip unlabeled rows
             if label.strip().lower() in seen_labels:
                 continue  # already compared in Pass 1
+            if label.strip().lower() in _WALK_EXCLUDE_LABELS:
+                continue  # excluded from walk
+            # Skip individual year property tax rows (only Y1 matters)
+            label_lower = label.strip().lower()
+            if "property tax" in label_lower and any(
+                x in label_lower for x in ["year 2", "year 3", "year 4", "year 5",
+                    "yr 2", "yr 3", "yr 4", "yr 5", "y2", "y3", "y4", "y5"]
+            ):
+                continue
 
             per_project = {}
             any_diff = False
@@ -505,40 +549,45 @@ def build_walk_xlsx(
 
     for ci in range(n_cases):
         npp_c, irr_c, delta_c = case_cols(ci)
-        for col, text, use_blue in [
-            (npp_c, "NPP ($/W)", False),
-            (irr_c, "IRR (%)", False),
-        ]:
-            cell = ws.cell(row=6, column=col, value=text)
-            cell.font = BLUE_FONT if use_blue else NORMAL_FONT
-            cell.fill = GREY_FILL
-            cell.border = THIN_BOTTOM
-            cell.alignment = CENTER
+        # NPP header — left border separator
+        cell = ws.cell(row=6, column=npp_c, value="NPP ($/W)")
+        cell.font = NORMAL_FONT
+        cell.fill = GREY_FILL
+        cell.border = HDR_NPP
+        cell.alignment = CENTER
+        # IRR header
+        cell = ws.cell(row=6, column=irr_c, value="IRR (%)")
+        cell.font = NORMAL_FONT
+        cell.fill = GREY_FILL
+        cell.border = THIN_BOTTOM
+        cell.alignment = CENTER
         if ci > 0:
+            # Delta header — left+right border
             cell = ws.cell(row=6, column=delta_c, value="\u2206 Base")
             cell.font = BLUE_FONT
             cell.fill = GREY_FILL
-            cell.border = THIN_BOTTOM
+            cell.border = HDR_DELTA
             cell.alignment = CENTER
 
-    # Rows 7+: Per-project data
+    # Rows 7+: Per-project data with column separators matching reference
     data_start = 7
     for pi, pm in enumerate(metrics):
         r = data_start + pi
         is_last = pi == len(metrics) - 1
-        row_border = THIN_BOTTOM if is_last else Border()
 
         # Project name — navy fill, white bold
         cell = ws.cell(row=r, column=2, value=pm["name"])
         cell.font = WHITE_BOLD
         cell.fill = NAVY_FILL
-        cell.border = row_border
+        if is_last:
+            cell.border = THIN_BOTTOM
 
         # MWdc
         cell = ws.cell(row=r, column=3, value=pm["mwdc"])
         cell.number_format = FMT_MW
         cell.alignment = CENTER
-        cell.border = row_border
+        if is_last:
+            cell.border = THIN_BOTTOM
 
         # Per-case NPP, IRR, delta
         case_vals = [
@@ -550,26 +599,27 @@ def build_walk_xlsx(
         for ci, (npp_val, irr_val) in enumerate(case_vals):
             npp_c, irr_c, delta_c = case_cols(ci)
 
-            # NPP
+            # NPP — left border separator
             cell = ws.cell(row=r, column=npp_c, value=npp_val)
             cell.number_format = FMT_NPP
             cell.alignment = CENTER
-            cell.border = row_border
+            cell.border = THIN_BOTTOM_LEFT if is_last else THIN_LEFT
 
             # IRR
             cell = ws.cell(row=r, column=irr_c, value=irr_val)
             cell.number_format = FMT_IRR
             cell.alignment = CENTER
-            cell.border = row_border
+            if is_last:
+                cell.border = THIN_BOTTOM
 
-            # Delta (only for non-base cases)
+            # Delta (only for non-base cases) — left+right border
             if ci > 0:
                 npp_letter = get_column_letter(npp_c)
                 formula = f"={npp_letter}{r}-{base_npp_col_letter}{r}"
                 cell = ws.cell(row=r, column=delta_c, value=formula)
                 cell.number_format = FMT_DELTA
                 cell.alignment = CENTER
-                cell.border = row_border
+                cell.border = THIN_BOTTOM_LEFT_RIGHT if is_last else THIN_LEFT_RIGHT
 
     # Summary row: MW-weighted averages
     summary_r = data_start + len(metrics)
@@ -625,7 +675,14 @@ def build_walk_xlsx(
     for vc in range(3, last_col + 1):
         ws.cell(row=var_start, column=vc).border = DOUBLE_BOTTOM
 
+    # Column headers for variance section
     cur_row = var_start + 1
+    ws.cell(row=cur_row, column=3, value="Unit").font = Font(size=10, color="7d8694")
+    ws.cell(row=cur_row, column=3).alignment = CENTER
+    cur_row += 1
+
+    # Compute MW weights for portfolio averaging
+    total_mw = sum(pm["mwdc"] for pm in metrics) or 1.0
 
     for cat_name in _CATEGORY_ORDER:
         cat_vars = grouped.get(cat_name)
@@ -638,61 +695,85 @@ def build_walk_xlsx(
         cell.border = DOUBLE_BOTTOM
         cur_row += 1
 
-        for v in sorted(cat_vars, key=lambda x: x["row"]):
-            is_text = v["row"] in TEXT_ROWS or v["row"] in DATE_ROWS
+        for v in sorted(cat_vars, key=lambda x: x["label"].lower()):
             nfmt = _num_format(v["row"])
 
-            # Label
+            # Label in col B
             cell = ws.cell(row=cur_row, column=2, value=v["label"])
             cell.font = NORMAL_FONT
             cell.alignment = LEFT
 
-            # Unit in col D (blue font)
+            # Unit in col C (blue font)
             if v["unit"]:
-                cell = ws.cell(row=cur_row, column=4, value=v["unit"])
+                cell = ws.cell(row=cur_row, column=3, value=v["unit"])
                 cell.font = BLUE_FONT
                 cell.alignment = CENTER
 
-            # Values: use the FIRST matched project's values as representative.
-            # (Walk summaries show portfolio-level inputs, not per-project.)
-            first_pnum = next(iter(v["values"]))
-            m1_val, m2_val = v["values"][first_pnum]
+            # MW-weighted portfolio average across matched projects
+            m1_sum = 0.0
+            m2_sum = 0.0
+            m1_count = 0
+            m2_count = 0
+            is_text_val = False
+            first_m1 = None
+            first_m2 = None
+            for pnum, (m1v, m2v) in v["values"].items():
+                mw = next((pm["mwdc"] for pm in metrics if pm["proj_number"] == pnum), 1.0)
+                f1 = safe_float(m1v)
+                f2 = safe_float(m2v)
+                if f1 is not None:
+                    m1_sum += f1 * mw
+                    m1_count += 1
+                elif m1v is not None:
+                    is_text_val = True
+                    if first_m1 is None:
+                        first_m1 = m1v
+                if f2 is not None:
+                    m2_sum += f2 * mw
+                    m2_count += 1
+                elif m2v is not None:
+                    is_text_val = True
+                    if first_m2 is None:
+                        first_m2 = m2v
 
-            for ci in range(n_cases):
-                npp_c = case_cols(ci)[0]
-                val = m1_val if ci == 0 else m2_val
-                base_val = m1_val
+            if is_text_val:
+                # Text values: show first project's value
+                m1_display = first_m1
+                m2_display = first_m2
+            else:
+                # Numeric: MW-weighted average
+                m1_display = m1_sum / total_mw if m1_count else None
+                m2_display = m2_sum / total_mw if m2_count else None
 
-                cell = ws.cell(row=cur_row, column=npp_c, value=val)
-                if not is_text and val is not None:
-                    cell.number_format = nfmt
-                cell.alignment = CENTER_CONT
-                cell.border = THIN_BOTTOM
+            # Case 1 value in col E — boxed cell
+            c_e = ws.cell(row=cur_row, column=5, value=m1_display)
+            if not is_text_val and m1_display is not None:
+                c_e.number_format = nfmt
+            c_e.alignment = CENTER_CONT
+            c_e.border = THIN_BOX
 
-                # Yellow highlight if this case differs from base
-                if ci > 0:
-                    differs = False
-                    if is_text:
-                        differs = str(val or "").strip() != str(base_val or "").strip()
-                    else:
-                        f_val = safe_float(val)
-                        f_base = safe_float(base_val)
-                        if f_val is None and f_base is None:
-                            differs = False
-                        elif f_val is None or f_base is None:
-                            differs = True
-                        else:
-                            differs = abs(f_val - f_base) > 1e-6
-                    if differs:
-                        cell.fill = YELLOW_FILL
-                        # Also fill the next column for visual span
-                        adj = ws.cell(row=cur_row, column=npp_c + 1)
-                        adj.fill = YELLOW_FILL
-                        adj.border = THIN_BOTTOM
+            # Delta in col G (=H{r}-E{r}) — boxed cell
+            if not is_text_val:
+                delta_cell = ws.cell(row=cur_row, column=7, value=f"=H{cur_row}-E{cur_row}")
+                delta_cell.number_format = FMT_DELTA
+                delta_cell.alignment = CENTER
+                delta_cell.border = THIN_BOX
 
-                # Base case values also get thin bottom border + center
-                if ci == 0:
-                    cell.border = THIN_BOTTOM
+            # Case 2 value in col H — boxed cell
+            c_h = ws.cell(row=cur_row, column=8, value=m2_display)
+            if not is_text_val and m2_display is not None:
+                c_h.number_format = nfmt
+            c_h.alignment = CENTER_CONT
+            c_h.border = THIN_BOX
+
+            # Yellow highlight on changed values
+            if m1_display != m2_display:
+                f1 = safe_float(m1_display)
+                f2 = safe_float(m2_display)
+                if f1 is not None and f2 is not None and abs(f1 - f2) > 1e-6:
+                    c_h.fill = YELLOW_FILL
+                elif is_text_val and str(m1_display or "") != str(m2_display or ""):
+                    c_h.fill = YELLOW_FILL
 
             cur_row += 1
 
