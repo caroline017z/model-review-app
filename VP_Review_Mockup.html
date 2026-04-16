@@ -1026,20 +1026,27 @@ function _updateProjectApprovalBanner(){
     const st = _getAction(currentIdx, f.field);
     if (st.action === 'accept') accepted++;
     else if (st.action === 'flag') flagged++;
-    else if (f.status !== 'OK') unhandled++;   // OKs don't require action
+    else unhandled++;   // every non-acted finding needs a decision
   });
-  document.getElementById('approvalAccepted').textContent = accepted;
-  document.getElementById('approvalFlagged').textContent  = flagged;
-  document.getElementById('approvalUnhandled').textContent = unhandled;
+  // Guard every approval-banner write — if the banner is ever conditionally
+  // hidden (Reference mode, future feature flag), null.textContent would
+  // throw and abort the rest of selectProject.
+  const _set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  _set('approvalAccepted', accepted);
+  _set('approvalFlagged',  flagged);
+  _set('approvalUnhandled', unhandled);
 
   const approved = _isApproved(currentIdx);
   const statusEl = document.getElementById('approvalStatus');
-  statusEl.textContent = approved ? 'Approved' : 'Pending';
-  statusEl.classList.toggle('approved', approved);
-  statusEl.classList.toggle('pending', !approved);
+  if (statusEl) {
+    statusEl.textContent = approved ? 'Approved' : 'Pending';
+    statusEl.classList.toggle('approved', approved);
+    statusEl.classList.toggle('pending', !approved);
+  }
 
   const approveBtn = document.getElementById('approveProjectBtn');
   const unapproveBtn = document.getElementById('unapproveProjectBtn');
+  if (!approveBtn || !unapproveBtn) return;
   if (approved) {
     approveBtn.style.display = 'none';
     unapproveBtn.style.display = '';
@@ -1264,7 +1271,7 @@ function _clsRefreshEnable(){
   if (el) el.addEventListener('input', _clsRefreshEnable);
 });
 
-document.getElementById('clsSave').addEventListener('click', e=>{
+{ const _clsSaveEl = document.getElementById('clsSave'); if (_clsSaveEl) _clsSaveEl.addEventListener('click', e=>{
   e.preventDefault();
   const p = PROJECTS[currentIdx];
   const prog = document.getElementById('clsProgram').value;
@@ -1298,21 +1305,23 @@ document.getElementById('clsSave').addEventListener('click', e=>{
     detail: diff + ' — ' + reason,
   });
   // Clear reason for the next potential override.
-  document.getElementById('clsReason').value = '';
-  _clsRefreshEnable();
+  const reasonEl = document.getElementById('clsReason');
+  if (reasonEl) reasonEl.value = '';
+  if (typeof _clsRefreshEnable === 'function') _clsRefreshEnable();
   selectProject(currentIdx);
-});
+}); }
 
-document.getElementById('clsReset').addEventListener('click', e=>{
+{ const _clsResetEl = document.getElementById('clsReset'); if (_clsResetEl) _clsResetEl.addEventListener('click', e=>{
   e.preventDefault();
   const p = PROJECTS[currentIdx];
+  if (!p) return;
   p.classify = deriveClassify(p);
   if(p.irrPctAuto!==undefined)  p.irrPct  = p.irrPctAuto;
   if(p.nppPerWAuto!==undefined) p.nppPerW = p.nppPerWAuto;
   if(p.equityKAuto!==undefined) p.equityK = p.equityKAuto;
   selectProject(currentIdx);
-  _clsRefreshEnable();
-});
+  if (typeof _clsRefreshEnable === 'function') _clsRefreshEnable();
+}); }
 
 // ---- wrapped EPC breakdown ----
 function deriveWrappedEpc(p){
@@ -1371,44 +1380,73 @@ function selectProject(idx){
     : (p.equityK>0 ? fmtMoneyShort(p.equityK*1000) : '$0');
   // Verdict — toggle a semantic class instead of juggling inline styles.
   const v = document.getElementById('dealVerdict');
-  v.textContent = p.verdict;
-  v.classList.remove('v-clean', 'v-review', 'v-rework');
-  v.classList.add(p.verdict==='CLEAN' ? 'v-clean'
-                  : p.verdict==='REVIEW' ? 'v-review'
-                  : 'v-rework');
-  // Impact objects: bad if any negative impact
+  if (v) {
+    // Restore visibility in case the empty-state branch hid it earlier.
+    v.style.display = '';
+    v.textContent = p.verdict;
+    v.classList.remove('v-clean', 'v-review', 'v-rework');
+    v.classList.add(p.verdict==='CLEAN' ? 'v-clean'
+                    : p.verdict==='REVIEW' ? 'v-review'
+                    : 'v-rework');
+  }
+  // Impact objects: bad if any negative impact. Guard against missing .iov.
   document.querySelectorAll('.impact-obj').forEach(el=>{
     const isBad = p.verdict!=='CLEAN' && (p.irrPct<0 || p.nppPerW<0);
     el.classList.toggle('bad', isBad);
-    el.querySelector('.iov').style.color = isBad ? 'var(--off)' : 'var(--text)';
+    const iov = el.querySelector('.iov');
+    if (iov) iov.style.color = isBad ? 'var(--off)' : 'var(--text)';
   });
-  // KPIs + findings + classification strip + references
-  renderKpis(p);
-  renderFindings(p);
-  renderClassify(p);
-  renderWrappedEpc(p);
-  renderReferences(p);
-  if (typeof _clsRefreshEnable === 'function') _clsRefreshEnable();
+  // KPIs + findings + classification strip + references — each in its own
+  // try/catch so a thrown payload field doesn't abort the rest of the boot.
+  try { renderKpis(p); }            catch(err){ console.error('renderKpis', err); }
+  try { renderFindings(p); }        catch(err){ console.error('renderFindings', err); }
+  try { renderClassify(p); }        catch(err){ console.error('renderClassify', err); }
+  try { renderWrappedEpc(p); }      catch(err){ console.error('renderWrappedEpc', err); }
+  try { renderReferences(p); }      catch(err){ console.error('renderReferences', err); }
+  if (typeof _clsRefreshEnable === 'function') {
+    try { _clsRefreshEnable(); } catch(_){}
+  }
   // Charts
-  if(typeof Plotly!=='undefined'){ renderCharts(p); }
-  // Sidebar selection
-  projCards.forEach((c,i)=>c.classList.toggle('selected', i===idx));
-  document.getElementById('navCount').textContent = (idx+1)+' of '+PROJECTS.length;
-  if(projCards[idx]) projCards[idx].scrollIntoView({block:'nearest', behavior:'smooth'});
+  if (typeof Plotly !== 'undefined') {
+    try { renderCharts(p); } catch(err){ console.error('renderCharts', err); }
+  }
+  // Sidebar selection — projCards is built from a filtered+sorted view, so
+  // the original `idx` is NOT a position in projCards. Map via data-idx.
+  const navPos = projCards.findIndex(
+    c => parseInt(c.getAttribute('data-idx')) === idx
+  );
+  projCards.forEach((c, i) => c.classList.toggle('selected', i === navPos));
+  const navCount = document.getElementById('navCount');
+  if (navCount) navCount.textContent = (idx + 1) + ' of ' + PROJECTS.length;
+  if (navPos >= 0 && projCards[navPos]) {
+    projCards[navPos].scrollIntoView({block:'nearest', behavior:'smooth'});
+  }
 }
-document.getElementById('btnNext').addEventListener('click', ()=>selectProject(currentIdx+1));
-document.getElementById('btnPrev').addEventListener('click', ()=>selectProject(currentIdx-1));
+// Wrap every top-level addEventListener in null-guarded IIFEs so a missing
+// DOM element (e.g. a feature-flagged section) can't kill the rest of boot.
+(function wireProjectNav(){
+  const next = document.getElementById('btnNext');
+  const prev = document.getElementById('btnPrev');
+  if (next) next.addEventListener('click', ()=>selectProject(currentIdx+1));
+  if (prev) prev.addEventListener('click', ()=>selectProject(currentIdx-1));
+})();
 // Keyboard: J / K or arrow keys
 document.addEventListener('keydown', e=>{
-  if(e.target.tagName==='TEXTAREA' || e.target.tagName==='INPUT') return;
+  const tag = (e.target && e.target.tagName) || '';
+  if(tag==='TEXTAREA' || tag==='INPUT' || (e.target && e.target.isContentEditable)) return;
   if(e.key==='ArrowDown' || e.key==='j') selectProject(currentIdx+1);
   if(e.key==='ArrowUp'   || e.key==='k') selectProject(currentIdx-1);
 });
 
 // ===== Reviewer notes auto-counter =====
-const notes = document.getElementById('reviewerNotes');
-const notesCount = document.getElementById('notesCount');
-notes.addEventListener('input', ()=>{ notesCount.textContent = notes.value.length; });
+(function wireReviewerNotes(){
+  const notes = document.getElementById('reviewerNotes');
+  const notesCount = document.getElementById('notesCount');
+  if (!notes) return;
+  notes.addEventListener('input', ()=>{
+    if (notesCount) notesCount.textContent = notes.value.length;
+  });
+})();
 
 // ===== Model-name parser: strip "38DN-", "Pricing Model", and dates =====
 // Example: "38DN-Lightstar-IL-Pricing Model-2026-04-15.xlsm" → "Lightstar · IL"
@@ -1814,12 +1852,15 @@ function renderCharts(p){
   }, cfg);
 
   // ----- 25-year cash flow (real arrays from Python) -----
-  const cf = p.cashflow || {opCF:[], taxBn:[], terminal:[]};
-  const yrs = Array.from({length:Math.max(cf.opCF.length, 25)},(_,i)=>i+1);
+  const cf = p.cashflow || {};
+  const opCF     = Array.isArray(cf.opCF)     ? cf.opCF     : [];
+  const taxBn    = Array.isArray(cf.taxBn)    ? cf.taxBn    : [];
+  const terminal = Array.isArray(cf.terminal) ? cf.terminal : [];
+  const yrs = Array.from({length:Math.max(opCF.length, 25)},(_,i)=>i+1);
   Plotly.react('cashflow', [
-    {type:'scatter', mode:'none', stackgroup:'one', name:'Operating CF', x:yrs, y:cf.opCF,    fillcolor:'rgba(81,132,132,0.55)'},
-    {type:'scatter', mode:'none', stackgroup:'one', name:'Tax Benefits', x:yrs, y:cf.taxBn,   fillcolor:'rgba(33,43,72,0.45)'},
-    {type:'scatter', mode:'none', stackgroup:'one', name:'Terminal',     x:yrs, y:cf.terminal,fillcolor:'rgba(29,111,169,0.45)'},
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Operating CF', x:yrs, y:opCF,    fillcolor:'rgba(81,132,132,0.55)'},
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Tax Benefits', x:yrs, y:taxBn,   fillcolor:'rgba(33,43,72,0.45)'},
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Terminal',     x:yrs, y:terminal,fillcolor:'rgba(29,111,169,0.45)'},
   ],{...baseLayout,
     xaxis:{...baseLayout.xaxis, title:{text:'Year', standoff:12}, dtick:5, automargin:true},
     yaxis:{...baseLayout.yaxis, title:{text:'$ thousands', standoff:14}, tickprefix:'$', tickformat:',.0f'},
@@ -1856,6 +1897,15 @@ function renderCharts(p){
   const projects = fullProjects.filter((_, k) => keepMask[k]);
   const z = fullZ.filter((_, k) => keepMask[k]);
   const fields = HM.fields.length ? HM.fields : ['EPC','LNTP','C&L','ITC','Elig Cost','Upfront','Insurance','O&M','AM Fee'];
+  // Map currentIdx (full-PROJECTS) → row index in the FILTERED heatmap so
+  // the highlight rect doesn't drift when projects are excluded.
+  const currentName = (PROJECTS[currentIdx] || {}).name;
+  const hlPos = currentName ? projects.indexOf(currentName) : -1;
+  const shapes = (hlPos >= 0) ? [{
+      type:'rect', xref:'paper', x0:0, x1:1,
+      y0:hlPos-0.5, y1:hlPos+0.5,
+      line:{color:TEAL, width:2}, fillcolor:'rgba(0,0,0,0)',
+    }] : [];
   Plotly.react('heatmap', [{
     type:'heatmap', z, x:fields, y:projects,
     colorscale:[[0,'#f7f8fa'],[0.34,'rgba(81,132,132,0.25)'],[0.67,'rgba(184,50,48,0.55)'],[1,'#dfe2e8']],
@@ -1865,11 +1915,7 @@ function renderCharts(p){
     margin:{l:10, r:10, t:14, b:40, autoexpand:true},
     xaxis:{...baseLayout.xaxis, side:'bottom', automargin:true},
     yaxis:{...baseLayout.yaxis, automargin:true},
-    shapes:[{   // Highlight currently-selected project row
-      type:'rect', xref:'paper', x0:0, x1:1,
-      y0:currentIdx-0.5, y1:currentIdx+0.5,
-      line:{color:TEAL, width:2}, fillcolor:'rgba(0,0,0,0)',
-    }],
+    shapes,
   }, cfg);
 }
 
