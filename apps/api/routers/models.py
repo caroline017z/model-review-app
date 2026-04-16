@@ -52,6 +52,8 @@ async def upload_model(file: UploadFile):
         raise HTTPException(400, f"Unsupported file type: .{ext}. Use .xlsm or .xlsx")
 
     content = await file.read()
+    if len(content) > 50_000_000:
+        raise HTTPException(413, "File too large (max 50MB)")
     buf = io.BytesIO(content)
 
     try:

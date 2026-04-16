@@ -101,7 +101,9 @@ def export_review(req: ExportRequest):
         ws.cell(row=r, column=4, value=proj.nppPerW).number_format = '0.000_);[Red]\\(0.000\\)'
         ws.cell(row=r, column=4).font = Font(color="FFFFFF", size=11)
         ws.cell(row=r, column=4).fill = NAVY_FILL
-        ws.cell(row=r, column=5, value=proj.irrPct / 100 if abs(proj.irrPct) < 1 else proj.irrPct).number_format = '0.00%'
+        # irrPct comes as whole percentage (e.g., 7.5 for 7.5%). Convert to fraction for Excel % format.
+        irr_frac = proj.irrPct / 100 if abs(proj.irrPct) > 1 else proj.irrPct
+        ws.cell(row=r, column=5, value=irr_frac).number_format = '0.00%'
         ws.cell(row=r, column=5).font = Font(color="FFFFFF", size=11)
         ws.cell(row=r, column=5).fill = NAVY_FILL
 

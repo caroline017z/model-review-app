@@ -28,10 +28,8 @@ BIBLE_BENCHMARKS = {
     "CapEx": {
         "EPC Cost ($/W)":        {"row": 118, "min": 1.55, "max": 1.75, "unit": "$/W"},
         "LNTP Cost ($/W)":       {"row": 119, "min": 0.08, "max": 0.12, "unit": "$/W"},
-        "IX Cost ($/W)":         {"row": 122, "min": 0.00, "max": 0.50, "unit": "$/W"},
         "Cust Acquisition ($/W)":{"row": 121, "min": 0.00, "max": 0.20, "unit": "$/W"},
         "Closing & Legal ($/W)": {"row": 123, "min": 0.05, "max": 0.075, "unit": "$/W"},
-        "ESS EPC Cost ($/kWh)":  {"row": 126, "min": 0.00, "max": 500.0, "unit": "$/kWh"},
     },
     "System Sizing": {
         "Size MWDC":             {"row": 11,  "min": 0.1,  "max": 100.0, "unit": "MWdc"},
