@@ -26,6 +26,10 @@ function UploadPanel() {
   const [m2Loading, setM2Loading] = useState(false);
   const [m1Status, setM1Status] = useState("");
   const [m2Status, setM2Status] = useState("");
+  const [m1Label, setM1Label] = useState("");
+  const [m2Label, setM2Label] = useState("");
+  const [m1File, setM1File] = useState<string>("");
+  const [m2File, setM2File] = useState<string>("");
 
   const uploadMut = useMutation({ mutationFn: uploadModel });
 
@@ -41,11 +45,26 @@ function UploadPanel() {
       setReviewError(null);
       const setLoading = slot === 1 ? setM1Loading : setM2Loading;
       const setStatus = slot === 1 ? setM1Status : setM2Status;
+      const otherFile = slot === 1 ? m2File : m1File;
+
+      // Auto-generate label from filename (with MM.DD suffix if names collide)
+      const autoLabel = guessLabel(file.name, otherFile || undefined);
+      if (slot === 1) { setM1Label(autoLabel); setM1File(file.name); }
+      else { setM2Label(autoLabel); setM2File(file.name); }
+
+      // Also update the OTHER model's label if it was auto-generated and now
+      // they share the same base name (need to add date suffix to both)
+      if (otherFile) {
+        const otherLabel = guessLabel(otherFile, file.name);
+        if (slot === 1) setM2Label(otherLabel);
+        else setM1Label(otherLabel);
+      }
+
       setLoading(true);
       setStatus("Uploading...");
       try {
         const data = await uploadMut.mutateAsync(file);
-        const label = guessLabel(file.name);
+        const label = slot === 1 ? m1Label || autoLabel : m2Label || autoLabel;
         if (slot === 1) {
           setStatus("Running audit...");
           setModel1(data, label);
@@ -61,7 +80,7 @@ function UploadPanel() {
         setLoading(false);
       }
     },
-    [setModel1, setModel2, setModelScope, uploadMut, reviewMut],
+    [setModel1, setModel2, setModelScope, uploadMut, reviewMut, m1File, m2File, m1Label, m2Label],
   );
 
   return (
@@ -77,46 +96,59 @@ function UploadPanel() {
 
       <div className="w-full space-y-3">
         {/* Model 1 */}
-        <div className="flex items-center gap-3">
-          <div
-            onClick={() => !m1Loading && fileRef1.current?.click()}
-            className={`flex-1 border rounded p-4 text-center cursor-pointer transition ${m1Loading ? "opacity-60 pointer-events-none" : "hover:border-[var(--teal)]"}`}
-            style={{ borderColor: model1 ? "var(--teal)" : "var(--border)" }}
-            role="button" tabIndex={0}
-            onKeyDown={(e) => e.key === "Enter" && fileRef1.current?.click()}
-          >
-            <input ref={fileRef1} type="file" accept=".xlsm,.xlsx" className="hidden"
-              onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 1)} />
-            {model1 ? (
-              <div className="text-[12px]">
-                <span className="font-semibold" style={{ color: "var(--teal)" }}>{model1.label}</span>
-                <span className="text-[10px] ml-2" style={{ color: "var(--muted)" }}>{model1.projects.length} projects</span>
-              </div>
-            ) : (
-              <div>
-                <p className="text-[12px] font-semibold" style={{ color: "var(--navy)" }}>Model 1 (Primary)</p>
-                <p className="text-[10px]" style={{ color: "var(--muted)" }}>.xlsm / .xlsx</p>
-              </div>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "var(--teal)" }}>Model 1</span>
+            {model1 && !m1Loading && (
+              <span className="text-[8px] font-bold px-1 py-px rounded" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>READY</span>
+            )}
+            {m1Loading && (
+              <span className="text-[9px] animate-pulse font-semibold" style={{ color: "var(--teal)" }}>{m1Status}</span>
             )}
           </div>
-          {m1Loading && (
-            <div className="text-[10px] w-24 shrink-0" style={{ color: "var(--teal)" }}>
-              <div className="animate-pulse font-semibold">{m1Status}</div>
-              <div className="mt-1 h-1 rounded-full overflow-hidden" style={{ background: "var(--inset)" }}>
-                <div className="h-full rounded-full animate-pulse" style={{ background: "var(--teal)", width: m1Status === "Running audit..." ? "70%" : "30%" }} />
-              </div>
+          <div className="flex items-center gap-2">
+            <div
+              onClick={() => !m1Loading && fileRef1.current?.click()}
+              className={`flex-1 border rounded px-3 py-2 cursor-pointer transition text-[11px] ${m1Loading ? "opacity-60 pointer-events-none" : "hover:border-[var(--teal)]"}`}
+              style={{ borderColor: model1 ? "var(--teal)" : "var(--border)" }}
+              role="button" tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && fileRef1.current?.click()}
+            >
+              <input ref={fileRef1} type="file" accept=".xlsm,.xlsx" className="hidden"
+                onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 1)} />
+              {model1 ? (
+                <span style={{ color: "var(--muted)" }}>{m1File || model1.filename} · {model1.projects.length} projects</span>
+              ) : (
+                <span style={{ color: "var(--muted)" }}>Click to upload .xlsm / .xlsx</span>
+              )}
             </div>
-          )}
-          {model1 && !m1Loading && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>READY</span>
+          </div>
+          {model1 && (
+            <input
+              type="text"
+              value={m1Label}
+              onChange={(e) => setM1Label(e.target.value)}
+              className="mt-1 w-full px-2 py-1 border rounded text-[11px] font-semibold"
+              style={{ borderColor: "var(--teal)", color: "var(--teal)" }}
+              placeholder="Portfolio name..."
+            />
           )}
         </div>
 
         {/* Model 2 */}
-        <div className="flex items-center gap-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "var(--indigo)" }}>Model 2 (optional)</span>
+            {model2 && !m2Loading && (
+              <span className="text-[8px] font-bold px-1 py-px rounded" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>READY</span>
+            )}
+            {m2Loading && (
+              <span className="text-[9px] animate-pulse font-semibold" style={{ color: "var(--indigo)" }}>{m2Status}</span>
+            )}
+          </div>
           <div
             onClick={() => !m2Loading && fileRef2.current?.click()}
-            className={`flex-1 border rounded p-3 text-center cursor-pointer transition ${m2Loading ? "opacity-60 pointer-events-none" : "hover:border-[var(--indigo)]"}`}
+            className={`border rounded px-3 py-2 cursor-pointer transition text-[11px] ${m2Loading ? "opacity-60 pointer-events-none" : "hover:border-[var(--indigo)]"}`}
             style={{ borderColor: model2 ? "var(--indigo)" : "var(--border)" }}
             role="button" tabIndex={0}
             onKeyDown={(e) => e.key === "Enter" && fileRef2.current?.click()}
@@ -124,18 +156,20 @@ function UploadPanel() {
             <input ref={fileRef2} type="file" accept=".xlsm,.xlsx" className="hidden"
               onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 2)} />
             {model2 ? (
-              <span className="text-[12px] font-semibold" style={{ color: "var(--indigo)" }}>{model2.label}</span>
+              <span style={{ color: "var(--muted)" }}>{m2File || model2.filename} · {model2.projects.length} projects</span>
             ) : (
-              <p className="text-[11px] font-semibold" style={{ color: "rgba(33,43,72,0.5)" }}>
-                Model 2 (Comparison — optional)
-              </p>
+              <span style={{ color: "rgba(33,43,72,0.4)" }}>Click to upload comparison model</span>
             )}
           </div>
-          {m2Loading && (
-            <div className="text-[10px] w-24 shrink-0 animate-pulse font-semibold" style={{ color: "var(--indigo)" }}>{m2Status}</div>
-          )}
-          {model2 && !m2Loading && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>READY</span>
+          {model2 && (
+            <input
+              type="text"
+              value={m2Label}
+              onChange={(e) => setM2Label(e.target.value)}
+              className="mt-1 w-full px-2 py-1 border rounded text-[11px] font-semibold"
+              style={{ borderColor: "var(--indigo)", color: "var(--indigo)" }}
+              placeholder="Portfolio name..."
+            />
           )}
         </div>
       </div>
@@ -167,10 +201,33 @@ export default function Home() {
   );
 }
 
-function guessLabel(filename: string): string {
+/**
+ * Extract State_Developer from "38DN-State_Developer_Pricing Model_YYYY.MM.DD.xlsm"
+ * Returns { base, dateSuffix } so caller can append MM.DD when two files share the same base.
+ */
+function parseFilename(filename: string): { base: string; dateSuffix: string } {
   let name = filename.replace(/\.(xlsm|xlsx|xls)$/i, "");
+  // Extract date before stripping
+  const dateMatch = name.match(/(\d{4})[._-](\d{2})[._-](\d{2})\s*$/);
+  const dateSuffix = dateMatch ? `${dateMatch[2]}.${dateMatch[3]}` : "";
+  // Strip 38DN prefix
   name = name.replace(/^38DN[\s_-]*/i, "");
-  name = name.replace(/[\s_-]*(Pricing[\s_]*Model|Walk[\s_]*Summary).*$/i, "");
+  // Strip date
   name = name.replace(/[\s_-]*\d{4}[._-]\d{2}[._-]\d{2}\s*$/, "");
-  return name.replace(/_/g, " ").replace(/\s+/g, " ").trim().replace(/^[-\s]+|[-\s]+$/g, "") || "Model";
+  // Strip "Pricing Model" / "Walk Summary"
+  name = name.replace(/[\s_-]*(Pricing[\s_]*Model|Walk[\s_]*Summary).*$/i, "");
+  const base = name.replace(/_/g, " ").replace(/\s+/g, " ").trim().replace(/^[-\s]+|[-\s]+$/g, "") || "Model";
+  return { base, dateSuffix };
+}
+
+/** Smart label: appends MM.DD only if it would collide with another uploaded model's base name. */
+function guessLabel(filename: string, otherFilename?: string): string {
+  const { base, dateSuffix } = parseFilename(filename);
+  if (!otherFilename || !dateSuffix) return base;
+  const other = parseFilename(otherFilename);
+  // If both files share the same base name, disambiguate with date suffix
+  if (base === other.base && dateSuffix) {
+    return `${base} ${dateSuffix}`;
+  }
+  return base;
 }
