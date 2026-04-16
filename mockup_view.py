@@ -27,7 +27,7 @@ from bible_reference import CS_AVERAGE, CS_STATE_OVERRIDES, lookup_market
 from rows import (
     ROW_PROJECT_NUMBER, ROW_DEVELOPER, ROW_DC_MW, ROW_AC_KW, ROW_STATE, ROW_UTILITY,
     ROW_PROGRAM_A, ROW_PROGRAM_B, ROW_EPC_WRAPPED, ROW_LNTP, ROW_IX,
-    ROW_CLOSING, ROW_PPA_RATE, ROW_ESCALATOR, ROW_NPP, ROW_FMV_IRR,
+    ROW_CLOSING, ROW_PPA_RATE, ROW_ESCALATOR, ROW_NPP, ROW_FMV_IRR, ROW_FMV_PER_W,
     ROW_UPFRONT, ROW_INSURANCE, ROW_ITC_PCT, ROW_ELIG_COSTS,
     ROW_OM_PREV, ROW_OM_CORR, ROW_AM_FEE,
 )
@@ -483,20 +483,40 @@ def _build_kpis(proj: dict, findings: list[dict]) -> dict:
     ac_mw = ac_kw / 1000 if ac_kw else 0
     epc = _num(data.get(ROW_EPC_WRAPPED))
     npp = _num(data.get(ROW_NPP))
+    npp_dollars = _num(data.get(39))   # NPP ($) — for the 'Total $X.XM' subline
+    fmv_per_w = _num(data.get(ROW_FMV_PER_W))
     itc = _num(data.get(ROW_ITC_PCT))
     irr = _num(data.get(ROW_FMV_IRR))
     epc_off = any(f["status"] == "OFF" and "EPC" in f["field"].upper() for f in findings)
     itc_off = any(f["status"] == "OFF" and "ITC" in f["field"].upper() for f in findings)
 
+    # Live Appraisal IRR is stored as a fraction (0.0725). Display as %.
     irr_display = None
     if irr is not None:
         val = irr * 100 if abs(irr) <= 1.5 else irr
-        irr_display = f"{val:.1f}%"
+        irr_display = f"{val:.2f}%"
 
+    # ITC: if the model doesn't expose ITC Rate as an input row (common —
+    # tax assumptions sit on a different sheet), fall back to the bible
+    # default with a small note rather than showing '—'.
+    itc_sub = ""
     itc_display = None
     if itc is not None:
         val = itc * 100 if abs(itc) <= 1.5 else itc
         itc_display = f"{val:.0f}%"
+    else:
+        itc_display = f"{int(BIBLE_ITC_FRAC*100)}%"
+        itc_sub = "bible default"
+
+    # NPP sub-label shows the dollar total when present.
+    npp_sub = ""
+    if npp_dollars is not None and abs(npp_dollars) >= 1000:
+        npp_sub = _fmt_money_short(npp_dollars) + " total"
+
+    # IRR sub-label notes the FMV $/W when both are available.
+    irr_sub = ""
+    if fmv_per_w is not None:
+        irr_sub = f"FMV ${fmv_per_w:.2f}/W"
 
     return {
         "dc": f"{dc_mw:.2f}" if dc_mw else "—",
@@ -505,12 +525,12 @@ def _build_kpis(proj: dict, findings: list[dict]) -> dict:
         "epcSub": "",
         "epcOff": bool(epc_off),
         "npp": _money_per_w(npp),
-        "nppSub": "",
+        "nppSub": npp_sub,
         "itc": itc_display or "—",
-        "itcSub": "",
+        "itcSub": itc_sub,
         "itcOff": bool(itc_off),
         "irr": irr_display or "—",
-        "irrSub": "",
+        "irrSub": irr_sub,
     }
 
 

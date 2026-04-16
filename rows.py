@@ -36,8 +36,13 @@ ROW_PROGRAM_A          = 22
 ROW_PROGRAM_B          = 21         # legacy fallback row for program/customer
 
 # --- Financial outputs --------------------------------------------------------
-ROW_FMV_IRR            = 33
+# Live Appraisal IRR converges to the FMV WACC target — that's the deal-level
+# IRR an IC reviewer cares about. Row 33 ('FMV Calculated') is FMV $/W, NOT
+# an IRR — earlier code mis-read it as a percentage.
+ROW_FMV_IRR            = 31
+ROW_FMV_PER_W          = 33
 ROW_NPP                = 38
+ROW_NPP_DOLLARS        = 39
 
 # --- CapEx --------------------------------------------------------------------
 ROW_EPC_WRAPPED        = 118        # set to wrapped total by data_loader

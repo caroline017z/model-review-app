@@ -60,7 +60,12 @@ BIBLE_BENCHMARKS = {
 # ROW MAPPINGS
 # =====================================================================
 
-OUTPUT_ROWS = {38: "NPP ($/W)", 39: "NPP ($)", 33: "FMV Calculated ($/W)"}
+OUTPUT_ROWS = {
+    31: "Live Appraisal IRR",
+    33: "FMV Calculated",
+    38: "NPP ($/W) - SOLVE",
+    39: "NPP ($)",
+}
 
 INPUT_ROW_LABELS = {
     2: "Project #", 4: "Project Name", 7: "Toggle (On/Off)", 8: "Developer Toggle",

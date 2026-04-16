@@ -115,6 +115,38 @@ st.markdown(
         fill: #fff !important;
       }
 
+      /* Sidebar selection-control buttons: All / None bulk toggles AND the
+         Confirm-selection primary button — all teal, matching the 38DN
+         palette. Targets all sidebar buttons. */
+      [data-testid="stSidebar"] .stButton > button {
+        background: #518484 !important;
+        color: #fff !important;
+        border: 1px solid #3d6868 !important;
+        font-weight: 600 !important;
+      }
+      [data-testid="stSidebar"] .stButton > button:hover {
+        background: #3d6868 !important;
+        color: #fff !important;
+        border-color: #3d6868 !important;
+      }
+      /* Streamlit primary button override: same teal even when type=primary. */
+      [data-testid="stSidebar"] .stButton > button[kind="primary"],
+      [data-testid="stSidebar"] .stButton > button[kind="primaryFormSubmit"] {
+        background: #518484 !important;
+        color: #fff !important;
+        border: 1px solid #3d6868 !important;
+      }
+      [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
+        background: #3d6868 !important;
+      }
+      /* Disabled state — keep visually distinct but still on-brand. */
+      [data-testid="stSidebar"] .stButton > button:disabled {
+        background: #d8e0e0 !important;
+        color: #7d8694 !important;
+        border-color: #c4cccc !important;
+        opacity: 0.7 !important;
+      }
+
       /* Partial collapse: keep a slim strip on the left even when the
          sidebar reports as hidden, so the teal handle always has a home.
          Streamlit hides the sidebar via aria-expanded="false"; we nudge
@@ -505,13 +537,15 @@ def main():
             return sorted(buckets.items(), key=lambda kv: kv[0].lower())
 
         def _item_label(c):
-            # Disambiguates duplicate-named projects: '#1 · col F'.
-            id_bits = []
+            # Disambiguates duplicate-named projects via the model's own
+            # Project # (row 2 of Project Inputs). The Excel column letter
+            # is intentionally NOT shown — Project # is the canonical
+            # identifier reviewers track in the Returns sheets.
+            head_parts = []
             if c.get("proj_number") is not None:
-                id_bits.append(f"#{c['proj_number']}")
-            if c.get("col_letter"):
-                id_bits.append(f"col {c['col_letter']}")
-            id_str = " · ".join(id_bits)
+                head_parts.append(f"`P{c['proj_number']}`")
+            head_parts.append(f"**{c['name']}**")
+            head = " ".join(head_parts)
             meta = " · ".join([x for x in [c["state"], c["utility"], c["program"]] if x])
             dc_str = f"{c['dc']:.2f} MW" if c["dc"] else ""
             cue = ""
@@ -520,9 +554,6 @@ def main():
             elif not c["toggled_on"]:
                 cue = "  ·  *toggle=Off*"
             tail = " — ".join([x for x in [meta, dc_str] if x])
-            head = f"**{c['name']}**"
-            if id_str:
-                head = f"`{id_str}` " + head
             return head + cue + (f"  \n{tail}" if tail else "")
 
         def _render_group(items, default_checked):
