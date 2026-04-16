@@ -162,10 +162,14 @@ def _detect_label_column(ws, max_row=1000):
 # one of the patterns below and sum the per-W values for each project.
 WRAPPED_EPC_LABEL_PATTERNS = [
     # (regex, component name) — order is informational only
-    (r"^pv\s*epc\s*cost$",                           "EPC"),
-    (r"^pv\s*lntp(\s*cost)?$",                       "LNTP"),
-    (r"safe\s*harbor.*module|module.*safe\s*harbor", "Safe Harbor Modules"),
-    (r"epc\s*contingency|contingency.*epc",          "EPC Contingency"),
+    # Matches rows 103-108 in typical models
+    (r"^pv\s*epc\s*cost$",                            "PV EPC Cost"),
+    (r"^pv\s*module\s*cost",                           "PV Module Cost"),
+    (r"^pv\s*contingency\s*cost$",                     "PV Contingency"),
+    (r"^pv\s*lntp(\s*cost)?$",                         "PV LNTP Cost"),
+    (r"^safe\s*harbor\s*costs?$",                      "Safe Harbor Costs"),
+    (r"^epc\s*size.based\s*adder",                     "EPC Size-Based Adders"),
+    (r"^epc\s*contingency|^contingency.*epc",          "EPC Contingency"),
 ]
 
 
@@ -512,11 +516,11 @@ def load_pricing_model(file):
         data["_front_back_toggle"] = ws.cell(row=320, column=col).value
         data["_debt_sizing_method"] = ws.cell(row=321, column=col).value
 
-        # ---- Wrapped EPC build: sum EPC + LNTP + Safe Harbor + Contingency ----
-        # The bible's $1.65/W EPC benchmark is the WRAPPED total. We sum every
-        # component row found by the label scan; missing components contribute 0.
+        # ---- Wrapped EPC build: sum subcomponents (rows 103-108) ----
+        # Bible compares wrapped total MINUS PV Contingency.
         epc_components = []
         wrapped_total = 0.0
+        contingency_value = 0.0
         any_value = False
         for r, comp_name in wrapped_epc_rows:
             v = safe_float(ws.cell(row=r, column=col).value)
@@ -524,9 +528,10 @@ def load_pricing_model(file):
             if v is not None:
                 wrapped_total += v
                 any_value = True
+                if "contingency" in comp_name.lower():
+                    contingency_value += v
         data["_wrapped_epc_components"] = epc_components
-        # Plausibility check: each wrapped EPC component should be in $/W range (0-10).
-        # Values outside this range suggest a unit mismatch (e.g. total $ not per-watt).
+        data["_epc_contingency"] = contingency_value
         for comp in epc_components:
             v = comp.get("value")
             if v is not None and (v < 0 or v > 10):
@@ -536,12 +541,12 @@ def load_pricing_model(file):
                     comp.get("component"), v, comp.get("row"), col,
                 )
         data["_wrapped_epc_total"] = wrapped_total if any_value else None
-        # Override row 118 used by the bible audit so the comparison runs
-        # against the WRAPPED build, not raw PV EPC alone. Original raw EPC
-        # is preserved at _raw_epc_118 for diagnostics.
-        if any_value:
+        epc_for_bible = (wrapped_total - contingency_value) if any_value else None
+        data["_wrapped_epc_ex_contingency"] = epc_for_bible
+        # Override row 118 for bible audit: compare EPC ex-contingency
+        if epc_for_bible is not None:
             data["_raw_epc_118"] = data.get(118)
-            data[118] = wrapped_total
+            data[118] = epc_for_bible
 
         # ---- Rate-component scan: Guidehouse discount + ABP REC live state ----
         rate_scan = _scan_rate_components(ws, col)
