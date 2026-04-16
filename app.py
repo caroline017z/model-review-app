@@ -549,6 +549,8 @@ def main():
     candidates: list[dict] = []
     m1_result = None
     m2_result = None
+    m2_projects: dict = {}
+    _m2_offset_base: int = 0  # track M2 key offset for sidebar split
     if review_active and has_any_model:
         with st.status("Loading review data…", expanded=True) as _status:
             # Model 1: prefer uploaded file, fall back to macro runner
@@ -582,11 +584,11 @@ def main():
                 merged_projects.setdefault(k, v)
             # Add Model 2 projects (offset column keys to avoid collisions)
             if m2_projects:
-                m2_offset = max((k for k in merged_projects if isinstance(k, int)), default=100) + 1000
+                _m2_offset_base = max((k for k in merged_projects if isinstance(k, int)), default=100) + 1000
                 for k, v in m2_projects.items():
                     if not isinstance(v, dict) or "data" not in v:
                         continue
-                    merged_projects[m2_offset + (k if isinstance(k, int) else 0)] = v
+                    merged_projects[_m2_offset_base + (k if isinstance(k, int) else 0)] = v
 
             _status.update(label="Identifying active projects…")
             candidates = list_candidate_projects(merged_projects)
@@ -619,11 +621,12 @@ def main():
     m2_candidates: list[dict] = []
     if has_two_models and candidates:
         m1_col_ids = {str(k) for k in m1_projects.keys()} if m1_projects else set()
-        m2_col_ids = {str(k) for k in m2_projects.keys()} if m2_projects else set()
+        # M2 projects were added to merged_projects with offset keys (_m2_offset_base + k).
+        m2_offset_ids = {str(_m2_offset_base + k) for k in m2_projects.keys() if isinstance(k, int)} if m2_projects else set()
         for c in candidates:
             if c["id"] in m1_col_ids:
                 m1_candidates.append(c)
-            elif c["id"] in m2_col_ids:
+            elif c["id"] in m2_offset_ids:
                 m2_candidates.append(c)
             else:
                 m1_candidates.append(c)  # mapper/unknown → Model 1

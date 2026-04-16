@@ -299,15 +299,16 @@
   .plot-fallback{padding:20px;color:var(--muted);font-size:11px;text-align:center;border:1px dashed var(--border);border-radius:4px;}
 
   /* ===== Top-bar mode switching ===== */
-  /* Default (Deep-Dive) — explicitly restore everything that other modes hide. */
+  /* Default (Deep-Dive) — explicitly restore everything that other modes hide.
+     Use initial display values (block/grid) instead of 'revert' for browser compat. */
   body.mode-deep .deal-header,
   body.mode-deep .classify-strip,
-  body.mode-deep .panel.center > .card,
-  body.mode-deep .panel.center > .grid-2,
   body.mode-deep .panel.left,
-  body.mode-deep .panel.center {
-    display: revert !important;
-  }
+  body.mode-deep .panel.center { display: block !important; }
+  body.mode-deep .panel.center > .card { display: block !important; }
+  body.mode-deep #walkPanel { display: none !important; }
+  body.mode-deep .card-portfolio-summary { display: none !important; }
+  body.mode-deep .panel.center > .grid-2 { display: grid !important; }
   /* Portfolio mode: collapse the deep-dive detail; keep audit strip,
      project nav, the portfolio summary table, and the heatmap card. */
   .card-portfolio-summary { display: none; }
