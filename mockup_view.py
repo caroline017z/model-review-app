@@ -792,6 +792,64 @@ def _build_sensitivity(proj: dict) -> dict:
     }
 
 
+def _build_rate_comp1(proj: dict) -> dict:
+    """Extract Rate Component 1 details for display.
+
+    In community solar models, there's no single PPA rate — revenue comes from
+    rate components. RC1 is typically the Guidehouse rate with a haircut
+    (discount) mentioned in the component name (e.g., "GH25 -22.5%").
+    """
+    comps = proj.get("rate_comps") or {}
+    rc1 = comps.get(1) or {}
+    name = str(rc1.get("name") or "").strip()
+    rate = _num(rc1.get("energy_rate"))
+    esc = rc1.get("escalator")
+    discount = _num(rc1.get("discount"))
+    equity_on = bool(rc1.get("equity_on"))
+
+    # Try to extract haircut % from the name (e.g., "GH25 -22.5%" → -22.5)
+    haircut_pct = None
+    if name:
+        import re as _rc_re
+        m = _rc_re.search(r'[-–]\s*(\d+\.?\d*)\s*%', name)
+        if m:
+            haircut_pct = float(m.group(1))
+
+    return {
+        "name": name or "—",
+        "rate": round(rate, 6) if rate is not None else None,
+        "rateDisplay": f"${rate:.4f}/kWh" if rate is not None else "—",
+        "escalator": str(esc) if esc is not None else "—",
+        "discount": round(discount, 4) if discount is not None else None,
+        "discountDisplay": f"{discount*100:.1f}%" if discount is not None else "—",
+        "haircut": haircut_pct,
+        "equityOn": equity_on,
+    }
+
+
+def _build_property_tax(data: dict) -> dict:
+    """Extract property tax info. Only meaningful when custom toggle is on."""
+    toggle_raw = data.get(ROW_CUSTOM_PROPTAX_TOGGLE)
+    # Toggle can be 1/0, "On"/"Off", True/False
+    is_custom = False
+    if toggle_raw is not None:
+        n = _num(toggle_raw)
+        if n is not None:
+            is_custom = n != 0
+        else:
+            is_custom = str(toggle_raw).strip().lower() in ("1", "on", "true", "yes", "custom")
+
+    yr1 = _num(data.get(ROW_PROPERTY_TAX_YR1))
+    esc = _num(data.get(ROW_PROPTAX_ESCALATOR))
+
+    return {
+        "customToggle": is_custom,
+        "yr1": round(yr1, 2) if yr1 is not None else None,
+        "yr1Display": f"${yr1:,.0f}" if yr1 is not None else "—",
+        "escalator": f"{esc*100:.2f}%" if esc is not None and abs(esc) <= 1.5 else (f"{esc:.2f}%" if esc is not None else "—"),
+    }
+
+
 def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
     data = proj.get("data", {})
     findings = _build_findings(audit, data)
@@ -846,6 +904,8 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
         "tornado": _build_sensitivity(proj),
         "wrappedEpcComponents": _build_wrapped_epc(audit),
         "references": _build_references(proj, audit),
+        "rateComp1": _build_rate_comp1(proj),
+        "propertyTax": _build_property_tax(data),
     }
 
 

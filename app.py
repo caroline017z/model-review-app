@@ -601,23 +601,28 @@ def main():
     # two-phase commit — checkbox changes are 'pending' until the reviewer
     # clicks Confirm. The mockup only re-renders against `confirmed_ids`, so
     # mid-edit ticks don't thrash the Project Review panel.
+    #
+    # When two models are uploaded, the sidebar splits into two subsections
+    # so the reviewer can see which projects belong to which model.
     pending_ids: set[str] = set()
+
+    # Build separate candidate lists when two models are present
+    has_two_models = bool(m1_result and m2_result and model_file_2)
+    m1_candidates: list[dict] = []
+    m2_candidates: list[dict] = []
+    if has_two_models and candidates:
+        m1_col_ids = {str(k) for k in m1_projects.keys()} if m1_projects else set()
+        m2_col_ids = {str(k) for k in m2_projects.keys()} if m2_projects else set()
+        for c in candidates:
+            if c["id"] in m1_col_ids:
+                m1_candidates.append(c)
+            elif c["id"] in m2_col_ids:
+                m2_candidates.append(c)
+            else:
+                m1_candidates.append(c)  # mapper/unknown → Model 1
+
     if candidates:
-        # Suggested = row-7 toggle=On OR same developer as an On project.
-        # Both default-checked; off-siblings get a small visual cue so the
-        # reviewer knows they were pulled in via the developer-match rule.
-        suggested = [c for c in candidates if c.get("suggested")]
-        others    = [c for c in candidates if not c.get("suggested")]
-
-        def _grouped(items):
-            buckets: dict[str, list[dict]] = {}
-            for c in items:
-                buckets.setdefault(c["developer"] or "— unspecified —", []).append(c)
-            return sorted(buckets.items(), key=lambda kv: kv[0].lower())
-
         def _item_label(c):
-            # Always show project ID (row 2 of Project Inputs) next to the
-            # name to disambiguate duplicates (e.g. two 'IL Joel' columns).
             pnum = c.get("proj_number")
             if pnum is not None:
                 head = f"**P{pnum} · {c['name']}**"
@@ -633,59 +638,106 @@ def main():
             tail = " — ".join([x for x in [meta, dc_str] if x])
             return head + cue + (f"  \n{tail}" if tail else "")
 
-        def _render_group(items, default_checked):
-            for dev, grp in _grouped(items):
-                st.markdown(f"**{dev}**")
-                for c in grp:
-                    sig = f"inc::{model_key}::{c['id']}::{c['name']}"
-                    checked = st.checkbox(_item_label(c), value=default_checked, key=sig)
-                    if checked:
-                        pending_ids.add(str(c["id"]))
+        model_key = getattr(model_file, "name", None) or m1_label or "model"
+
+        def _render_group(items, default_checked, key_prefix=""):
+            for c in items:
+                sig = f"inc::{key_prefix or model_key}::{c['id']}::{c['name']}"
+                checked = st.checkbox(_item_label(c), value=default_checked, key=sig)
+                if checked:
+                    pending_ids.add(str(c["id"]))
+
+        def _bulk_toggle(items, value, key_prefix=""):
+            for c in items:
+                st.session_state[f"inc::{key_prefix or model_key}::{c['id']}::{c['name']}"] = value
 
         with st.sidebar:
             st.markdown("---")
             st.markdown("### Projects in review")
-            n_on = sum(1 for c in suggested if c["toggled_on"])
-            n_sib = sum(1 for c in suggested if c.get("dev_sibling"))
-            sug_mw = sum(c["dc"] for c in suggested)
-            pieces = [f"{n_on} toggled=On"]
-            if n_sib:
-                pieces.append(f"+ {n_sib} same-developer")
-            st.caption(
-                f"{' '.join(pieces)} · {sug_mw:.1f} MWdc  \n"
-                f"({len(others)} other available)"
-            )
-            model_key = getattr(model_file, "name", None) or m1_label or "model"
 
-            # All / None bulk toggles. Writing to session_state flips every
-            # "inc::..." key on the next rerun; individual checkboxes then
-            # read the new default.
-            def _bulk_toggle(items, value):
-                for c in items:
-                    st.session_state[f"inc::{model_key}::{c['id']}::{c['name']}"] = value
+            if has_two_models and (m1_candidates or m2_candidates):
+                # --- Two-model split view ---
+                _m1_key = getattr(model_file, "name", None) or m1_label or "model1"
+                _m2_key = getattr(model_file_2, "name", None) or m2_label or "model2"
 
-            if suggested:
-                bc1, bc2 = st.columns(2)
-                with bc1:
-                    st.button("✓ All", key="sug_all", use_container_width=True,
-                              on_click=_bulk_toggle, args=(suggested, True))
-                with bc2:
-                    st.button("✗ None", key="sug_none", use_container_width=True,
-                              on_click=_bulk_toggle, args=(suggested, False))
-                # Scroll cap so a 30+ project list doesn't eat the sidebar.
-                with st.container(height=min(420, 80 + 44 * len(suggested)), border=False):
-                    _render_group(suggested, default_checked=True)
+                # Model 1 section
+                m1_sug = [c for c in m1_candidates if c.get("suggested")]
+                m1_oth = [c for c in m1_candidates if not c.get("suggested")]
+                m1_mw = sum(c["dc"] for c in m1_sug)
+                st.markdown(f"#### {m1_label or 'Model 1'}")
+                st.caption(f"{len(m1_sug)} suggested · {m1_mw:.1f} MWdc")
+                if m1_sug:
+                    bc1, bc2 = st.columns(2)
+                    with bc1:
+                        st.button("✓ All", key="m1_all", use_container_width=True,
+                                  on_click=_bulk_toggle, args=(m1_sug, True, _m1_key))
+                    with bc2:
+                        st.button("✗ None", key="m1_none", use_container_width=True,
+                                  on_click=_bulk_toggle, args=(m1_sug, False, _m1_key))
+                    with st.container(height=min(300, 80 + 44 * len(m1_sug)), border=False):
+                        _render_group(m1_sug, default_checked=True, key_prefix=_m1_key)
+                if m1_oth:
+                    with st.expander(f"+ Other ({len(m1_oth)})", expanded=False):
+                        _render_group(m1_oth, default_checked=False, key_prefix=_m1_key)
+
+                st.markdown("---")
+
+                # Model 2 section
+                m2_sug = [c for c in m2_candidates if c.get("suggested")]
+                m2_oth = [c for c in m2_candidates if not c.get("suggested")]
+                m2_mw = sum(c["dc"] for c in m2_sug)
+                st.markdown(f"#### {m2_label or 'Model 2'}")
+                st.caption(f"{len(m2_sug)} suggested · {m2_mw:.1f} MWdc")
+                if m2_sug:
+                    bc1, bc2 = st.columns(2)
+                    with bc1:
+                        st.button("✓ All", key="m2_all", use_container_width=True,
+                                  on_click=_bulk_toggle, args=(m2_sug, True, _m2_key))
+                    with bc2:
+                        st.button("✗ None", key="m2_none", use_container_width=True,
+                                  on_click=_bulk_toggle, args=(m2_sug, False, _m2_key))
+                    with st.container(height=min(300, 80 + 44 * len(m2_sug)), border=False):
+                        _render_group(m2_sug, default_checked=True, key_prefix=_m2_key)
+                if m2_oth:
+                    with st.expander(f"+ Other ({len(m2_oth)})", expanded=False):
+                        _render_group(m2_oth, default_checked=False, key_prefix=_m2_key)
+
             else:
-                st.warning(
-                    "No projects with row-7 toggle = On. "
-                    "Check your pricing model or opt-in via the expander below."
+                # --- Single-model view ---
+                suggested = [c for c in candidates if c.get("suggested")]
+                others    = [c for c in candidates if not c.get("suggested")]
+                n_on = sum(1 for c in suggested if c["toggled_on"])
+                n_sib = sum(1 for c in suggested if c.get("dev_sibling"))
+                sug_mw = sum(c["dc"] for c in suggested)
+                pieces = [f"{n_on} toggled=On"]
+                if n_sib:
+                    pieces.append(f"+ {n_sib} same-developer")
+                st.caption(
+                    f"{' '.join(pieces)} · {sug_mw:.1f} MWdc  \n"
+                    f"({len(others)} other available)"
                 )
 
-            if others:
-                with st.expander(
-                    f"+ Other projects ({len(others)})", expanded=False
-                ):
-                    _render_group(others, default_checked=False)
+                if suggested:
+                    bc1, bc2 = st.columns(2)
+                    with bc1:
+                        st.button("✓ All", key="sug_all", use_container_width=True,
+                                  on_click=_bulk_toggle, args=(suggested, True))
+                    with bc2:
+                        st.button("✗ None", key="sug_none", use_container_width=True,
+                                  on_click=_bulk_toggle, args=(suggested, False))
+                    with st.container(height=min(420, 80 + 44 * len(suggested)), border=False):
+                        _render_group(suggested, default_checked=True)
+                else:
+                    st.warning(
+                        "No projects with row-7 toggle = On. "
+                        "Check your pricing model or opt-in via the expander below."
+                    )
+
+                if others:
+                    with st.expander(
+                        f"+ Other projects ({len(others)})", expanded=False
+                    ):
+                        _render_group(others, default_checked=False)
 
             # Two-phase commit: initialize confirmed set from the pending set
             # on first load so the default-suggested projects populate the
