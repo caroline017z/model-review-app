@@ -296,7 +296,15 @@
   .plot-fallback{padding:20px;color:var(--muted);font-size:11px;text-align:center;border:1px dashed var(--border);border-radius:4px;}
 
   /* ===== Top-bar mode switching ===== */
-  /* Default (Deep-Dive) — show everything. */
+  /* Default (Deep-Dive) — explicitly restore everything that other modes hide. */
+  body.mode-deep .deal-header,
+  body.mode-deep .classify-strip,
+  body.mode-deep .panel.center > .card,
+  body.mode-deep .panel.center > .grid-2,
+  body.mode-deep .panel.left,
+  body.mode-deep .panel.center {
+    display: revert !important;
+  }
   /* Portfolio mode: collapse the deep-dive detail; keep audit strip,
      project nav, the portfolio summary table, and the heatmap card. */
   .card-portfolio-summary { display: none; }
@@ -1404,9 +1412,10 @@ function renderWrappedEpc(p){
 }
 
 function selectProject(idx){
-  if(PROJECTS.length===0){ currentIdx = 0; return; }
-  if(idx<0) idx = PROJECTS.length-1;
-  if(idx>=PROJECTS.length) idx = 0;
+  if(!PROJECTS.length){ currentIdx = 0; return; }
+  if(typeof idx !== 'number' || isNaN(idx)) idx = 0;
+  if(idx < 0) idx = PROJECTS.length - 1;
+  if(idx >= PROJECTS.length) idx = 0;
   currentIdx = idx;
   const p = PROJECTS[idx];
   // Header
@@ -1740,10 +1749,22 @@ function _onInclusionChanged(){
   // If the currently-selected project was just hidden, promote the worst visible.
   if (!isIncluded(currentIdx)) {
     const vis = visibleProjects();
-    if (vis.length) selectProject(vis[0].i);
+    if (vis.length) {
+      selectProject(vis[0].i);
+    } else {
+      // All projects excluded — clear center panel to avoid stale data.
+      const dt = document.getElementById('dealTitle');
+      if (dt) dt.textContent = 'All projects excluded';
+      const ds = document.getElementById('dealSub');
+      if (ds) ds.textContent = 'Restore at least one project to view findings.';
+      const dv = document.getElementById('dealVerdict');
+      if (dv) dv.style.display = 'none';
+    }
   } else {
     // Re-render charts to reflect new portfolio totals / heatmap row order.
-    if (typeof Plotly !== 'undefined' && PROJECTS.length) {
+    // Skip in walk mode — chart containers are hidden and Plotly would error.
+    const isWalkMode = document.body.classList.contains('mode-walk');
+    if (!isWalkMode && typeof Plotly !== 'undefined' && PROJECTS.length) {
       try { renderCharts(PROJECTS[currentIdx]); } catch(_){}
     }
   }
@@ -1775,11 +1796,12 @@ function _worstProjectIdx(){
     // table; Reference mode on the bible card).
     const target = mode === 'portfolio' ? document.getElementById('portfolioSummaryCard')
                   : mode === 'reference' ? document.getElementById('refPanel')
+                  : mode === 'walk' ? document.getElementById('walkPanel')
                   : document.getElementById('dealTitle');
     if (target) target.scrollIntoView({block:'start', behavior:'smooth'});
     // Plotly charts need a re-render after the container resizes.
-    // Use requestAnimationFrame to wait for layout reflow instead of a fixed timeout.
-    if(typeof Plotly !== 'undefined' && PROJECTS.length){
+    // Skip in walk/reference modes where chart containers are hidden.
+    if(mode !== 'walk' && mode !== 'reference' && typeof Plotly !== 'undefined' && PROJECTS.length){
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           try { renderCharts(PROJECTS[currentIdx]); } catch(_){}
