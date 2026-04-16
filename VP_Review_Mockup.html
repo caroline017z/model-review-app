@@ -1417,7 +1417,7 @@ function selectProject(idx){
   );
   projCards.forEach((c, i) => c.classList.toggle('selected', i === navPos));
   const navCount = document.getElementById('navCount');
-  if (navCount) navCount.textContent = (idx + 1) + ' of ' + PROJECTS.length;
+  if (navCount) navCount.textContent = (navPos >= 0 ? (navPos + 1) : '?') + ' of ' + projCards.length;
   if (navPos >= 0 && projCards[navPos]) {
     projCards[navPos].scrollIntoView({block:'nearest', behavior:'smooth'});
   }
@@ -1677,7 +1677,13 @@ function renderPortfolioSummary(){
     row.addEventListener('click', e=>{
       if (e.target && e.target.classList && e.target.classList.contains('portfolio-include-chk')) return;
       const idx = parseInt(row.getAttribute('data-idx'));
-      if (!isIncluded(idx)) return;   // excluded projects can't be drilled into
+      if (!isIncluded(idx)) {
+        // Flash the row briefly to acknowledge the click, then fade back.
+        row.style.transition = 'background 0.3s';
+        row.style.background = 'var(--off-bg)';
+        setTimeout(() => { row.style.background = ''; }, 600);
+        return;
+      }
       selectProject(idx);
       const deepBtn = document.querySelector('#topModes .mode[data-mode="deep"]');
       if(deepBtn) deepBtn.click();
@@ -1731,9 +1737,24 @@ function _worstProjectIdx(){
                   : document.getElementById('dealTitle');
     if (target) target.scrollIntoView({block:'start', behavior:'smooth'});
     // Plotly charts need a re-render after the container resizes.
+    // Use requestAnimationFrame to wait for layout reflow instead of a fixed timeout.
     if(typeof Plotly !== 'undefined' && PROJECTS.length){
-      setTimeout(() => { try { renderCharts(PROJECTS[currentIdx]); } catch(_){} }, 60);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try { renderCharts(PROJECTS[currentIdx]); } catch(_){}
+        });
+      });
     }
+    // Reset sidebar filter/search so the project list reflects the new mode context.
+    _navFilter = 'all';
+    _navSearch = '';
+    const searchEl = document.getElementById('navSearch');
+    if (searchEl) searchEl.value = '';
+    const filterChips = document.getElementById('navFilters');
+    if (filterChips) {
+      filterChips.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-filter') === 'all'));
+    }
+    renderProjectList();
   }
   modes.addEventListener('click', e => {
     const btn = e.target.closest('.mode');
@@ -1893,7 +1914,12 @@ function renderCharts(p){
   // Filter by in-session exclusions so the heatmap only shows in-review projects.
   const fullProjects = HM.projects.length ? HM.projects : PROJECTS.map(x=>x.name);
   const fullZ = HM.z.length ? HM.z : fullProjects.map(()=>HM.fields.map(()=>0));
-  const keepMask = fullProjects.map((_, k) => isIncluded(k));
+  // Map heatmap rows to PROJECTS indices by name so exclusion filtering works
+  // even when heatmap order doesn't match PROJECTS order.
+  const keepMask = fullProjects.map((name, k) => {
+    const pi = PROJECTS.findIndex(p => p.name === name);
+    return pi >= 0 && isIncluded(pi);
+  });
   const projects = fullProjects.filter((_, k) => keepMask[k]);
   const z = fullZ.filter((_, k) => keepMask[k]);
   const fields = HM.fields.length ? HM.fields : ['EPC','LNTP','C&L','ITC','Elig Cost','Upfront','Insurance','O&M','AM Fee'];
@@ -1948,13 +1974,13 @@ if(PROJECTS.length){
   // problem first instead of whatever sits at index 0.
   selectProject(_worstProjectIdx());
 } else {
-  // Empty state: clear center panel placeholders so nothing looks broken
+  // Empty state: clear center panel placeholders and show guidance.
   const dt=document.getElementById('dealTitle'); if(dt) dt.textContent='No projects loaded';
   const ds=document.getElementById('dealSub');   if(ds) ds.textContent='Upload a pricing model and click Run Review in the sidebar.';
   const dv=document.getElementById('dealVerdict'); if(dv) dv.style.display='none';
-  const dk=document.getElementById('dealKpis');  if(dk) dk.innerHTML='';
+  const dk=document.getElementById('dealKpis');  if(dk) dk.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--muted);"><div style="font-size:28px;margin-bottom:12px;">&#9728;</div><div style="font-size:13px;font-weight:600;">No projects loaded</div><div style="font-size:11.5px;margin-top:4px;">Upload a pricing model in the sidebar and click <b>Run Review</b> to begin.</div></div>';
   const fb=document.getElementById('findingsBody'); if(fb) fb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted);font-style:italic;">Run a review to populate findings.</td></tr>';
-  document.getElementById('navCount').textContent = '0 of 0';
+  const nc=document.getElementById('navCount'); if(nc) nc.textContent = '0 of 0';
   renderReferences({references:{bibleHeader:'Bible', marketHeader:'Market', bible:[], market:[], opex:[], marketMatched:false}});
 }
 

@@ -26,7 +26,7 @@ from utils import safe_float
 from bible_reference import (
     CS_AVERAGE, CS_STATE_OVERRIDES, MARKET_BIBLE, lookup_market, SSFA, TBD,
 )
-from config import BIBLE_BENCHMARKS
+from config import BIBLE_BENCHMARKS, PCT_ROWS, INPUT_ROW_UNITS
 from rows import ROW_STATE, ROW_UTILITY, ROW_PROGRAM_A, ROW_PROGRAM_B
 
 
@@ -45,13 +45,17 @@ def _normalize_state(state):
     return s
 
 
-def _exact_check(actual, expected, tol, unit=""):
+def _exact_check(actual, expected, tol, unit="", row=None):
     """Return (status, note) for a single exact-match comparison.
 
-    When the field is a percentage (unit='%') or when the two sides disagree
-    by >100x in magnitude, normalize both to fractions (0.40) before diffing.
-    This prevents false OFFs when a model stores ITC as 40 and the bible
-    stores 0.40 — same economic value, different unit convention.
+    When the field is a percentage (unit='%', or row is in PCT_ROWS) or
+    when the two sides disagree by >100x in magnitude, normalize both to
+    fractions (0.40) before diffing. This prevents false OFFs when a model
+    stores ITC as 40 and the bible stores 0.40.
+
+    For known PCT_ROWS, normalization is deterministic (always to fraction
+    form) rather than relying on the magnitude heuristic, which has edge
+    cases (e.g., 0.005 vs 0.5).
     """
     a = safe_float(actual)
     e = safe_float(expected)
@@ -63,17 +67,18 @@ def _exact_check(actual, expected, tol, unit=""):
             return "REVIEW", f"Bible: {expected}"
         return "REVIEW", "Bible non-numeric"
 
-    # Pct/fraction normalization: if the unit is explicitly "%" OR if one
-    # side is plausibly a whole percent (≥5) and the other a fraction (≤1),
-    # scale both to fractions before comparing. The ≥5 / ≤1 split is tight
-    # enough that we don't accidentally normalize money-like values (e.g.
-    # EPC $1.22 vs $1.65) whose magnitudes happen to bracket 1.5.
+    # Deterministic pct normalization for known percentage rows.
+    is_known_pct = row is not None and row in PCT_ROWS
     is_pct_unit = str(unit or "").strip() == "%"
     is_cross_magnitude = (abs(a) >= 5 and abs(e) <= 1.0) or (abs(e) >= 5 and abs(a) <= 1.0)
-    if is_pct_unit or is_cross_magnitude:
-        if abs(a) > 1.5:
+    if is_known_pct or is_pct_unit or is_cross_magnitude:
+        # For known percentage rows, normalize anything > 1 to fraction form.
+        # Use > 1 (not > 1.5) for known PCT_ROWS to handle escalator values
+        # like 1.5% correctly (should become 0.015, not stay at 1.5).
+        threshold = 1.0 if is_known_pct else 1.5
+        if abs(a) > threshold:
             a = a / 100.0
-        if abs(e) > 1.5:
+        if abs(e) > threshold:
             e = e / 100.0
 
     diff = abs(a - e)
@@ -145,7 +150,7 @@ def audit_project(proj_data):
             tol = override.get("tol", tol)
 
         unit = spec.get("unit", "")
-        status, note = _exact_check(proj_data.get(row), expected, tol, unit)
+        status, note = _exact_check(proj_data.get(row), expected, tol, unit, row=row)
         findings[row] = {
             "status": status, "expected": expected, "actual": proj_data.get(row),
             "tol": tol, "note": note, "source": "CS Average" + (f" [{state} override]" if override else ""),
@@ -162,12 +167,14 @@ def audit_project(proj_data):
             tol = 0.0  # tight match for market values
             # Market values for pct rows (161, 162, 240) are stored as fractions;
             # the _exact_check magnitude guard handles unit drift either way.
-            status, note = _exact_check(proj_data.get(k), expected, tol)
+            # Lookup unit from INPUT_ROW_UNITS if available.
+            mkt_unit = INPUT_ROW_UNITS.get(k, "")
+            status, note = _exact_check(proj_data.get(k), expected, tol, mkt_unit, row=k)
             findings[k] = {
                 "status": status, "expected": expected, "actual": proj_data.get(k),
                 "tol": tol, "note": note,
                 "source": f"Market: {state}/{utility}/{program_used}{market_source_note}",
-                "label": "", "unit": "",
+                "label": "", "unit": mkt_unit,
             }
 
     # ---- 3. BIBLE_BENCHMARKS: range checks (CapEx, sizing, etc.) ----

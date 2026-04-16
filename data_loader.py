@@ -33,15 +33,33 @@ def _normalize_label(s):
     return s
 
 
+_UNIT_SUFFIXES_RE = re.compile(r"\$/(kWh|MWh|MW[\s-]*dc|MW|W|kW[\s-]*yr)", re.IGNORECASE)
+
+
 def _labels_match(canonical, actual):
     """Check if two normalized labels are equivalent.
 
     Tightened: we only accept substring matches when the shorter label is
     AT LEAST half the length of the longer one. This prevents false
     positives like "Customer" matching "Customer Mgmt Esc".
+
+    Unit-aware: if both labels contain a unit suffix ($/W, $/kWh, etc.)
+    and they differ, the match is rejected immediately — prevents mapping
+    a $/kWh row to a $/W canonical or vice versa.
     """
     if canonical == actual:
         return True
+
+    # Unit-suffix check: reject if both carry different unit tokens.
+    c_units = _UNIT_SUFFIXES_RE.findall(canonical)
+    a_units = _UNIT_SUFFIXES_RE.findall(actual)
+    if c_units and a_units:
+        # Normalize: lowercase, strip whitespace/hyphens for comparison
+        c_norm = {u.lower().replace(" ", "").replace("-", "") for u in c_units}
+        a_norm = {u.lower().replace(" ", "").replace("-", "") for u in a_units}
+        if c_norm.isdisjoint(a_norm):
+            return False
+
     # Common substitutions — but DO NOT collapse "esc" to "escalator"
     # inside word boundaries, because that makes "customer" vs
     # "customer mgmt esc" look more similar than it should.
@@ -49,6 +67,9 @@ def _labels_match(canonical, actual):
         s = s.replace("&", "and").replace("-", " ").replace("_", " ")
         # Only expand "esc" when it appears as a standalone word.
         s = re.sub(r"\besc\b", "escalator", s)
+        # Normalize common spelling variants
+        s = re.sub(r"\bpreventative\b", "preventive", s)
+        s = re.sub(r"\bprogramme\b", "program", s)
         # Replace parens/slash/percent with spaces rather than dropping their
         # contents — "Size (MWDC)" should still match "Size MWDC".
         s = re.sub(r"[()/%]", " ", s)
@@ -90,18 +111,26 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
     123: ["Closing and Legal", "Closing & Legal", "Closing and Legal Cost"],
     216: ["Upfront Incentive", "Upfront Incentives"],
     217: ["Upfront Incentive Lag", "Upfront Lag"],
-    225: ["PV O&M Preventative", "O&M Preventative"],
+    157: ["Energy Rate (at COD)", "Energy Rate", "PPA Rate", "Rate at COD"],
+    158: ["Energy Rate Escalator", "Rate Escalator", "Escalator"],
+    161: ["Rate Discount", "Discount Rate", "GH Discount", "Guidehouse Discount"],
+    162: ["Rate UCB Fee", "UCB Fee", "Utility Credit Buyer Fee"],
+    225: ["PV O&M Preventative", "O&M Preventative", "PV O&M Preventive", "O&M Preventive"],
     226: ["PV O&M Corrective", "O&M Corrective"],
-    227: ["PV O&M Esc", "PV O&M Escalator"],
-    230: ["AM Fee", "Asset Management Fee"],
-    231: ["AM Esc", "AM Escalator", "Asset Management Escalator"],
+    227: ["PV O&M Esc", "PV O&M Escalator", "O&M Escalator"],
+    230: ["AM Fee", "Asset Management Fee", "Asset Mgmt Fee"],
+    231: ["AM Esc", "AM Escalator", "Asset Management Escalator", "Asset Mgmt Escalator"],
+    240: ["Customer Mgmt Cost", "Customer Management Cost", "Cust Mgmt", "Customer Mgmt"],
     241: ["Customer Mgmt Esc", "Customer Management Escalator", "Cust Mgmt Escalator"],
     286: ["Decom Annual Premium", "Decom Bond Annual Premium"],
-    296: ["P&C Insurance", "P&C Insurance Annual Premium"],
-    297: ["P&C Insurance Esc", "P&C Insurance Escalator"],
-    302: ["Internal AM Costs"],
-    597: ["ITC Rate", "ITC %", "Investment Tax Credit Rate", "Investment Tax Credit %"],
-    602: ["Eligible Costs %", "ITC Eligible Costs", "Eligible Cost %", "ITC Eligible Cost %"],
+    296: ["P&C Insurance", "P&C Insurance Annual Premium", "Insurance"],
+    297: ["P&C Insurance Esc", "P&C Insurance Escalator", "Insurance Escalator"],
+    302: ["Internal AM Costs", "Internal Asset Management"],
+    587: ["COD Quarter"],
+    591: ["Tax Treatment", "Tax Equity Treatment"],
+    596: ["TE Structure", "Tax Equity Structure"],
+    597: ["ITC Rate", "ITC %", "Investment Tax Credit Rate", "Investment Tax Credit %", "Tax Credit Rate"],
+    602: ["Eligible Costs %", "ITC Eligible Costs", "Eligible Cost %", "ITC Eligible Cost %", "Eligible Costs"],
 }
 
 
@@ -213,7 +242,7 @@ def _scan_rate_components(ws, col):
 
 #: Critical canonical rows — we warn loudly when these are unresolved, since
 #: downstream consumers show stale / garbage data without them.
-_CRITICAL_CANONICAL_ROWS = (4, 7, 10, 11, 18, 22, 118)
+_CRITICAL_CANONICAL_ROWS = (4, 7, 10, 11, 18, 22, 31, 33, 38, 39, 118)
 
 
 def _build_row_mapping(ws, label_col, max_row=620):
@@ -275,6 +304,38 @@ def _build_row_mapping(ws, label_col, max_row=620):
         mapping[canonical_row] = resolved  # may be None
         if resolved is None and canonical_row in _CRITICAL_CANONICAL_ROWS:
             unresolved_critical.append(canonical_row)
+
+    # Collision detection: if two canonical rows resolved to the same actual
+    # row, the data for one of them is silently wrong. Keep the canonical row
+    # whose label had an exact (not fuzzy) match; set the other(s) to None.
+    actual_to_canonicals: dict[int, list[int]] = {}
+    for canon_r, actual_r in mapping.items():
+        if actual_r is not None:
+            actual_to_canonicals.setdefault(actual_r, []).append(canon_r)
+    for actual_r, canon_list in actual_to_canonicals.items():
+        if len(canon_list) <= 1:
+            continue
+        # Prefer the canonical whose primary label is an exact normalized match.
+        actual_norm = actual_by_norm_first.get(
+            next((n for n, r in actual_by_norm_first.items() if r == actual_r), ""),
+            "",
+        )
+        exact_winner = None
+        for cr in canon_list:
+            primary = _normalize_label(all_canonical.get(cr, ""))
+            if primary and primary == actual_norm:
+                exact_winner = cr
+                break
+        if exact_winner is None:
+            exact_winner = canon_list[0]  # fallback: first canonical wins
+        losers = [cr for cr in canon_list if cr != exact_winner]
+        for cr in losers:
+            mapping[cr] = None
+        logger.warning(
+            "Collision: actual row %d claimed by canonical rows %s — "
+            "keeping %d (exact match), setting %s to None.",
+            actual_r, canon_list, exact_winner, losers,
+        )
 
     if unresolved_critical:
         logger.warning(
@@ -427,6 +488,16 @@ def load_pricing_model(file):
                 wrapped_total += v
                 any_value = True
         data["_wrapped_epc_components"] = epc_components
+        # Plausibility check: each wrapped EPC component should be in $/W range (0-10).
+        # Values outside this range suggest a unit mismatch (e.g. total $ not per-watt).
+        for comp in epc_components:
+            v = comp.get("value")
+            if v is not None and (v < 0 or v > 10):
+                logger.warning(
+                    "Wrapped EPC component %r = %.2f at row %d for col %d — "
+                    "outside $/W plausibility range (0-10). Possible unit mismatch.",
+                    comp.get("component"), v, comp.get("row"), col,
+                )
         data["_wrapped_epc_total"] = wrapped_total if any_value else None
         # Override row 118 used by the bible audit so the comparison runs
         # against the WRAPPED build, not raw PV EPC alone. Original raw EPC

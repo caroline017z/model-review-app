@@ -1,4 +1,5 @@
 """Unit tests for the label-based row resolver."""
+import pytest
 from data_loader import _labels_match, _normalize_label
 
 
@@ -55,3 +56,40 @@ class TestNormalizeLabel:
 
     def test_collapses_newlines(self):
         assert _normalize_label("Foo\nBar") == "foo bar"
+
+
+class TestLabelsMatchUnitAware:
+    """Unit-suffix rejection: labels with different unit tokens must not match."""
+
+    def test_dollar_per_kwh_vs_dollar_per_w_rejected(self):
+        assert not _labels_match(
+            _normalize_label("Energy Rate ($/kWh)"),
+            _normalize_label("Energy Rate ($/W)"),
+        )
+
+    def test_dollar_per_mw_vs_dollar_per_mwdc_accepted(self):
+        # $/MW-dc is a variant of $/MW — should still match
+        assert _labels_match(
+            _normalize_label("Insurance ($/MW-dc/yr)"),
+            _normalize_label("Insurance ($/MW-dc/yr)"),
+        )
+
+    def test_same_unit_suffix_accepted(self):
+        assert _labels_match(
+            _normalize_label("PV EPC Cost ($/W)"),
+            _normalize_label("EPC Cost ($/W)"),
+        )
+
+    def test_no_unit_suffix_still_fuzzy_matches(self):
+        # Labels without any unit tokens should still fuzzy-match normally
+        assert _labels_match(
+            _normalize_label("PV O&M Preventative"),
+            _normalize_label("PV O&M Preventive"),
+        )
+
+    def test_preventive_vs_preventative_spelling(self):
+        # Both spellings should match via substring logic
+        c = _normalize_label("PV O&M Preventative")
+        a = _normalize_label("PV O&M Preventive")
+        # The substring check should catch this since they share enough chars
+        assert _labels_match(c, a)

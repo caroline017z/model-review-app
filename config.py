@@ -115,6 +115,30 @@ DPW_ROWS = {32, 33, 38, 118, 119, 120, 121, 122, 123, 124, 126, 129, 157, 167, 2
 # Integer / dollar rows — no decimals (e.g. $3,500/MW/yr, 2027, 25 kWac)
 INT_ROWS = {15, 16, 17, 24, 25, 143, 160, 170, 217, 225, 226, 228, 230, 235,
             240, 256, 258, 284, 285, 292, 296, 298, 302}
+# =====================================================================
+# CANONICAL UNIT EXPECTATIONS PER ROW
+# =====================================================================
+# Single source of truth for what unit each row SHOULD be in.
+# Used by the audit pipeline to detect unit-mismatch conditions.
+INPUT_ROW_UNITS = {
+    11: "MWdc", 12: "MWac", 13: "ratio", 14: "kWh/MWp",
+    15: "year", 16: "years", 17: "years",
+    30: "%", 31: "%", 36: "%", 37: "%",
+    33: "$/W", 38: "$/W", 39: "$",
+    118: "$/W", 119: "$/W", 120: "$/W", 121: "$/W", 122: "$/W",
+    123: "$/W", 124: "$/W", 126: "$/kWh", 129: "$/W",
+    143: "months", 157: "$/kWh", 158: "%", 160: "years",
+    161: "%", 162: "%", 167: "$/kWh", 168: "%", 170: "years",
+    216: "$/W", 217: "months",
+    225: "$/MW-dc/yr", 226: "$/MW-dc/yr", 227: "%",
+    228: "$/kWh-yr", 230: "$/MW-dc/yr", 231: "%",
+    240: "$/kWh", 241: "%",
+    256: "$/MWac", 258: "years",
+    286: "%", 296: "$/MW-dc/yr", 297: "%",
+    302: "$/MW-dc/yr",
+    597: "%", 602: "%",
+}
+
 # Display order — controls row sequence in comparison tables
 # Rate Comp 1 fields grouped together, then Rate Comp 2 fields, etc.
 # Rate component layout in Project Inputs
