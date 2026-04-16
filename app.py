@@ -505,6 +505,13 @@ def main():
             return sorted(buckets.items(), key=lambda kv: kv[0].lower())
 
         def _item_label(c):
+            # Disambiguates duplicate-named projects: '#1 · col F'.
+            id_bits = []
+            if c.get("proj_number") is not None:
+                id_bits.append(f"#{c['proj_number']}")
+            if c.get("col_letter"):
+                id_bits.append(f"col {c['col_letter']}")
+            id_str = " · ".join(id_bits)
             meta = " · ".join([x for x in [c["state"], c["utility"], c["program"]] if x])
             dc_str = f"{c['dc']:.2f} MW" if c["dc"] else ""
             cue = ""
@@ -513,7 +520,10 @@ def main():
             elif not c["toggled_on"]:
                 cue = "  ·  *toggle=Off*"
             tail = " — ".join([x for x in [meta, dc_str] if x])
-            return f"**{c['name']}**" + cue + (f"  \n{tail}" if tail else "")
+            head = f"**{c['name']}**"
+            if id_str:
+                head = f"`{id_str}` " + head
+            return head + cue + (f"  \n{tail}" if tail else "")
 
         def _render_group(items, default_checked):
             for dev, grp in _grouped(items):
@@ -602,6 +612,16 @@ def main():
                 st.session_state[confirm_key] = set(pending_ids)
                 confirmed_ids = set(pending_ids)
                 dirty = False
+                # Toast confirms the click registered, in case the visual
+                # change (counts above) isn't obvious.
+                try:
+                    st.toast(
+                        f"Updated review: {len(confirmed_ids)} project(s) "
+                        f"({len(added)} added, {len(removed)} removed)",
+                        icon="✅",
+                    )
+                except Exception:
+                    pass
 
             conf_mw = sum(c["dc"] for c in candidates if str(c["id"]) in confirmed_ids)
             tag = "↻ Unsaved changes" if dirty else "✓ In sync with review"

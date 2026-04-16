@@ -14,6 +14,7 @@ Keeping every row constant in one module means:
 """
 
 # --- Project identity ---------------------------------------------------------
+ROW_PROJECT_NUMBER     = 2          # Sequential project # used by Returns sheets
 ROW_PROJECT_NAME       = 4
 ROW_TOGGLE             = 7          # "On" / "Off"
 ROW_38DN_DEV_TOGGLE    = 8          # internal 38DN vs third-party

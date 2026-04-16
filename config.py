@@ -63,7 +63,7 @@ BIBLE_BENCHMARKS = {
 OUTPUT_ROWS = {38: "NPP ($/W)", 39: "NPP ($)", 33: "FMV Calculated ($/W)"}
 
 INPUT_ROW_LABELS = {
-    4: "Project Name", 7: "Toggle (On/Off)", 8: "Developer Toggle",
+    2: "Project #", 4: "Project Name", 7: "Toggle (On/Off)", 8: "Developer Toggle",
     10: "Developer", 11: "Size MWDC", 12: "Size MWAC", 13: "DC-AC Ratio",
     14: "Energy Yield (kWh/WDC)", 15: "Year COD", 16: "System Life",
     17: "Effective System Life", 18: "State", 19: "Utility",

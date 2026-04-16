@@ -100,6 +100,11 @@
   .proj-card .pname{font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:6px;}
   .proj-rank{font-size:9.5px;font-weight:700;color:var(--muted);background:var(--inset);padding:1px 5px;border-radius:3px;letter-spacing:0.02em;}
   .proj-card.selected .proj-rank{background:rgba(81,132,132,0.18);color:var(--teal-deep);}
+  .proj-pnum{
+    font-size:9px;font-weight:700;letter-spacing:0.04em;
+    background:var(--rev-bg);color:var(--rev);
+    padding:1px 5px;border-radius:3px;margin-right:6px;font-variant-numeric:tabular-nums;
+  }
   .proj-card .pmeta{font-size:10.5px;color:var(--muted);margin-top:2px;}
   .proj-card .pchips{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap;}
   .micro{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:3px;letter-spacing:0.04em;}
@@ -1527,8 +1532,11 @@ function renderProjectList(){
     // Tiny rank badge — only for projects with a non-zero equity impact.
     const rankBadge = (p.equityK && Math.abs(p.equityK) > 0)
       ? '<span class="proj-rank">#'+(rank+1)+'</span>' : '';
+    // Project # from row 2 — disambiguates duplicate names.
+    const pnumBadge = (p.projNumber != null)
+      ? '<span class="proj-pnum" title="Project #'+p.projNumber+'">P'+_esc(p.projNumber)+'</span>' : '';
     return '<div class="proj-card" data-idx="'+i+'">'
-      + '<div class="pname">'+rankBadge+_esc(p.name||'Unnamed')+'</div>'
+      + '<div class="pname">'+rankBadge+pnumBadge+_esc(p.name||'Unnamed')+'</div>'
       + '<div class="pmeta">'+_esc(meta+(dc?' — '+dc:''))+'</div>'
       + '<div class="pchips">'+projChipsHTML(p)+'</div>'
       + '</div>';
@@ -1597,11 +1605,14 @@ function renderPortfolioSummary(){
       : '<span style="color:var(--muted);">0</span>';
     const included = isIncluded(i);
     const rowStyle = included ? '' : 'opacity:0.45;';
-    // Rank now lives inside the project-name cell: "#3 Ridge Run".
+    // Rank chip: "#3"; Project # chip from row 2 (disambiguates duplicates).
     const rankBadge = '<span class="proj-rank" style="margin-right:6px;">#'+(rank+1)+'</span>';
+    const pnumBadge = (p.projNumber != null)
+      ? '<span class="proj-pnum" title="Project # from Project Inputs row 2">P'+_esc(p.projNumber)+'</span>'
+      : '';
     return '<tr data-idx="'+i+'" style="'+rowStyle+'">'
       + '<td style="text-align:center;"><input type="checkbox" class="portfolio-include-chk" data-idx="'+i+'" '+(included?'checked':'')+' aria-label="Include in review"></td>'
-      + '<td class="field">'+rankBadge+_esc(p.name||'Unnamed')+'</td>'
+      + '<td class="field">'+rankBadge+pnumBadge+_esc(p.name||'Unnamed')+'</td>'
       + '<td>'+_esc(developer)+'</td>'
       + '<td>'+_esc(stateProgram)+'</td>'
       + '<td class="num-cell">'+_esc(dcStr)+'</td>'
@@ -1665,24 +1676,36 @@ function _worstProjectIdx(){
   return worstIdx;
 }
 
-// ===== Top-bar mode switching (Portfolio / Deep-Dive / Reference) =====
+// ===== Top-bar mode switching (Portfolio / Project Review / Reference) =====
 (function wireTopModes(){
   const modes = document.getElementById('topModes');
   if(!modes) return;
+  function applyMode(mode){
+    document.body.classList.remove('mode-portfolio','mode-deep','mode-reference');
+    document.body.classList.add('mode-' + mode);
+    modes.querySelectorAll('.mode').forEach(m =>
+      m.classList.toggle('active', m.getAttribute('data-mode') === mode)
+    );
+    // Scroll the iframe to the top of the new mode's primary content so the
+    // change is immediately visible (Portfolio mode lands on the summary
+    // table; Reference mode on the bible card).
+    const target = mode === 'portfolio' ? document.getElementById('portfolioSummaryCard')
+                  : mode === 'reference' ? document.getElementById('refPanel')
+                  : document.getElementById('dealTitle');
+    if (target) target.scrollIntoView({block:'start', behavior:'smooth'});
+    // Plotly charts need a re-render after the container resizes.
+    if(typeof Plotly !== 'undefined' && PROJECTS.length){
+      setTimeout(() => { try { renderCharts(PROJECTS[currentIdx]); } catch(_){} }, 60);
+    }
+  }
   modes.addEventListener('click', e => {
     const btn = e.target.closest('.mode');
     if(!btn) return;
-    modes.querySelectorAll('.mode').forEach(m => m.classList.remove('active'));
-    btn.classList.add('active');
     const mode = btn.getAttribute('data-mode') || 'deep';
-    document.body.classList.remove('mode-portfolio','mode-deep','mode-reference');
-    document.body.classList.add('mode-' + mode);
-    // Heatmap needs a Plotly.react after its container size changes.
-    if(typeof Plotly !== 'undefined' && PROJECTS.length){
-      setTimeout(() => { try { renderCharts(PROJECTS[currentIdx]); } catch(_){} }, 30);
-    }
+    applyMode(mode);
   });
-  document.body.classList.add('mode-deep');
+  // Initial mode = Project Review.
+  applyMode('deep');
 })();
 
 // ===== Filter chips + search wiring =====

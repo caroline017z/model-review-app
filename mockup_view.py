@@ -25,12 +25,22 @@ from bible_audit import audit_project
 logger = logging.getLogger(__name__)
 from bible_reference import CS_AVERAGE, CS_STATE_OVERRIDES, lookup_market
 from rows import (
-    ROW_DEVELOPER, ROW_DC_MW, ROW_AC_KW, ROW_STATE, ROW_UTILITY,
+    ROW_PROJECT_NUMBER, ROW_DEVELOPER, ROW_DC_MW, ROW_AC_KW, ROW_STATE, ROW_UTILITY,
     ROW_PROGRAM_A, ROW_PROGRAM_B, ROW_EPC_WRAPPED, ROW_LNTP, ROW_IX,
     ROW_CLOSING, ROW_PPA_RATE, ROW_ESCALATOR, ROW_NPP, ROW_FMV_IRR,
     ROW_UPFRONT, ROW_INSURANCE, ROW_ITC_PCT, ROW_ELIG_COSTS,
     ROW_OM_PREV, ROW_OM_CORR, ROW_AM_FEE,
 )
+
+
+def _col_letter(col_idx: int) -> str:
+    """Excel-style column letter from a 1-based column index."""
+    s = ""
+    n = int(col_idx)
+    while n > 0:
+        n, r = divmod(n - 1, 26)
+        s = chr(65 + r) + s
+    return s
 
 _TEMPLATE_PATH = Path(__file__).parent / "VP_Review_Mockup.html"
 _INJECT_RE = re.compile(
@@ -771,11 +781,17 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
         or data.get(ROW_PROGRAM_B)
         or ""
     ).strip()
+    pnum_raw = data.get(ROW_PROJECT_NUMBER)
+    try:
+        proj_number = int(pnum_raw) if pnum_raw not in (None, "") else None
+    except (TypeError, ValueError):
+        proj_number = None
     return {
         "name": proj.get("name") or "Unnamed",
         "sub": _derive_sub(proj, audit, label),
         # First-class fields for the portfolio summary / nav — consumers no
         # longer parse `sub` strings to recover them.
+        "projNumber": proj_number,        # Project # from Project Inputs row 2
         "developer": developer,
         "state": audit.get("state") or str(data.get(ROW_STATE) or "").strip(),
         "utility": utility,
@@ -878,8 +894,19 @@ def list_candidate_projects(m1_projects: dict) -> list[dict]:
         if not _looks_real(proj):
             continue
         data = proj.get("data", {}) or {}
+        # Project # comes from row 2 — used by Returns sheets to label columns.
+        # Important when project NAMES collide (e.g. two 'IL Joel' columns):
+        # the proj-number disambiguates them.
+        pnum_raw = data.get(ROW_PROJECT_NUMBER)
+        try:
+            proj_number = int(pnum_raw) if pnum_raw not in (None, "") else None
+        except (TypeError, ValueError):
+            proj_number = None
+        col_idx = int(col) if isinstance(col, (int, float)) else None
         raw.append({
             "id": str(col),
+            "col_letter": _col_letter(col_idx) if col_idx else str(col),
+            "proj_number": proj_number,
             "name": str(proj.get("name") or "Unnamed").strip(),
             "dc": round(_num(data.get(ROW_DC_MW)) or 0, 2),
             "developer": str(data.get(ROW_DEVELOPER) or "").strip(),

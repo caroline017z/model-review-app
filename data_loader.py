@@ -71,6 +71,7 @@ def _labels_match(canonical, actual):
 # Canonical row → list of alternative labels accepted as matches.
 # Keeps matching tolerant to template drift without relaxing _labels_match.
 ROW_LABEL_ALIASES: dict[int, list[str]] = {
+    2: ["Project #", "Project Number", "Project No", "#"],
     4: ["Project Name", "Projects", "Project"],
     7: ["Toggle (On/Off)", "Project Toggle (on/off)", "Project Toggle", "Toggle"],
     10: ["Developer", "Developer Name"],
