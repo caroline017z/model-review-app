@@ -97,6 +97,8 @@ _WALK_EXCLUDE_LABELS = {
     "unconstrained (calculated) fmv", "unconstrained fmv",
     "live levered pre-tax irr", "levered pre-tax irr",
     "active fmv", "active fair market value",
+    "fmv step up", "fmv step-up", "step up cap",
+    "fmv wacc", "fmv wacc (target)",
 }
 
 # Category display order
@@ -367,13 +369,21 @@ def diff_inputs(
                 continue  # already compared in Pass 1
             if label.strip().lower() in _WALK_EXCLUDE_LABELS:
                 continue  # excluded from walk
-            # Skip individual year property tax rows (only Y1 matters)
+            # Property tax: skip Y2-Y5, and only include Y1 if custom toggle is on
             label_lower = label.strip().lower()
-            if "property tax" in label_lower and any(
-                x in label_lower for x in ["year 2", "year 3", "year 4", "year 5",
-                    "yr 2", "yr 3", "yr 4", "yr 5", "y2", "y3", "y4", "y5"]
-            ):
-                continue
+            if "property tax" in label_lower:
+                # Skip Y2+ entirely
+                if any(x in label_lower for x in ["year 2", "year 3", "year 4", "year 5",
+                        "yr 2", "yr 3", "yr 4", "yr 5", "y2", "y3", "y4", "y5"]):
+                    continue
+                # For Y1/toggle/escalator: check if custom toggle is on in either model
+                if "toggle" not in label_lower:
+                    m1_toggle = m1_all.get("Custom Property Tax Schedule Toggle (On/Off)") or m1_all.get("Custom PropTax Toggle")
+                    m2_toggle = m2_all.get("Custom Property Tax Schedule Toggle (On/Off)") or m2_all.get("Custom PropTax Toggle")
+                    toggle_on = any(str(t).strip().lower() in ("1", "on", "true", "yes") or (safe_float(t) or 0) != 0
+                                    for t in [m1_toggle, m2_toggle] if t is not None)
+                    if not toggle_on:
+                        continue
 
             per_project = {}
             any_diff = False
@@ -498,7 +508,7 @@ def build_walk_xlsx(
     ws.column_dimensions["A"].width = 2
     ws.column_dimensions["B"].width = 30
     ws.column_dimensions["C"].width = 10
-    ws.column_dimensions["D"].width = 8
+    ws.column_dimensions["D"].width = 2  # empty spacer
     for ci in range(5, last_col + 1):
         ws.column_dimensions[get_column_letter(ci)].width = 14
 
@@ -546,8 +556,7 @@ def build_walk_xlsx(
         cell.alignment = CENTER if col != 2 else LEFT
 
     # Grey fill on spacer col D
-    ws.cell(row=6, column=4).fill = GREY_FILL
-    ws.cell(row=6, column=4).border = THIN_BOTTOM
+    # Column D intentionally empty (spacer)
 
     # Row 6 headers: E=NPP, F=IRR, G=delta, H=NPP, I=IRR
     for npp_c, irr_c, lbl_npp, lbl_irr in [(5, 6, "NPP ($/W)", "IRR (%)"), (8, 9, "NPP ($/W)", "IRR (%)")]:
