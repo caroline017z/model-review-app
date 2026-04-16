@@ -378,8 +378,13 @@ def build_walk_xlsx(
     m2_result: dict,
     m1_label: str,
     m2_label: str,
+    include_proj_numbers: set[int] | None = None,
 ) -> tuple[io.BytesIO, dict]:
     """Build a formatted Walk Summary .xlsx comparing two models.
+
+    Args:
+        include_proj_numbers: If provided, only include projects whose
+            proj_number is in this set (i.e. the confirmed portfolio selection).
 
     Returns (BytesIO with xlsx data, summary dict for UI).
     """
@@ -387,6 +392,11 @@ def build_walk_xlsx(
     m2_projects = get_projects(m2_result) or {}
 
     matched = match_projects(m1_projects, m2_projects)
+
+    # Filter to only portfolio-selected projects when a filter is provided
+    if include_proj_numbers is not None:
+        matched = [m for m in matched if m["proj_number"] in include_proj_numbers]
+
     if not matched:
         logger.warning("No projects matched between the two models by Project #.")
         # Flag so we can write an explanatory message into the xlsx below

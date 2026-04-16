@@ -451,6 +451,28 @@ def load_pricing_model(file):
                     all_inputs[label_str] = cell_val
         data["_all_inputs"] = all_inputs
 
+        # Read units from the column immediately after the label column.
+        # This gives us the model's own unit labels (e.g. "$/W", "%",
+        # "$/MW/yr") so downstream consumers don't have to rely solely on
+        # the hardcoded INPUT_ROW_UNITS dict.
+        all_units: dict[str, str] = {}
+        for r in range(1, 1001):
+            label_val = ws.cell(row=r, column=label_col).value
+            unit_val = ws.cell(row=r, column=label_col + 1).value
+            if label_val and unit_val:
+                all_units[str(label_val).strip()] = str(unit_val).strip()
+        data["_all_units"] = all_units
+
+        # Build a canonical-row-keyed unit dict by looking up the actual row
+        # for each canonical row via row_map and reading the unit cell.
+        units_by_row: dict[int, str] = {}
+        for canonical_r, actual_r in row_map.items():
+            if actual_r is not None:
+                unit_val = ws.cell(row=actual_r, column=label_col + 1).value
+                if unit_val:
+                    units_by_row[canonical_r] = str(unit_val).strip()
+        data["_units_by_row"] = units_by_row
+
         rate_comps = {}
         for i, start in enumerate(RATE_COMP_STARTS, 1):
             rate_comps[i] = {

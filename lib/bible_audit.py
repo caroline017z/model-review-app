@@ -138,6 +138,14 @@ def audit_project(proj_data):
 
     findings = {}
 
+    # Model-sourced units keyed by canonical row number; fall back to
+    # the hardcoded INPUT_ROW_UNITS when the model column is empty.
+    model_units = proj_data.get("_units_by_row") or {}
+
+    def _unit_for(row, fallback=""):
+        """Return the best available unit string for a canonical row."""
+        return model_units.get(row) or INPUT_ROW_UNITS.get(row, fallback)
+
     # ---- 1. CS_AVERAGE: cross-market exact-match ----
     for row, spec in CS_AVERAGE.items():
         # Size-dependent EPC override for small projects (<5 MWdc)
@@ -151,7 +159,7 @@ def audit_project(proj_data):
             expected = override["value"]
             tol = override.get("tol", tol)
 
-        unit = spec.get("unit", "")
+        unit = spec.get("unit") or _unit_for(row)
         status, note = _exact_check(proj_data.get(row), expected, tol, unit, row=row)
         findings[row] = {
             "status": status, "expected": expected, "actual": proj_data.get(row),

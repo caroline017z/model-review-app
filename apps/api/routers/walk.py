@@ -17,6 +17,7 @@ class WalkRequest(BaseModel):
     m2_id: str
     m1_label: str = "Model 1"
     m2_label: str = "Model 2"
+    project_numbers: list[int] | None = None
 
 
 @router.post("")
@@ -33,6 +34,7 @@ def generate_walk(req: WalkRequest):
         buf, summary = build_walk_xlsx(
             m1["result"], m2["result"],
             req.m1_label, req.m2_label,
+            include_proj_numbers=set(req.project_numbers) if req.project_numbers else None,
         )
     except Exception as e:
         raise HTTPException(500, f"Walk generation error: {e}")

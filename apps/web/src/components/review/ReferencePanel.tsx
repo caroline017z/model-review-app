@@ -22,13 +22,17 @@ function RefSection({ title, items, empty }: { title: string; items?: RefItem[];
         {title}
       </div>
       {items && items.length > 0 ? (
-        items.map((item, i) => (
-          <div key={i} className="flex justify-between py-1 border-b border-dashed border-[var(--border)]">
-            <span className="text-[11px]" style={{ color: "var(--muted)" }}>{item.k}</span>
-            <span className="text-[11px] font-semibold tabular-nums">{item.v}</span>
-            {item.s && <span className="text-[10px] ml-1" style={{ color: "var(--muted)" }}>{item.s}</span>}
-          </div>
-        ))
+        <table className="w-full text-[10px]">
+          <tbody>
+            {items.map((item, i) => (
+              <tr key={i} className="border-b border-dashed border-[var(--border)]">
+                <td className="py-1 pr-2 text-left" style={{ color: "var(--muted)", width: "45%" }}>{item.k}</td>
+                <td className="py-1 px-1 text-left font-semibold tabular-nums" style={{ width: "30%" }}>{item.v}</td>
+                {item.s && <td className="py-1 pl-1 text-left italic" style={{ color: "var(--muted)", width: "25%", fontSize: "9px" }}>{item.s}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       ) : (
         <p className="text-[11px] italic py-2" style={{ color: "var(--muted)" }}>{empty}</p>
       )}

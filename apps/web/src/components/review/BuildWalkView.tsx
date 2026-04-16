@@ -7,6 +7,8 @@ import { downloadWalk } from "@/lib/api";
 export function BuildWalkView() {
   const model1 = usePortfolioStore((s) => s.model1);
   const model2 = usePortfolioStore((s) => s.model2);
+  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
+  const confirmedExclusions = usePortfolioStore((s) => s.confirmedExclusions);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +29,16 @@ export function BuildWalkView() {
     setLoading(true);
     setError(null);
     try {
-      const blob = await downloadWalk(model1.modelId, model2.modelId, model1.label, model2.label);
+      // Derive included project numbers from confirmed portfolio selection
+      const includedProjNumbers = reviewProjects
+        .filter((_, i) => !confirmedExclusions[i])
+        .map((p) => p.projNumber)
+        .filter((n): n is number => n != null);
+
+      const blob = await downloadWalk(
+        model1.modelId, model2.modelId, model1.label, model2.label,
+        includedProjNumbers.length > 0 ? includedProjNumbers : undefined,
+      );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
