@@ -59,16 +59,16 @@ export function PortfolioView() {
                 return (
                   <tr
                     key={i}
-                    className="border-b border-[var(--border)] hover:bg-[var(--inset)] cursor-pointer transition"
+                    className="border-b border-[var(--border)] hover:bg-[var(--inset)] transition"
                     style={{ opacity: included ? 1 : 0.45 }}
-                    onClick={() => { if (included) { setSelected(i); setMode("project"); } }}
                   >
-                    <td className="text-center px-2 py-2">
+                    <td className="text-center px-2 py-2" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={included}
-                        onChange={(e) => { e.stopPropagation(); toggleExcluded(i); }}
-                        className="accent-[var(--teal)]"
+                        onChange={() => toggleExcluded(i)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="accent-[var(--teal)] cursor-pointer"
                       />
                     </td>
                     <td className="px-4 py-2 font-semibold">
@@ -98,8 +98,16 @@ export function PortfolioView() {
                         <span style={{ color: "var(--muted)" }}>0</span>
                       )}
                     </td>
-                    <td className="text-center px-2 py-2" style={{ color: "var(--muted)" }}>
-                      {included ? "→" : ""}
+                    <td className="text-center px-2 py-2">
+                      {included && (
+                        <button
+                          onClick={() => { setSelected(i); setMode("project"); }}
+                          className="text-[var(--muted)] hover:text-[var(--teal)] transition cursor-pointer text-sm"
+                          title="Open in Project Review"
+                        >
+                          →
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

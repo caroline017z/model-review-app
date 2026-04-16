@@ -44,7 +44,6 @@ export function AuditStrip() {
       </span>
       <Pill count={portfolio.off} label="FAIL" variant="off" />
       <Pill count={portfolio.out} label="FLAG" variant="out" />
-      <Pill count={portfolio.missing} label="MISSING" variant="miss" />
       <Pill count={portfolio.review} label="REVIEW" variant="rev" />
       <div className="w-px h-[22px] bg-[var(--border)] mx-[6px]" />
       <Pill count={portfolio.count} label="Projects" />

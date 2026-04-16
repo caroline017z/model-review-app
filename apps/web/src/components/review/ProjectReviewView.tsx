@@ -50,37 +50,50 @@ export function ProjectReviewView() {
 
   return (
     <div className="space-y-4">
-      {/* Deal header */}
-      <div className="rounded-lg p-4 text-white" style={{ background: "var(--navy)" }}>
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-lg font-bold">{project.name}</h2>
-            <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>{project.sub}</p>
+      {/* Deal header — compact, IB-style */}
+      <div className="rounded p-3 text-white flex items-center gap-6" style={{ background: "var(--navy)" }}>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="text-[13px] font-bold truncate">{project.name}</h2>
+            <span className={`px-2 py-0.5 rounded text-[9px] font-bold text-white shrink-0 ${
+              project.verdict === "CLEAN" ? "bg-[var(--ok)]"
+              : project.verdict === "REVIEW" ? "bg-[var(--rev)]"
+              : "bg-[var(--off)]"
+            }`}>
+              {project.verdict}
+            </span>
           </div>
-          <span className={`px-3 py-1 rounded text-xs font-bold text-white ${
-            project.verdict === "CLEAN" ? "bg-[var(--ok)]"
-            : project.verdict === "REVIEW" ? "bg-[var(--rev)]"
-            : "bg-[var(--off)]"
-          }`}>
-            {project.verdict}
-          </span>
+          <p className="text-[10px] text-white/50 truncate">{project.sub}</p>
         </div>
-        <div className="flex gap-6 mt-3 text-sm">
-          <div><span className="text-xs uppercase text-white/50">IRR Impact</span><p className="font-bold text-lg">{fmtIrr(project.irrPct)}</p></div>
-          <div><span className="text-xs uppercase text-white/50">NPP Delta</span><p className="font-bold text-lg">{fmtNpp(project.nppPerW)}</p></div>
-          <div><span className="text-xs uppercase text-white/50">Equity Impact</span><p className={`font-bold text-lg ${project.equityK < 0 ? "text-red-300" : ""}`}>{fmtEquity(project.equityK)}</p></div>
+        <div className="flex gap-5 text-[11px] shrink-0">
+          <div className="text-center"><div className="text-[9px] uppercase text-white/40 tracking-wider">NPP &Delta;</div><div className="font-bold tabular-nums">{fmtNpp(project.nppPerW)}</div></div>
+          <div className="text-center"><div className="text-[9px] uppercase text-white/40 tracking-wider">IRR &Delta;</div><div className="font-bold tabular-nums">{fmtIrr(project.irrPct)}</div></div>
+          <div className="text-center"><div className="text-[9px] uppercase text-white/40 tracking-wider">Equity</div><div className={`font-bold tabular-nums ${project.equityK < 0 ? "text-red-300" : ""}`}>{fmtEquity(project.equityK)}</div></div>
         </div>
       </div>
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2">
-        {Object.entries(project.kpis).map(([key, val]) => (
-          <div key={key} className="rounded p-[10px_12px] border border-[var(--border)] border-l-2 border-l-[var(--teal)]" style={{ background: "var(--raised)" }}>
-            <div className="text-[9.5px] font-bold uppercase tracking-[0.07em]" style={{ color: "var(--muted)" }}>{key}</div>
-            <div className="text-[16px] font-bold mt-0.5 tabular-nums">{String(val)}</div>
+      {/* KPI Strip — curated labels, not raw keys */}
+      {(() => {
+        const k = project.kpis;
+        const kpis: [string, string][] = [
+          ["MWdc", k.dc || "—"],
+          ["EPC ($/W)", k.epc || "—"],
+          ["NPP ($/W)", k.npp || "—"],
+          ["ITC", k.itc || "—"],
+          ["Appraisal IRR", k.irr || "—"],
+          ["Levered PT IRR", k.levIrr || "—"],
+        ];
+        return (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-1.5">
+            {kpis.map(([label, val]) => (
+              <div key={label} className="rounded px-2.5 py-1.5 border border-[var(--border)] border-l-2 border-l-[var(--teal)]" style={{ background: "var(--raised)" }}>
+                <div className="text-[8.5px] font-semibold uppercase tracking-[0.06em]" style={{ color: "var(--muted)" }}>{label}</div>
+                <div className="text-[13px] font-bold tabular-nums">{val}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        );
+      })()}
 
       {/* Approval banner */}
       <div className="rounded border border-[var(--border)] px-4 py-3 flex items-center gap-4 text-xs" style={{ background: "var(--raised)" }}>

@@ -22,6 +22,10 @@ function UploadPanel() {
   const fileRef1 = useRef<HTMLInputElement>(null);
   const fileRef2 = useRef<HTMLInputElement>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [m1Loading, setM1Loading] = useState(false);
+  const [m2Loading, setM2Loading] = useState(false);
+  const [m1Status, setM1Status] = useState("");
+  const [m2Status, setM2Status] = useState("");
 
   const uploadMut = useMutation({ mutationFn: uploadModel });
 
@@ -35,98 +39,109 @@ function UploadPanel() {
   const handleUpload = useCallback(
     async (file: File, slot: 1 | 2) => {
       setReviewError(null);
-      const data = await uploadMut.mutateAsync(file);
-      const label = guessLabel(file.name);
-      if (slot === 1) {
-        setModel1(data, label);
-        // Scope reviewer actions to this model — clears old approvals if model changed
-        setModelScope(data.model_id);
-        reviewMut.mutate({ modelId: data.model_id, label });
-      } else {
-        setModel2(data, label);
+      const setLoading = slot === 1 ? setM1Loading : setM2Loading;
+      const setStatus = slot === 1 ? setM1Status : setM2Status;
+      setLoading(true);
+      setStatus("Uploading...");
+      try {
+        const data = await uploadMut.mutateAsync(file);
+        const label = guessLabel(file.name);
+        if (slot === 1) {
+          setStatus("Running audit...");
+          setModel1(data, label);
+          setModelScope(data.model_id);
+          reviewMut.mutate({ modelId: data.model_id, label });
+        } else {
+          setModel2(data, label);
+          setStatus("");
+          setLoading(false);
+        }
+      } catch {
+        setStatus("Failed");
+        setLoading(false);
       }
     },
     [setModel1, setModel2, setModelScope, uploadMut, reviewMut],
   );
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen gap-8 max-w-lg mx-auto px-6">
+    <div className="flex flex-col items-center justify-center h-screen gap-6 max-w-md mx-auto px-6">
       <div className="text-center">
-        <h1 className="text-2xl font-bold tracking-[0.04em]" style={{ color: "var(--navy)" }}>
-          38<span style={{ color: "var(--teal)" }}>&deg;</span>N Pricing Model Review
+        <h1 className="text-lg font-bold tracking-[0.06em] uppercase" style={{ color: "var(--navy)" }}>
+          38<span style={{ color: "var(--teal)" }}>&deg;</span>N &middot; Pricing Model Review
         </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-          Upload a pricing model to begin validation.
+        <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+          Upload a pricing model to begin validation
         </p>
       </div>
 
-      <div className="w-full space-y-4">
-        <div
-          onClick={() => fileRef1.current?.click()}
-          className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition hover:border-[rgba(81,132,132,0.6)]"
-          style={{ borderColor: "rgba(81,132,132,0.3)" }}
-          role="button"
-          aria-label="Upload Model 1"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && fileRef1.current?.click()}
-        >
-          <input
-            ref={fileRef1}
-            type="file"
-            accept=".xlsm,.xlsx"
-            className="hidden"
-            aria-label="Upload primary pricing model"
-            onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 1)}
-          />
-          {model1 ? (
-            <div>
-              <span className="font-semibold" style={{ color: "var(--teal)" }}>{model1.label}</span>
-              <span className="text-xs ml-2" style={{ color: "var(--muted)" }}>
-                {model1.projects.length} projects
-              </span>
+      <div className="w-full space-y-3">
+        {/* Model 1 */}
+        <div className="flex items-center gap-3">
+          <div
+            onClick={() => !m1Loading && fileRef1.current?.click()}
+            className={`flex-1 border rounded p-4 text-center cursor-pointer transition ${m1Loading ? "opacity-60 pointer-events-none" : "hover:border-[var(--teal)]"}`}
+            style={{ borderColor: model1 ? "var(--teal)" : "var(--border)" }}
+            role="button" tabIndex={0}
+            onKeyDown={(e) => e.key === "Enter" && fileRef1.current?.click()}
+          >
+            <input ref={fileRef1} type="file" accept=".xlsm,.xlsx" className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 1)} />
+            {model1 ? (
+              <div className="text-[12px]">
+                <span className="font-semibold" style={{ color: "var(--teal)" }}>{model1.label}</span>
+                <span className="text-[10px] ml-2" style={{ color: "var(--muted)" }}>{model1.projects.length} projects</span>
+              </div>
+            ) : (
+              <div>
+                <p className="text-[12px] font-semibold" style={{ color: "var(--navy)" }}>Model 1 (Primary)</p>
+                <p className="text-[10px]" style={{ color: "var(--muted)" }}>.xlsm / .xlsx</p>
+              </div>
+            )}
+          </div>
+          {m1Loading && (
+            <div className="text-[10px] w-24 shrink-0" style={{ color: "var(--teal)" }}>
+              <div className="animate-pulse font-semibold">{m1Status}</div>
+              <div className="mt-1 h-1 rounded-full overflow-hidden" style={{ background: "var(--inset)" }}>
+                <div className="h-full rounded-full animate-pulse" style={{ background: "var(--teal)", width: m1Status === "Running audit..." ? "70%" : "30%" }} />
+              </div>
             </div>
-          ) : (
-            <div>
-              <p className="font-semibold" style={{ color: "var(--navy)" }}>Model 1 (Primary)</p>
-              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-                Drop .xlsm / .xlsx or click to browse
-              </p>
-            </div>
+          )}
+          {model1 && !m1Loading && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>READY</span>
           )}
         </div>
 
-        <div
-          onClick={() => fileRef2.current?.click()}
-          className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition hover:border-[rgba(33,43,72,0.4)]"
-          style={{ borderColor: "rgba(33,43,72,0.2)" }}
-          role="button"
-          aria-label="Upload Model 2"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && fileRef2.current?.click()}
-        >
-          <input
-            ref={fileRef2}
-            type="file"
-            accept=".xlsm,.xlsx"
-            className="hidden"
-            aria-label="Upload comparison pricing model"
-            onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 2)}
-          />
-          {model2 ? (
-            <span className="font-semibold" style={{ color: "var(--indigo)" }}>{model2.label}</span>
-          ) : (
-            <p className="font-semibold" style={{ color: "rgba(33,43,72,0.6)" }}>
-              Model 2 (Comparison — optional)
-            </p>
+        {/* Model 2 */}
+        <div className="flex items-center gap-3">
+          <div
+            onClick={() => !m2Loading && fileRef2.current?.click()}
+            className={`flex-1 border rounded p-3 text-center cursor-pointer transition ${m2Loading ? "opacity-60 pointer-events-none" : "hover:border-[var(--indigo)]"}`}
+            style={{ borderColor: model2 ? "var(--indigo)" : "var(--border)" }}
+            role="button" tabIndex={0}
+            onKeyDown={(e) => e.key === "Enter" && fileRef2.current?.click()}
+          >
+            <input ref={fileRef2} type="file" accept=".xlsm,.xlsx" className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 2)} />
+            {model2 ? (
+              <span className="text-[12px] font-semibold" style={{ color: "var(--indigo)" }}>{model2.label}</span>
+            ) : (
+              <p className="text-[11px] font-semibold" style={{ color: "rgba(33,43,72,0.5)" }}>
+                Model 2 (Comparison — optional)
+              </p>
+            )}
+          </div>
+          {m2Loading && (
+            <div className="text-[10px] w-24 shrink-0 animate-pulse font-semibold" style={{ color: "var(--indigo)" }}>{m2Status}</div>
+          )}
+          {model2 && !m2Loading && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>READY</span>
           )}
         </div>
       </div>
 
-      {(uploadMut.isPending || reviewMut.isPending) && (
-        <p className="text-sm animate-pulse" style={{ color: "var(--teal)" }}>Processing model...</p>
-      )}
       {(uploadMut.isError || reviewError) && (
-        <p className="text-sm" style={{ color: "var(--off)" }}>
+        <p className="text-[11px]" style={{ color: "var(--off)" }}>
           {uploadMut.isError ? `Upload failed: ${uploadMut.error?.message}` : `Review failed: ${reviewError}`}
         </p>
       )}
