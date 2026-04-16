@@ -56,8 +56,8 @@ def _exact_check(actual, expected, tol, unit="", row=None):
     if e is None:
         # Expected is a string sentinel/lookup
         if expected in (SSFA, TBD) or isinstance(expected, str):
-            return "REVIEW", f"Bible: {expected}"
-        return "REVIEW", "Bible non-numeric"
+            return "REVIEW", f"Ref: {expected}"
+        return "REVIEW", "Reference non-numeric"
 
     # Deterministic pct normalization for known percentage rows.
     is_known_pct = row is not None and row in PCT_ROWS
@@ -333,7 +333,7 @@ def status_tooltip(audit_result, row):
         return ""
     parts = [f"Status: {f['status']}"]
     if f.get("expected") is not None:
-        parts.append(f"Bible: {f['expected']} {f.get('unit','')}".strip())
+        parts.append(f"Ref: {f['expected']} {f.get('unit','')}".strip())
     if f.get("range"):
         lo, hi = f["range"]
         parts.append(f"Range: {lo}–{hi}")

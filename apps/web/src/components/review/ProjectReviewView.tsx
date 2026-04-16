@@ -157,7 +157,7 @@ export function ProjectReviewView() {
                 <th className="text-center px-2 py-2 font-semibold cursor-pointer select-none" onClick={() => { setSortBy("status"); setSortAsc(sortBy === "status" ? !sortAsc : true); }}>
                   Status {sortBy === "status" ? (sortAsc ? "↑" : "↓") : ""}
                 </th>
-                <th className="text-center px-2 py-2 font-semibold">Bible</th>
+                <th className="text-center px-2 py-2 font-semibold">Reference</th>
                 <th className="text-center px-2 py-2 font-semibold">Model</th>
                 <th className="text-center px-2 py-2 font-semibold cursor-pointer select-none" onClick={() => { setSortBy("impact"); setSortAsc(sortBy === "impact" ? !sortAsc : false); }}>
                   Impact {sortBy === "impact" ? (sortAsc ? "↑" : "↓") : ""}

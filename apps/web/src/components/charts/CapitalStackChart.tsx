@@ -15,7 +15,7 @@ export function CapitalStackChart({ model, bible }: Props) {
     <Plot
       data={names.map((name, i) => ({
         type: "bar" as const, name,
-        x: ["Model", "Bible"],
+        x: ["Model", "Reference"],
         y: [model[i], bible[i]],
         marker: { color: colors[i] },
       }))}

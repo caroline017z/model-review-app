@@ -76,7 +76,7 @@ def export_review(req: ExportRequest):
     cell = ws.cell(row=r, column=2, value=f"38°N Pricing Model Review — {req.model_label}")
     cell.font = Font(bold=True, size=14, color="002060")
     r += 1
-    ws.cell(row=r, column=2, value=f"Bible: {req.bible_label}  |  Reviewer: {req.reviewer}  |  {datetime.now().strftime('%b %d, %Y %H:%M')}")
+    ws.cell(row=r, column=2, value=f"Reference: {req.bible_label}  |  Reviewer: {req.reviewer}  |  {datetime.now().strftime('%b %d, %Y %H:%M')}")
     ws.cell(row=r, column=2).font = Font(size=10, color="7d8694")
     r += 2
 
@@ -133,7 +133,7 @@ def export_review(req: ExportRequest):
             r += 1
 
         # Findings header
-        headers = ["Field", "Status", "Bible", "Model", "Impact", "Action", "Note"]
+        headers = ["Field", "Status", "Reference", "Model", "Impact", "Action", "Note"]
         for ci, h in enumerate(headers):
             cell = ws.cell(row=r, column=2 + ci, value=h)
             cell.font = Font(bold=True, size=10)

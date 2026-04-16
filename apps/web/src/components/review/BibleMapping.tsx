@@ -139,7 +139,7 @@ export function BibleMapping({ categories }: { categories: BibleMappingCategory[
           &#9654;
         </span>
         <span className="text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--muted)" }}>
-          Full Bible Mapping
+          Full Pricing Reference Mapping
         </span>
         <span className="text-[9px] tabular-nums" style={{ color: "var(--muted)" }}>
           {totalRows} rows checked
