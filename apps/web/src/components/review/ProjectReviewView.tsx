@@ -5,7 +5,6 @@ import { usePortfolioStore } from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
 import { useReviewerStore } from "@/stores/reviewer";
 import { VarianceChart } from "@/components/charts/VarianceChart";
-import { CapitalStackChart } from "@/components/charts/CapitalStackChart";
 import { CashflowChart } from "@/components/charts/CashflowChart";
 import { TornadoChart } from "@/components/charts/TornadoChart";
 import { fmtNpp, fmtIrr, fmtEquity, fmtImpact } from "@/lib/format";
@@ -77,9 +76,11 @@ export function ProjectReviewView() {
         </div>
       </div>
 
-      {/* KPI Strip — curated labels, not raw keys */}
+      {/* KPI Strip — curated labels */}
       {(() => {
         const k = project.kpis;
+        const rc1 = project.rateComp1 as Record<string, unknown> | undefined;
+        const rc1Name = String(rc1?.name || "—");
         const kpis: [string, string][] = [
           ["MWdc", k.dc || "—"],
           ["EPC ($/W)", k.epc || "—"],
@@ -87,6 +88,7 @@ export function ProjectReviewView() {
           ["ITC", k.itc || "—"],
           ["Appraisal IRR", k.irr || "—"],
           ["Levered PT IRR", k.levIrr || "—"],
+          ["Rate Curve", rc1Name !== "—" ? rc1Name : "—"],
         ];
         return (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-1.5">
@@ -207,23 +209,17 @@ export function ProjectReviewView() {
         )}
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Charts — no capital stack (only useful in model comparison) */}
+      <div className="grid grid-cols-2 gap-3">
         <div className="rounded border border-[var(--border)] p-3" style={{ background: "var(--surface)" }}>
-          <div className="text-[10px] font-bold uppercase tracking-[0.08em] mb-1" style={{ color: "var(--muted)" }}>Variance</div>
           <VarianceChart {...project.variance} />
         </div>
         <div className="rounded border border-[var(--border)] p-3" style={{ background: "var(--surface)" }}>
-          <div className="text-[10px] font-bold uppercase tracking-[0.08em] mb-1" style={{ color: "var(--muted)" }}>Capital Stack</div>
-          <CapitalStackChart model={project.stack.model} bible={project.stack.bible} />
+          <TornadoChart labels={project.tornado.labels} lo={project.tornado.lo} hi={project.tornado.hi} />
         </div>
-        <div className="rounded border border-[var(--border)] p-3" style={{ background: "var(--surface)" }}>
+        <div className="col-span-2 rounded border border-[var(--border)] p-3" style={{ background: "var(--surface)" }}>
           <div className="text-[10px] font-bold uppercase tracking-[0.08em] mb-1" style={{ color: "var(--muted)" }}>25-Year Cash Flow</div>
           <CashflowChart opCF={project.cashflow.opCF} taxBn={project.cashflow.taxBn} terminal={project.cashflow.terminal} />
-        </div>
-        <div className="rounded border border-[var(--border)] p-3" style={{ background: "var(--surface)" }}>
-          <div className="text-[10px] font-bold uppercase tracking-[0.08em] mb-1" style={{ color: "var(--muted)" }}>Sensitivity Tornado</div>
-          <TornadoChart labels={project.tornado.labels} lo={project.tornado.lo} hi={project.tornado.hi} />
         </div>
       </div>
 

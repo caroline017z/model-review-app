@@ -1,6 +1,6 @@
 "use client";
 
-import { Plot, baseLayout, cfg, margin, OFF, TEAL } from "./PlotlyChart";
+import { Plot, baseLayout, cfg, OFF, TEAL } from "./PlotlyChart";
 
 interface Props {
   labels: string[];
@@ -9,12 +9,14 @@ interface Props {
 }
 
 export function TornadoChart({ labels, lo, hi }: Props) {
-  const inputs = [...labels].reverse();
+  // Truncate long labels to prevent overlap
+  const truncate = (s: string, max: number) => s.length > max ? s.slice(0, max - 1) + "…" : s;
+  const inputs = [...labels].reverse().map((l) => truncate(l, 16));
   const loR = [...lo].reverse();
   const hiR = [...hi].reverse();
   const tMin = loR.length ? Math.min(...loR, 0) : 0;
   const tMax = hiR.length ? Math.max(...hiR, 0) : 0;
-  const pad = Math.max(Math.abs(tMin), Math.abs(tMax)) * 0.15 || 0.02;
+  const pad = Math.max(Math.abs(tMin), Math.abs(tMax)) * 0.2 || 0.02;
 
   return (
     <Plot
@@ -24,11 +26,23 @@ export function TornadoChart({ labels, lo, hi }: Props) {
       ]}
       layout={{
         ...baseLayout, barmode: "overlay",
-        xaxis: { ...baseLayout.xaxis, title: { text: "ΔNPP ($/W)", standoff: 14 }, tickprefix: "$", tickformat: ".2f", zeroline: true, zerolinewidth: 2, zerolinecolor: "#212B48", range: [tMin - pad, tMax + pad] },
-        yaxis: { ...baseLayout.yaxis, automargin: true },
-        legend: { orientation: "h", y: -0.25, font: { size: 10 } },
-        title: { text: "Sensitivity (±10% ΔNPP $/W)", font: { size: 11, color: "#7d8694" }, x: 0.01, y: 0.98 },
-        margin: { l: 10, r: 10, t: 24, b: 60} ,
+        font: { ...baseLayout.font, size: 10 },
+        xaxis: {
+          ...baseLayout.xaxis,
+          title: { text: "ΔNPP ($/W)", standoff: 10, font: { size: 10 } },
+          tickprefix: "$", tickformat: ".2f",
+          zeroline: true, zerolinewidth: 2, zerolinecolor: "#212B48",
+          range: [tMin - pad, tMax + pad],
+          tickfont: { size: 9 },
+        },
+        yaxis: {
+          ...baseLayout.yaxis,
+          automargin: true,
+          tickfont: { size: 9 },
+        },
+        legend: { orientation: "h", y: -0.3, font: { size: 9 } },
+        title: { text: "Sensitivity (±10%)", font: { size: 10, color: "#7d8694" }, x: 0.01, y: 0.98 },
+        margin: { l: 120, r: 10, t: 24, b: 50 },
       }}
       config={cfg}
       className="w-full"

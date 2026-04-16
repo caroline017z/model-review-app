@@ -138,7 +138,7 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
 }
 
 
-def _detect_label_column(ws, max_row=700):
+def _detect_label_column(ws, max_row=800):
     """Detect which column (B-E) contains the input row labels."""
     known = {_normalize_label(v) for v in INPUT_ROW_LABELS.values() if v}
     best_col, best_count = 2, 0
@@ -169,7 +169,7 @@ WRAPPED_EPC_LABEL_PATTERNS = [
 ]
 
 
-def _scan_wrapped_epc_rows(ws, label_col, max_row=700):
+def _scan_wrapped_epc_rows(ws, label_col, max_row=800):
     """Return list of (row, component_name) for wrapped-EPC build rows."""
     found = []
     for r in range(1, max_row + 1):
@@ -249,7 +249,7 @@ def _scan_rate_components(ws, col):
 _CRITICAL_CANONICAL_ROWS = (4, 7, 10, 11, 18, 22, 31, 33, 37, 38, 39, 118, 681)
 
 
-def _build_row_mapping(ws, label_col, max_row=700):
+def _build_row_mapping(ws, label_col, max_row=800):
     """Build canonical_row -> actual_row mapping by scanning labels in the model.
 
     Returns a dict where keys are canonical row numbers (from INPUT_ROW_LABELS)
