@@ -119,13 +119,17 @@ export function PortfolioView() {
                     <td className="px-2 py-2">{[p.state, p.program].filter(Boolean).join(" · ") || "—"}</td>
                     <td className="text-center px-2 py-2 tabular-nums">{p.kpis?.dc || "—"}</td>
                     <td className="text-center px-2 py-2">
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold text-white ${
-                        p.verdict === "CLEAN" ? "bg-[var(--ok)]"
-                        : p.verdict === "REVIEW" ? "bg-[var(--rev)]"
-                        : "bg-[var(--off)]"
-                      }`}>
-                        {p.verdict}
-                      </span>
+                      {(() => {
+                        const severity = Math.min(1, (nFail * 2 + nFlag) / 10);
+                        const bg = p.verdict === "CLEAN" ? "var(--ok)"
+                          : p.verdict === "REVIEW" ? `rgba(29,111,169,${0.2 + severity * 0.8})`
+                          : `rgba(184,50,48,${0.2 + severity * 0.8})`;
+                        return (
+                          <span className="text-[10px] px-2 py-0.5 rounded font-semibold text-white" style={{ background: bg }}>
+                            {p.verdict === "REWORK REQUIRED" ? "REWORK" : p.verdict}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className={`text-center px-2 py-2 tabular-nums font-semibold ${(p.equityK || 0) < 0 ? "text-[var(--off)]" : ""}`}>
                       {fmtMoney(p.equityK || 0)}

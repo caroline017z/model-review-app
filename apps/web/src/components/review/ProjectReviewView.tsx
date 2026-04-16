@@ -57,17 +57,29 @@ export function ProjectReviewView() {
   return (
     <div className="space-y-4">
       {/* Deal header — compact, IB-style */}
+      {/* Verdict badge uses severity-scaled color below */}
       <div className="rounded p-3 text-white flex items-center gap-6" style={{ background: "var(--navy)" }}>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="text-[13px] font-bold truncate">{project.name}</h2>
-            <span className={`px-2 py-0.5 rounded text-[9px] font-bold text-white shrink-0 ${
-              project.verdict === "CLEAN" ? "bg-[var(--ok)]"
-              : project.verdict === "REVIEW" ? "bg-[var(--rev)]"
-              : "bg-[var(--off)]"
-            }`}>
-              {project.verdict}
-            </span>
+            {(() => {
+              const nOff = findings.filter(f => f.status === "OFF").length;
+              const nOut = findings.filter(f => f.status === "OUT").length;
+              const severity = Math.min(1, (nOff * 2 + nOut) / 10);
+              const style = project.verdict === "CLEAN"
+                ? { background: "var(--ok)" }
+                : project.verdict === "REVIEW"
+                  ? { background: `rgba(29, 111, 169, ${0.2 + severity * 0.8})` }
+                  : { background: `rgba(184, 50, 48, ${0.2 + severity * 0.8})` };
+              return (
+                <span
+                  className="px-2 py-0.5 rounded text-[9px] font-semibold text-white shrink-0"
+                  style={style}
+                >
+                  {project.verdict === "REWORK REQUIRED" ? "REWORK" : project.verdict}
+                </span>
+              );
+            })()}
           </div>
           <p className="text-[10px] text-white/50 truncate">{project.sub}</p>
         </div>
