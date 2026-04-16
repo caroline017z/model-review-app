@@ -62,12 +62,12 @@ def export_review(req: ExportRequest):
     # Column widths
     ws.column_dimensions["A"].width = 3
     ws.column_dimensions["B"].width = 28
-    ws.column_dimensions["C"].width = 12
-    ws.column_dimensions["D"].width = 14
-    ws.column_dimensions["E"].width = 14
+    ws.column_dimensions["C"].width = 16
+    ws.column_dimensions["D"].width = 16
+    ws.column_dimensions["E"].width = 16
     ws.column_dimensions["F"].width = 14
-    ws.column_dimensions["G"].width = 12
-    ws.column_dimensions["H"].width = 30
+    ws.column_dimensions["G"].width = 14
+    ws.column_dimensions["H"].width = 35
 
     ws.sheet_view.showGridLines = False  # Clean presentation
 
@@ -99,17 +99,27 @@ def export_review(req: ExportRequest):
         status_cell.fill = TEAL_FILL if proj.approved else NAVY_FILL
         status_cell.alignment = CENTER
 
-        # Metrics
-        ws.cell(row=r, column=4, value=proj.nppPerW).number_format = '0.000_);[Red]\\(0.000\\)'
-        ws.cell(row=r, column=4).font = Font(color="FFFFFF", size=11)
-        ws.cell(row=r, column=4).fill = NAVY_FILL
-        # irrPct comes as whole percentage (e.g., 7.5 for 7.5%). Convert to fraction for Excel % format.
-        irr_frac = proj.irrPct / 100 if abs(proj.irrPct) > 1 else proj.irrPct
-        ws.cell(row=r, column=5, value=irr_frac).number_format = '0.00%'
-        ws.cell(row=r, column=5).font = Font(color="FFFFFF", size=11)
-        ws.cell(row=r, column=5).fill = NAVY_FILL
+        # Metrics — labeled inline on the project header row
+        c4 = ws.cell(row=r, column=4, value=proj.nppPerW)
+        c4.number_format = '0.000_);[Red]\\(0.000\\)'
+        c4.font = Font(color="FFFFFF", size=11)
+        c4.fill = NAVY_FILL
+        # Label above value
+        ws.cell(row=r, column=3, value="NPP ($/W)")
+        ws.cell(row=r, column=3).font = Font(color="FFFFFF", size=9, italic=True)
+        ws.cell(row=r, column=3).fill = NAVY_FILL
+        ws.cell(row=r, column=3).alignment = CENTER
 
-        for c in range(6, 9):
+        irr_frac = proj.irrPct / 100 if abs(proj.irrPct) > 1 else proj.irrPct
+        c5 = ws.cell(row=r, column=5, value=irr_frac)
+        c5.number_format = '0.00%'
+        c5.font = Font(color="FFFFFF", size=11)
+        c5.fill = NAVY_FILL
+        ws.cell(row=r, column=6, value="IRR")
+        ws.cell(row=r, column=6).font = Font(color="FFFFFF", size=9, italic=True)
+        ws.cell(row=r, column=6).fill = NAVY_FILL
+
+        for c in range(7, 9):
             ws.cell(row=r, column=c).fill = NAVY_FILL
         r += 1
 

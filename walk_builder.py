@@ -191,6 +191,12 @@ def diff_inputs(
     """
     diffs: list[dict] = []
 
+    # Model-sourced units (by canonical row); prefer model over hardcoded.
+    _m1_units_by_row: dict[int, str] = {}
+    if matched:
+        first_data = m1_projects[matched[0]["m1_col"]]["data"]
+        _m1_units_by_row = first_data.get("_units_by_row") or {}
+
     for row_num, label in INPUT_ROW_LABELS.items():
         if row_num in _SKIP_ROWS:
             continue
@@ -219,10 +225,11 @@ def diff_inputs(
             per_project[m["proj_number"]] = (m1_val, m2_val)
 
         if any_diff and per_project:
+            unit = _m1_units_by_row.get(row_num) or INPUT_ROW_UNITS.get(row_num, "")
             diffs.append({
                 "row": row_num,
                 "label": label,
-                "unit": INPUT_ROW_UNITS.get(row_num, ""),
+                "unit": unit,
                 "category": _categorize_row(row_num),
                 "values": per_project,
             })

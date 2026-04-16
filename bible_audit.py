@@ -203,7 +203,7 @@ def audit_project(proj_data):
                     "status": status, "expected": None, "actual": proj_data.get(row),
                     "tol": None, "note": note,
                     "source": f"Range: {category}", "label": label,
-                    "unit": spec.get("unit", ""), "range": (spec["min"], spec["max"]),
+                    "unit": spec.get("unit") or _unit_for(row), "range": (spec["min"], spec["max"]),
                 }
 
     # ---- 4. GUIDEHOUSE DISCOUNT: rate-component-level audit ----

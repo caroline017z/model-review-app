@@ -272,6 +272,14 @@ def diff_inputs(
     diffs: list[dict] = []
     seen_labels: set[str] = set()
 
+    # Model-sourced units (by canonical row and by label); prefer model over hardcoded.
+    _m1_units_by_row: dict[int, str] = {}
+    _m1_units_by_label: dict[str, str] = {}
+    if matched:
+        first_data = m1_projects[matched[0]["m1_col"]]["data"]
+        _m1_units_by_row = first_data.get("_units_by_row") or {}
+        _m1_units_by_label = first_data.get("_all_units") or {}
+
     # --- Pass 1: Canonical rows (by mapped row number) ---
     for row_num, label in INPUT_ROW_LABELS.items():
         if row_num in _SKIP_ROWS:
@@ -301,10 +309,11 @@ def diff_inputs(
             per_project[m["proj_number"]] = (m1_val, m2_val)
 
         if any_diff and per_project:
+            unit = _m1_units_by_row.get(row_num) or INPUT_ROW_UNITS.get(row_num, "")
             diffs.append({
                 "row": row_num,
                 "label": label,
-                "unit": INPUT_ROW_UNITS.get(row_num, ""),
+                "unit": unit,
                 "category": _categorize_row(row_num),
                 "values": per_project,
             })
@@ -344,10 +353,11 @@ def diff_inputs(
                 per_project[m["proj_number"]] = (m1_val, m2_val)
 
             if any_diff and per_project:
+                unit = _m1_units_by_label.get(label, "")
                 diffs.append({
                     "row": 0,  # unknown canonical row
                     "label": label,
-                    "unit": "",
+                    "unit": unit,
                     "category": "Other",
                     "values": per_project,
                 })
