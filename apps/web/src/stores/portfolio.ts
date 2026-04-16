@@ -20,6 +20,8 @@ interface PortfolioState {
   portfolio: PortfolioPayload | null;
   selectedIds: IdSet;
   excludedIds: IdxSet;
+  pendingExclusions: IdxSet;
+  confirmedExclusions: IdxSet;
 
   setModel1: (data: UploadResponse, label: string) => void;
   setModel2: (data: UploadResponse, label: string) => void;
@@ -27,6 +29,9 @@ interface PortfolioState {
   setReviewData: (data: ReviewResponse) => void;
   toggleSelected: (id: string) => void;
   toggleExcluded: (idx: number) => void;
+  togglePending: (idx: number) => void;
+  confirmPortfolio: () => void;
+  hasPendingChanges: () => boolean;
   isExcluded: (idx: number) => boolean;
   selectAll: (ids: string[]) => void;
   selectNone: () => void;
@@ -39,6 +44,8 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   portfolio: null,
   selectedIds: {},
   excludedIds: {},
+  pendingExclusions: {},
+  confirmedExclusions: {},
 
   setModel1: (data, label) => {
     const ids: IdSet = {};
@@ -75,7 +82,29 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       return { excludedIds: next };
     }),
 
-  isExcluded: (idx) => !!get().excludedIds[idx],
+  togglePending: (idx) =>
+    set((state) => {
+      const next = { ...state.pendingExclusions };
+      if (next[idx]) delete next[idx];
+      else next[idx] = true;
+      return { pendingExclusions: next };
+    }),
+
+  confirmPortfolio: () =>
+    set((state) => ({
+      confirmedExclusions: { ...state.pendingExclusions },
+      excludedIds: { ...state.pendingExclusions },
+    })),
+
+  hasPendingChanges: () => {
+    const { pendingExclusions, confirmedExclusions } = get();
+    const pendingKeys = Object.keys(pendingExclusions);
+    const confirmedKeys = Object.keys(confirmedExclusions);
+    if (pendingKeys.length !== confirmedKeys.length) return true;
+    return pendingKeys.some((k) => !confirmedExclusions[Number(k)]);
+  },
+
+  isExcluded: (idx) => !!get().confirmedExclusions[idx],
 
   selectAll: (ids) => {
     const s: IdSet = {};

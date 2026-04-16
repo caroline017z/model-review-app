@@ -10,8 +10,11 @@ export function PortfolioView() {
   const portfolio = usePortfolioStore((s) => s.portfolio);
   const model1 = usePortfolioStore((s) => s.model1);
   const model2 = usePortfolioStore((s) => s.model2);
-  const excludedIds = usePortfolioStore((s) => s.excludedIds);
-  const toggleExcluded = usePortfolioStore((s) => s.toggleExcluded);
+  const pendingExclusions = usePortfolioStore((s) => s.pendingExclusions);
+  const confirmedExclusions = usePortfolioStore((s) => s.confirmedExclusions);
+  const togglePending = usePortfolioStore((s) => s.togglePending);
+  const confirmPortfolio = usePortfolioStore((s) => s.confirmPortfolio);
+  const hasPendingChanges = usePortfolioStore((s) => s.hasPendingChanges);
   const setMode = useUiStore((s) => s.setMode);
   const setSelected = useUiStore((s) => s.setSelectedProject);
   const selectedIdx = useUiStore((s) => s.selectedProjectIdx);
@@ -80,22 +83,24 @@ export function PortfolioView() {
             </thead>
             <tbody>
               {ranked.map(({ p, i }, rank) => {
-                const included = !excludedIds[i];
+                const pendingIncluded = !pendingExclusions[i];
+                const confirmedIncluded = !confirmedExclusions[i];
                 const nFail = p.findings?.filter((f) => f.status === "OFF").length || 0;
                 const nFlag = p.findings?.filter((f) => f.status === "OUT").length || 0;
+                const changed = pendingIncluded !== confirmedIncluded;
                 return (
                   <tr
                     key={i}
                     className="border-b border-[var(--border)] hover:bg-[var(--inset)] transition"
-                    style={{ opacity: included ? 1 : 0.45 }}
+                    style={{ opacity: pendingIncluded ? 1 : 0.45 }}
                   >
                     <td className="text-center px-2 py-2" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        checked={included}
-                        onChange={() => toggleExcluded(i)}
+                        checked={pendingIncluded}
+                        onChange={() => togglePending(i)}
                         onClick={(e) => e.stopPropagation()}
-                        className="accent-[var(--teal)] cursor-pointer"
+                        className={`accent-[var(--teal)] cursor-pointer ${changed ? "ring-2 ring-[var(--rev)]" : ""}`}
                       />
                     </td>
                     <td className="px-4 py-2 font-semibold">
@@ -126,7 +131,7 @@ export function PortfolioView() {
                       )}
                     </td>
                     <td className="text-center px-2 py-2">
-                      {included && (
+                      {confirmedIncluded && (
                         <button
                           onClick={() => { setSelected(i); setMode("project"); }}
                           className="text-[var(--muted)] hover:text-[var(--teal)] transition cursor-pointer text-sm"
@@ -162,6 +167,29 @@ export function PortfolioView() {
               </tr>
             </tfoot>
           </table>
+        </div>
+
+        {/* Set Portfolio confirmation bar */}
+        <div className="px-4 py-2.5 border-t border-[var(--border)] flex items-center justify-between" style={{ background: "var(--raised)" }}>
+          <span className="text-[10px] tabular-nums" style={{ color: "var(--muted)" }}>
+            {ranked.filter(({ i }) => !pendingExclusions[i]).length} selected
+            {hasPendingChanges() && (
+              <span className="ml-1 text-[var(--rev)] font-semibold">
+                (pending changes)
+              </span>
+            )}
+          </span>
+          <button
+            onClick={confirmPortfolio}
+            disabled={!hasPendingChanges()}
+            className={`px-4 py-1.5 rounded text-[11px] font-bold transition cursor-pointer ${
+              hasPendingChanges()
+                ? "bg-[var(--teal)] text-white hover:opacity-90"
+                : "bg-[var(--inset)] text-[var(--muted)] cursor-not-allowed"
+            }`}
+          >
+            Set Portfolio
+          </button>
         </div>
       </div>
 

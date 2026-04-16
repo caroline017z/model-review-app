@@ -119,6 +119,9 @@ def match_projects(
 ) -> list[dict]:
     """Match projects between two models by Project # (row 2).
 
+    Falls back to name-based matching or column-position-inferred project
+    numbers when row 2 data is missing/unresolved.
+
     Returns list of {proj_number, name, m1_col, m2_col} sorted by proj_number.
     """
     def _build_index(projects: dict) -> dict[int, int]:
@@ -146,6 +149,76 @@ def match_projects(
             "m1_col": m1_col,
             "m2_col": m2_idx[pnum],
         })
+
+    if matched:
+        return matched
+
+    # ----- Fallback 1: infer project numbers from column position -----
+    # Typical models have projects starting at column F (6), so col - 5 = project #.
+    # Try this for projects whose data[ROW_PROJECT_NUMBER] is None.
+    def _build_index_positional(projects: dict) -> dict[int, int]:
+        idx: dict[int, int] = {}
+        for col, proj in projects.items():
+            if not isinstance(proj, dict) or "data" not in proj:
+                continue
+            pnum = safe_float(proj["data"].get(ROW_PROJECT_NUMBER))
+            if pnum is not None:
+                idx[int(pnum)] = col
+            elif proj.get("name"):
+                # Infer project number from column position (col F=6 -> #1)
+                inferred = col - 5
+                if inferred >= 1:
+                    idx[inferred] = col
+        return idx
+
+    m1_pos = _build_index_positional(m1_projects)
+    m2_pos = _build_index_positional(m2_projects)
+    common_pos = sorted(set(m1_pos.keys()) & set(m2_pos.keys()))
+    for pnum in common_pos:
+        m1_col = m1_pos[pnum]
+        m1_proj = m1_projects[m1_col]
+        matched.append({
+            "proj_number": pnum,
+            "name": str(m1_proj.get("name") or "Unnamed").strip(),
+            "m1_col": m1_col,
+            "m2_col": m2_pos[pnum],
+        })
+
+    if matched:
+        logger.info(
+            "Project # matching yielded 0 results; positional fallback matched %d projects.",
+            len(matched),
+        )
+        return matched
+
+    # ----- Fallback 2: match by project name (exact string match) -----
+    def _build_name_index(projects: dict) -> dict[str, int]:
+        idx: dict[str, int] = {}
+        for col, proj in projects.items():
+            if not isinstance(proj, dict):
+                continue
+            name = str(proj.get("name") or "").strip()
+            if name:
+                idx[name] = col
+        return idx
+
+    m1_names = _build_name_index(m1_projects)
+    m2_names = _build_name_index(m2_projects)
+    common_names = sorted(set(m1_names.keys()) & set(m2_names.keys()))
+    for i, name in enumerate(common_names, start=1):
+        m1_col = m1_names[name]
+        matched.append({
+            "proj_number": i,
+            "name": name,
+            "m1_col": m1_col,
+            "m2_col": m2_names[name],
+        })
+
+    if matched:
+        logger.info(
+            "Project # matching yielded 0 results; name-based fallback matched %d projects.",
+            len(matched),
+        )
     return matched
 
 
@@ -264,6 +337,10 @@ def build_walk_xlsx(
     matched = match_projects(m1_projects, m2_projects)
     if not matched:
         logger.warning("No projects matched between the two models by Project #.")
+        # Flag so we can write an explanatory message into the xlsx below
+        _no_matches = True
+    else:
+        _no_matches = False
 
     metrics = extract_metrics(matched, m1_projects, m2_projects)
     variances = diff_inputs(matched, m1_projects, m2_projects)
@@ -545,6 +622,15 @@ def build_walk_xlsx(
                     cell.border = THIN_BOTTOM
 
             cur_row += 1
+
+    # If no projects matched, write an explanatory message
+    if _no_matches:
+        cell = ws.cell(
+            row=3, column=2,
+            value="No projects matched between models. Check that Project # "
+                  "(row 2) is populated in both models.",
+        )
+        cell.font = Font(color="FF0000", bold=True, size=11)
 
     # Save to BytesIO
     buf = io.BytesIO()

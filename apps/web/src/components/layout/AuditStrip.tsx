@@ -31,24 +31,31 @@ function Pill({ count, label, variant = "default" }: PillProps) {
 export function AuditStrip() {
   const portfolio = usePortfolioStore((s) => s.portfolio);
   const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
+  const confirmedExclusions = usePortfolioStore((s) => s.confirmedExclusions);
   const reviewerApprovals = useReviewerStore((s) => s.approvals);
   if (!portfolio) return null;
 
-  const nApproved = reviewProjects.filter((_, i) => reviewerApprovals[i]?.approved).length;
-  const nPending = portfolio.count - nApproved;
+  // Derive counts from confirmed (included) projects only
+  const included = reviewProjects.filter((_, i) => !confirmedExclusions[i]);
+  const nOff = included.reduce((s, p) => s + (p.findings?.filter((f) => f.status === "OFF").length || 0), 0);
+  const nOut = included.reduce((s, p) => s + (p.findings?.filter((f) => f.status === "OUT").length || 0), 0);
+  const nReview = included.filter((p) => p.verdict === "REVIEW").length;
+  const totalMw = included.reduce((s, p) => s + parseFloat(String(p.kpis?.dc || 0)), 0);
+  const nApproved = reviewProjects.filter((_, i) => !confirmedExclusions[i] && reviewerApprovals[i]?.approved).length;
+  const nPending = included.length - nApproved;
 
   return (
     <div className="bg-surface border-b border-[var(--border)] px-[18px] py-2 flex gap-[6px] items-center">
       <span className="text-[9.5px] font-bold uppercase tracking-[0.10em] text-muted mr-1">
         Portfolio Audit
       </span>
-      <Pill count={portfolio.off} label="FAIL" variant="off" />
-      <Pill count={portfolio.out} label="FLAG" variant="out" />
-      <Pill count={portfolio.review} label="REVIEW" variant="rev" />
+      <Pill count={nOff} label="FAIL" variant="off" />
+      <Pill count={nOut} label="FLAG" variant="out" />
+      <Pill count={nReview} label="REVIEW" variant="rev" />
       <div className="w-px h-[22px] bg-[var(--border)] mx-[6px]" />
-      <Pill count={portfolio.count} label="Projects" />
+      <Pill count={included.length} label="Projects" />
       <span className="inline-flex items-center gap-[5px] px-[9px] py-1 rounded text-[11px] font-semibold border border-[var(--border)] bg-surface text-[var(--text-2)]">
-        <span className="text-[12.5px] font-bold tabular-nums">{portfolio.totalMw.toFixed(1)}</span> MW
+        <span className="text-[12.5px] font-bold tabular-nums">{totalMw.toFixed(1)}</span> MW
       </span>
       <div className="ml-auto flex gap-[6px]">
         <Pill count={nApproved} label="Reviewed" />

@@ -24,7 +24,7 @@ export function ProjectNavigator() {
   const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
   const model1 = usePortfolioStore((s) => s.model1);
   const model2 = usePortfolioStore((s) => s.model2);
-  const excludedIds = usePortfolioStore((s) => s.excludedIds);
+  const excludedIds = usePortfolioStore((s) => s.confirmedExclusions);
   const selectedIdx = useUiStore((s) => s.selectedProjectIdx);
   const setSelected = useUiStore((s) => s.setSelectedProject);
   const navSearch = useUiStore((s) => s.navSearch);
