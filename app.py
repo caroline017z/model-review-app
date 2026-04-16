@@ -310,18 +310,28 @@ st.markdown(
 # ---------------------------------------------------------------------------
 
 def guess_label(uploaded_file, fallback):
-    """Extract label from filename: strip '38DN-' prefix, '_Pricing Model_', and extension."""
+    """Extract State_Developer from '38DN-State_Developer_text_Pricing Model_YYYY.MM.DD'.
+
+    Examples:
+        38DN-IL_US Solar_PricingModel_2026.04.15.xlsm  →  IL US Solar
+        38DN- Dev Engine_IL_Walk Summary_2026.04.09.xlsx  →  Dev Engine IL
+        38DN-IL_Novel Energy Solutions_Walk Summary_2026.04.15.xlsx  →  IL Novel Energy Solutions
+    """
     if uploaded_file is None:
         return fallback
+    import re as _re
     name = Path(uploaded_file.name).stem
-    for prefix in ["38DN-", "38DN_", "38DN "]:
-        if name.startswith(prefix):
-            name = name[len(prefix):]
-            break
-    for mid in ["_Pricing Model_", "_Pricing Model", " Pricing Model ", "_Pricing_Model_",
-                 "Pricing Model_", "Pricing Model ", "Pricing_Model_", "Pricing_Model "]:
-        name = name.replace(mid, " ")
-    return name.strip() if name.strip() else fallback
+    # Strip 38DN prefix (with optional trailing space/hyphen)
+    name = _re.sub(r'^38DN[\s_-]*', '', name, flags=_re.IGNORECASE)
+    # Strip trailing date patterns: YYYY.MM.DD, YYYY-MM-DD, YYYY_MM_DD
+    name = _re.sub(r'[\s_-]*\d{4}[._-]\d{2}[._-]\d{2}\s*$', '', name)
+    # Strip "Pricing Model" / "PricingModel" / "Walk Summary" and everything after
+    name = _re.sub(r'[\s_-]*(Pricing[\s_]*Model|Walk[\s_]*Summary).*$', '', name, flags=_re.IGNORECASE)
+    # Clean up separators: replace underscores with spaces, collapse
+    name = name.replace('_', ' ').replace('  ', ' ').strip()
+    # Strip leading/trailing hyphens or spaces
+    name = name.strip('- ')
+    return name if name else fallback
 
 
 def render_sidebar():
@@ -557,6 +567,7 @@ def main():
 
             _status.update(label="Extracting projects…")
             m1_projects = get_projects(m1_result) if m1_result else {}
+            m2_projects = get_projects(m2_result) if m2_result else {}
 
             if mapper_file:
                 _status.update(label="Loading mapper output…")
@@ -607,11 +618,11 @@ def main():
         def _item_label(c):
             # Always show project ID (row 2 of Project Inputs) next to the
             # name to disambiguate duplicates (e.g. two 'IL Joel' columns).
-            head_parts = []
-            if c.get("proj_number") is not None:
-                head_parts.append(f"**#{c['proj_number']}**")
-            head_parts.append(f"**{c['name']}**")
-            head = " ".join(head_parts)
+            pnum = c.get("proj_number")
+            if pnum is not None:
+                head = f"**P{pnum} · {c['name']}**"
+            else:
+                head = f"**{c['name']}**"
             meta = " · ".join([x for x in [c["state"], c["utility"], c["program"]] if x])
             dc_str = f"{c['dc']:.2f} MW" if c["dc"] else ""
             cue = ""

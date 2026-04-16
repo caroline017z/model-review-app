@@ -99,10 +99,10 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
     11: ["Size MWDC", "Size (MWDC)", "DC Size", "MWdc"],
     12: ["Size MWAC", "Size (MWAC)", "AC Size", "MWac"],
     # Returns block — use template's actual labels first, fall back to legacy
-    31: ["Live Appraisal IRR", "Appraisal IRR", "FMV IRR"],
+    31: ["Live Appraisal IRR", "Appraisal IRR"],
     33: ["FMV Calculated", "FMV Calculated ($/W)", "FMV $/W"],
     36: ["Target IRR"],
-    37: ["Live Levered Pre-Tax IRR", "Levered Pre-Tax IRR"],
+    37: ["Live Levered Pre-Tax IRR", "Levered Pre-Tax IRR", "Live Levered PT IRR", "Levered PT IRR"],
     38: ["NPP ($/W) - SOLVE", "NPP ($/W)", "NPP $/W", "NPP per W"],
     39: ["NPP ($)", "NPP $"],
     118: ["PV EPC Cost", "EPC Cost", "PV EPC"],
@@ -125,8 +125,12 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
     286: ["Decom Annual Premium", "Decom Bond Annual Premium"],
     296: ["P&C Insurance", "P&C Insurance Annual Premium", "Insurance"],
     297: ["P&C Insurance Esc", "P&C Insurance Escalator", "Insurance Escalator"],
+    291: ["Custom PropTax Toggle", "Custom Property Tax Toggle", "Custom Prop Tax"],
+    292: ["Property Taxes Yr 1", "Property Tax Year 1", "Property Taxes"],
+    293: ["PropTax Escalator", "Property Tax Escalator", "Prop Tax Esc"],
     302: ["Internal AM Costs", "Internal Asset Management"],
     587: ["COD Quarter"],
+    681: ["Active MFV", "Active Market FMV", "MFV"],
     591: ["Tax Treatment", "Tax Equity Treatment"],
     596: ["TE Structure", "Tax Equity Structure"],
     597: ["ITC Rate", "ITC %", "Investment Tax Credit Rate", "Investment Tax Credit %", "Tax Credit Rate"],
@@ -134,7 +138,7 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
 }
 
 
-def _detect_label_column(ws, max_row=620):
+def _detect_label_column(ws, max_row=700):
     """Detect which column (B-E) contains the input row labels."""
     known = {_normalize_label(v) for v in INPUT_ROW_LABELS.values() if v}
     best_col, best_count = 2, 0
@@ -165,7 +169,7 @@ WRAPPED_EPC_LABEL_PATTERNS = [
 ]
 
 
-def _scan_wrapped_epc_rows(ws, label_col, max_row=620):
+def _scan_wrapped_epc_rows(ws, label_col, max_row=700):
     """Return list of (row, component_name) for wrapped-EPC build rows."""
     found = []
     for r in range(1, max_row + 1):
@@ -242,10 +246,10 @@ def _scan_rate_components(ws, col):
 
 #: Critical canonical rows — we warn loudly when these are unresolved, since
 #: downstream consumers show stale / garbage data without them.
-_CRITICAL_CANONICAL_ROWS = (4, 7, 10, 11, 18, 22, 31, 33, 38, 39, 118)
+_CRITICAL_CANONICAL_ROWS = (4, 7, 10, 11, 18, 22, 31, 33, 37, 38, 39, 118, 681)
 
 
-def _build_row_mapping(ws, label_col, max_row=620):
+def _build_row_mapping(ws, label_col, max_row=700):
     """Build canonical_row -> actual_row mapping by scanning labels in the model.
 
     Returns a dict where keys are canonical row numbers (from INPUT_ROW_LABELS)

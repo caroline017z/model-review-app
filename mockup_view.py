@@ -30,6 +30,8 @@ from rows import (
     ROW_CLOSING, ROW_PPA_RATE, ROW_ESCALATOR, ROW_NPP, ROW_FMV_IRR, ROW_FMV_PER_W,
     ROW_UPFRONT, ROW_INSURANCE, ROW_ITC_PCT, ROW_ELIG_COSTS,
     ROW_OM_PREV, ROW_OM_CORR, ROW_AM_FEE,
+    ROW_APPRAISAL_IRR, ROW_LEVERED_PT_IRR, ROW_ACTIVE_MFV,
+    ROW_CUSTOM_PROPTAX_TOGGLE, ROW_PROPERTY_TAX_YR1, ROW_PROPTAX_ESCALATOR,
 )
 
 
@@ -486,15 +488,23 @@ def _build_kpis(proj: dict, findings: list[dict]) -> dict:
     npp_dollars = _num(data.get(39))   # NPP ($) — for the 'Total $X.XM' subline
     fmv_per_w = _num(data.get(ROW_FMV_PER_W))
     itc = _num(data.get(ROW_ITC_PCT))
-    irr = _num(data.get(ROW_FMV_IRR))
+    appraisal_irr = _num(data.get(ROW_APPRAISAL_IRR))   # row 31
+    levered_pt_irr = _num(data.get(ROW_LEVERED_PT_IRR))  # row 37
+    active_mfv = _num(data.get(ROW_ACTIVE_MFV))          # row 681
     epc_off = any(f["status"] == "OFF" and "EPC" in f["field"].upper() for f in findings)
     itc_off = any(f["status"] == "OFF" and "ITC" in f["field"].upper() for f in findings)
 
-    # Live Appraisal IRR is stored as a fraction (0.0725). Display as %.
+    # Appraisal IRR (row 31) is stored as a fraction (0.0725). Display as %.
     irr_display = None
-    if irr is not None:
-        val = irr * 100 if abs(irr) <= 1.5 else irr
+    if appraisal_irr is not None:
+        val = appraisal_irr * 100 if abs(appraisal_irr) <= 1.5 else appraisal_irr
         irr_display = f"{val:.2f}%"
+
+    # Levered Pre-Tax IRR (row 37)
+    lev_irr_display = None
+    if levered_pt_irr is not None:
+        val = levered_pt_irr * 100 if abs(levered_pt_irr) <= 1.5 else levered_pt_irr
+        lev_irr_display = f"{val:.2f}%"
 
     # ITC: if the model doesn't expose ITC Rate as an input row (common —
     # tax assumptions sit on a different sheet), fall back to the bible
@@ -513,10 +523,13 @@ def _build_kpis(proj: dict, findings: list[dict]) -> dict:
     if npp_dollars is not None and abs(npp_dollars) >= 1000:
         npp_sub = _fmt_money_short(npp_dollars) + " total"
 
-    # IRR sub-label notes the FMV $/W when both are available.
-    irr_sub = ""
+    # Appraisal IRR sub-label: show FMV $/W + Levered PT IRR when available.
+    irr_sub_parts = []
     if fmv_per_w is not None:
-        irr_sub = f"FMV ${fmv_per_w:.2f}/W"
+        irr_sub_parts.append(f"FMV ${fmv_per_w:.2f}/W")
+    if lev_irr_display:
+        irr_sub_parts.append(f"Lev PT {lev_irr_display}")
+    irr_sub = " · ".join(irr_sub_parts)
 
     return {
         "dc": f"{dc_mw:.2f}" if dc_mw else "—",
@@ -531,6 +544,9 @@ def _build_kpis(proj: dict, findings: list[dict]) -> dict:
         "itcOff": bool(itc_off),
         "irr": irr_display or "—",
         "irrSub": irr_sub,
+        "irrLabel": "Appraisal IRR",
+        "levIrr": lev_irr_display or "—",
+        "activeMfv": f"${active_mfv:,.0f}" if active_mfv is not None else "—",
     }
 
 

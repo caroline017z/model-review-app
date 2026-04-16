@@ -4,8 +4,13 @@ from config import INPUT_ROW_LABELS, OUTPUT_ROWS
 
 
 class TestRowConstantsNoDuplicates:
+    # Known intentional aliases (same row, different semantic name)
+    _KNOWN_ALIASES = {
+        31: {"ROW_APPRAISAL_IRR", "ROW_FMV_IRR"},  # FMV_IRR kept for backward compat
+    }
+
     def test_no_duplicate_values(self):
-        """No two ROW_* constants in rows.py should share the same integer."""
+        """No two ROW_* constants should share the same integer (except known aliases)."""
         seen = {}
         for name in dir(rows):
             if not name.startswith("ROW_"):
@@ -13,10 +18,14 @@ class TestRowConstantsNoDuplicates:
             val = getattr(rows, name)
             if not isinstance(val, int):
                 continue
-            assert val not in seen, (
-                f"Duplicate row value {val}: {name} collides with {seen[val]}"
-            )
-            seen[val] = name
+            if val in seen:
+                # Check if this is a known alias pair
+                alias_set = self._KNOWN_ALIASES.get(val, set())
+                assert name in alias_set and seen[val] in alias_set, (
+                    f"Duplicate row value {val}: {name} collides with {seen[val]}"
+                )
+            else:
+                seen[val] = name
 
 
 class TestRowConstantsInConfig:
