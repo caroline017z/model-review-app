@@ -34,8 +34,8 @@ function UploadPanel() {
   const uploadMut = useMutation({ mutationFn: uploadModel });
 
   const reviewMut = useMutation({
-    mutationFn: ({ modelId, label }: { modelId: string; label: string }) =>
-      runReview(modelId, undefined, label),
+    mutationFn: ({ modelId, label, projectIds }: { modelId: string; label: string; projectIds?: string[] }) =>
+      runReview(modelId, projectIds, label),
     onSuccess: (data) => setReviewData(data),
     onError: (err) => setReviewError(err instanceof Error ? err.message : "Review failed"),
   });
@@ -69,7 +69,9 @@ function UploadPanel() {
           setStatus("Running audit...");
           setModel1(data, label);
           setModelScope(data.model_id);
-          reviewMut.mutate({ modelId: data.model_id, label });
+          // Pass ALL candidate project IDs so the full portfolio is audited
+          const allIds = data.projects.map((p) => p.id);
+          reviewMut.mutate({ modelId: data.model_id, label, projectIds: allIds });
         } else {
           setModel2(data, label);
           setStatus("");

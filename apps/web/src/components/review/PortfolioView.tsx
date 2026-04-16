@@ -112,7 +112,7 @@ export function PortfolioView() {
                     </td>
                     <td className="px-4 py-2 font-semibold">
                       <span className="text-[9px] font-bold mr-1" style={{ color: "var(--muted)" }}>#{rank + 1}</span>
-                      {p.projNumber != null && <span className="text-[9px] bg-[var(--teal)] text-white px-1 rounded mr-1">P{p.projNumber}</span>}
+                      {p.projNumber != null && <span className="text-[9px] bg-[var(--teal)] text-white px-1 rounded mr-1">{p.projNumber}</span>}
                       {p.name}
                     </td>
                     <td className="px-2 py-2">{p.developer || "—"}</td>

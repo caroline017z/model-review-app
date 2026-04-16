@@ -52,7 +52,7 @@ export function ProjectNavigator() {
       if (navFilter !== "all" && !p.findings?.some((f) => f.status === navFilter)) return false;
       return true;
     })
-    .sort((a, b) => Math.abs(b.p.equityK || 0) - Math.abs(a.p.equityK || 0));
+    .sort((a, b) => (a.p.projNumber ?? 999) - (b.p.projNumber ?? 999));
 
   return (
     <div className="p-3 overflow-y-auto text-[12px]">
@@ -123,7 +123,7 @@ export function ProjectNavigator() {
             <div className="font-bold text-[11px] flex items-center gap-1">
               {p.projNumber != null && (
                 <span className="text-[8px] bg-[var(--teal)] text-white px-[3px] py-px rounded font-bold shrink-0">
-                  P{p.projNumber}
+                  {p.projNumber}
                 </span>
               )}
               <span className="truncate">{p.name}</span>
