@@ -442,7 +442,7 @@ def load_pricing_model(file):
 
         # Read ALL non-empty cells keyed by column B label for walk comparison
         all_inputs: dict = {}
-        for r in range(1, max_row + 1):
+        for r in range(1, 1001):
             label_val = ws.cell(row=r, column=label_col).value
             cell_val = ws.cell(row=r, column=col).value
             if label_val is not None and cell_val is not None:

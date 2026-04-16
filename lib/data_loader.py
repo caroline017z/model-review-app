@@ -445,7 +445,7 @@ def load_pricing_model(file):
         # hardcoded input between two models by matching on label text,
         # not just the rows we have canonical definitions for.
         all_inputs: dict[str, Any] = {}
-        for r in range(1, max_row + 1):
+        for r in range(1, 1001):
             label_val = ws.cell(row=r, column=label_col).value
             cell_val = ws.cell(row=r, column=col).value
             if label_val is not None and cell_val is not None:
