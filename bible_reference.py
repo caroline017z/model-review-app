@@ -54,7 +54,7 @@ CS_STATE_OVERRIDES = {
     "IL": {
         # Separate market assumption noted on the side of the bible CS column —
         # IL hail risk premium. Unit basis is $/MW-dc/yr (not kW-yr).
-        296: {"value": 4185, "unit": "$/MW-dc/yr", "tol": 0,
+        296: {"value": 4815, "unit": "$/MW-dc/yr", "tol": 0,
               "label": "P&C Insurance (IL hail premium)"},
     },
 }
