@@ -137,21 +137,29 @@ st.markdown(
     """
     <style>
       /* Zero the default gutters on every layer Streamlit puts between the
-         sidebar edge and the component iframe. */
+         sidebar edge and the component iframe, but keep a small left gap so
+         the iframe doesn't butt up flush against the sidebar border. */
       [data-testid="stAppViewContainer"] > section.main,
       [data-testid="stMain"],
       [data-testid="stMain"] > div,
       section.main > div,
       .main .block-container,
       .block-container {
-        padding-left: 0 !important;
         padding-right: 0 !important;
         padding-top: 0 !important;
         max-width: 100% !important;
       }
-      /* The block-container normally has top padding for the hidden header;
-         we want a thin gap instead of zero so the top bar isn't glued. */
-      .main .block-container { padding-top: 0.25rem !important; }
+      /* Small breathing-room strip between the sidebar edge and the mockup. */
+      .main .block-container {
+        padding-top: 0.25rem !important;
+        padding-left: 10px !important;
+      }
+      /* When the sidebar is collapsed, keep the 44px reserved for the
+         always-visible teal chevron (set below) — no extra gap needed. */
+      section[data-testid="stSidebar"][aria-expanded="false"] ~ section .block-container,
+      section[data-testid="stSidebar"][aria-expanded="false"] + section .block-container {
+        padding-left: 44px !important;
+      }
 
       /* Make every vertical block and element container full width. */
       [data-testid="stVerticalBlock"],
@@ -530,8 +538,24 @@ def main():
             )
             model_key = getattr(model_file, "name", None) or m1_label or "model"
 
+            # All / None bulk toggles. Writing to session_state flips every
+            # "inc::..." key on the next rerun; individual checkboxes then
+            # read the new default.
+            def _bulk_toggle(items, value):
+                for c in items:
+                    st.session_state[f"inc::{model_key}::{c['id']}::{c['name']}"] = value
+
             if suggested:
-                _render_group(suggested, default_checked=True)
+                bc1, bc2 = st.columns(2)
+                with bc1:
+                    st.button("✓ All", key="sug_all", use_container_width=True,
+                              on_click=_bulk_toggle, args=(suggested, True))
+                with bc2:
+                    st.button("✗ None", key="sug_none", use_container_width=True,
+                              on_click=_bulk_toggle, args=(suggested, False))
+                # Scroll cap so a 30+ project list doesn't eat the sidebar.
+                with st.container(height=min(420, 80 + 44 * len(suggested)), border=False):
+                    _render_group(suggested, default_checked=True)
             else:
                 st.warning(
                     "No projects with row-7 toggle = On. "
