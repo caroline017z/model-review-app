@@ -48,24 +48,26 @@ h1,h2,h3,h4,h5,h6 {
 .block-container { padding-top: 1.2rem; max-width: 1400px; }
 
 .hero-banner {
-    background: linear-gradient(135deg, #050D25 0%, #1a2340 55%, #212B48 100%);
-    border-radius: 6px;
-    padding: 1.4rem 1.8rem;
-    margin-bottom: 1.2rem;
-    border-bottom: 2px solid rgba(69,167,80,0.4);
+    background: linear-gradient(135deg, #050D25 0%, #0d1a38 40%, #1a2340 70%, #212B48 100%);
+    border-radius: 4px;
+    padding: 0.9rem 1.4rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 2px solid #518484;
+    box-shadow: 0 1px 3px rgba(5,13,37,0.12);
 }
 .hero-banner h1 {
     color: #ffffff !important;
-    font-size: 1.3rem !important;
+    font-size: 1.1rem !important;
     margin: 0 !important;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     font-weight: 700 !important;
+    text-transform: uppercase;
 }
 .hero-banner p {
-    color: rgba(255,255,255,0.5);
-    font-size: 0.78rem;
-    margin: 0.2rem 0 0 0;
-    letter-spacing: 0.02em;
+    color: rgba(255,255,255,0.45);
+    font-size: 0.7rem;
+    margin: 0.15rem 0 0 0;
+    letter-spacing: 0.03em;
 }
 
 .kpi-row {

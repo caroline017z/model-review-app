@@ -168,30 +168,35 @@ st.markdown(
 st.markdown(
     """
     <style>
-      /* Zero the default gutters on every layer Streamlit puts between the
-         sidebar edge and the component iframe, but keep a small left gap so
-         the iframe doesn't butt up flush against the sidebar border. */
+      /* Zero ALL gutters on every Streamlit wrapper layer. Uniform 1px
+         buffer left + right so the mockup is flush with edges. */
+      [data-testid="stAppViewContainer"],
       [data-testid="stAppViewContainer"] > section.main,
       [data-testid="stMain"],
       [data-testid="stMain"] > div,
-      section.main > div {
-        padding-right: 0 !important;
-        padding-top: 0 !important;
-        max-width: 100% !important;
-      }
+      section.main > div,
+      section.main,
       .main .block-container,
-      .block-container {
+      .block-container,
+      [data-testid="stVerticalBlockBorderWrapper"] > div {
+        padding-left: 1px !important;
+        padding-right: 1px !important;
         padding-top: 0 !important;
         max-width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
       }
-      /* Minimal breathing-room strip between sidebar/window edges and mockup. */
       .main .block-container {
-        padding-top: 0.25rem !important;
-        padding-left: 2px !important;
-        padding-right: 2px !important;
+        padding-top: 0.1rem !important;
       }
-      /* When the sidebar is collapsed, keep the 44px reserved for the
-         always-visible teal chevron (set below) — no extra gap needed. */
+      /* Sidebar gap: Streamlit's main section has a built-in left margin
+         when the sidebar is expanded. Zero it so our 1px is the only gap. */
+      [data-testid="stAppViewContainer"] > section.main {
+        margin-left: 0 !important;
+      }
+      /* When the sidebar is collapsed, reserve space for the teal chevron. */
+      section[data-testid="stSidebar"][aria-expanded="false"] ~ section.main,
+      section[data-testid="stSidebar"][aria-expanded="false"] ~ [data-testid="stAppViewContainer"] > section.main,
       section[data-testid="stSidebar"][aria-expanded="false"] ~ section .block-container,
       section[data-testid="stSidebar"][aria-expanded="false"] + section .block-container {
         padding-left: 44px !important;
@@ -220,6 +225,29 @@ st.markdown(
 
       /* Hide the empty header strip and its shadow. */
       header[data-testid="stHeader"] { background: transparent; height: 0; }
+
+      /* Download button: teal with professional styling */
+      .main .stDownloadButton > button {
+        background: #518484 !important;
+        color: #fff !important;
+        border: 1px solid #3d6868 !important;
+        border-radius: 4px !important;
+        font-family: 'Century Gothic', 'Segoe UI', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: 0.8rem !important;
+        letter-spacing: 0.04em;
+        padding: 0.5rem 1.2rem !important;
+        transition: background 0.15s ease, box-shadow 0.15s ease;
+      }
+      .main .stDownloadButton > button:hover {
+        background: #3d6868 !important;
+        box-shadow: 0 2px 6px rgba(5,13,37,0.15) !important;
+      }
+
+      /* Status widget: tighter when collapsed */
+      [data-testid="stStatusWidget"] {
+        font-size: 0.78rem !important;
+      }
     </style>
     <script>
       // Streamlit measures component width at mount time and can leave the
@@ -452,8 +480,8 @@ def render_sidebar():
 def main():
     st.markdown("""
     <div class="hero-banner">
-        <h1>38DN Pricing Model Review</h1>
-        <p>Model validation, comparison &amp; market assumptions \u2014 Q1 2026 Pricing Bible</p>
+        <h1>38<span style="color:#518484;">&deg;</span>N &middot; Pricing Model Review</h1>
+        <p>Validation, comparison &amp; market assumptions &mdash; Q1 2026 Pricing Bible</p>
     </div>
     """, unsafe_allow_html=True)
 
