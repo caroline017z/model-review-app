@@ -168,17 +168,36 @@ def audit_project(proj_data):
         }
 
     # ---- 2. MARKET_BIBLE: per (state,utility,program) exact-match ----
+    # Yield for $/kWh → $/MW/yr conversion (row 14 = energy yield kWh/kWp)
+    _yield = safe_float(proj_data.get(14)) or 0
+
     if market:
-        # Iterate only numeric/sentinel row keys (skip metadata strings like
-        # "rec_rate", "incentive_detail" which aren't model rows)
         for k, expected in market.items():
             if not isinstance(k, int):
                 continue
-            tol = 0.0  # tight match for market values
-            # Market values for pct rows (161, 162, 240) are stored as fractions;
-            # the _exact_check magnitude guard handles unit drift either way.
+            tol = 0.0
             mkt_unit = _unit_for(k)
-            status, note = _exact_check(proj_data.get(k), expected, tol, mkt_unit, row=k)
+            actual = proj_data.get(k)
+
+            # Unit conversion: bible stores customer mgmt/acq in $/kWh but
+            # models often store these as $/MW/yr. Detect by magnitude:
+            # if bible value < 0.1 and model value > 100, convert bible to $/MW/yr.
+            exp_for_check = expected
+            if k == 240 and _yield > 0:
+                a_float = safe_float(actual)
+                e_float = safe_float(expected)
+                if a_float is not None and e_float is not None:
+                    if a_float > 100 and e_float < 1:
+                        # Convert bible $/kWh to $/MW/yr:
+                        # $/kWh × yield(kWh/Wdc) × 1,000,000(W/MW) = $/MW/yr
+                        exp_for_check = e_float * _yield * 1_000_000
+                        tol = exp_for_check * 0.05  # 5% tolerance for rounding
+                        mkt_unit = "$/MW/yr"
+
+            status, note = _exact_check(actual, exp_for_check, tol, mkt_unit, row=k)
+            # Store converted expected for display clarity
+            if exp_for_check != expected:
+                expected = exp_for_check
             findings[k] = {
                 "status": status, "expected": expected, "actual": proj_data.get(k),
                 "tol": tol, "note": note,
