@@ -8,35 +8,33 @@ Bible, and renders findings in an IC-ready HTML UI.
 
 ## Architecture
 
-```
-          ┌──────────────────────────────────────────────┐
-          │                 app.py (Streamlit)            │
-          │  sidebar: uploads, bible overrides,           │
-          │  project include/exclude checklist            │
-          └──────────┬──────────────────────┬─────────────┘
-                     │                      │
-   load_pricing_model│                      │ render_html
-          ▼                                 ▼
-  ┌────────────────┐              ┌────────────────────┐
-  │ data_loader.py │              │ mockup_view.py     │
-  │ openpyxl parse │              │ translate real     │
-  │ label-based    │              │ project data into  │
-  │ row resolver   │              │ the mockup's JS    │
-  │ (rows.py)      │              │ schema + inject    │
-  └────────┬───────┘              │ into the HTML      │
-           │                      └────────┬───────────┘
-           │     audit_project             │
-           ▼                                ▼
-  ┌────────────────┐              ┌──────────────────────┐
-  │ bible_audit.py │◀─────────────│ VP_Review_Mockup.html│
-  │ bible_reference│  CS_AVERAGE  │ single-page UI       │
-  │ config.py      │  MARKET_BIBLE│ Plotly charts, JS    │
-  └────────────────┘              └──────────────────────┘
-                                           ▲
-                                           │ components.html()
-                                           │ (iframe)
-                                           │
-                                      browser
+```mermaid
+flowchart TB
+  Browser([Reviewer browser])
+  Streamlit["app.py<br/>(Streamlit entry)"]
+  Sidebar["Sidebar<br/>uploads · overrides · project filter"]
+  Loader["data_loader.py<br/>openpyxl · label-based row resolver"]
+  Rows["rows.py<br/>canonical row constants"]
+  Audit["bible_audit.py<br/>exact / range / sentinel checks"]
+  Ref["bible_reference.py<br/>CS_AVERAGE · MARKET_BIBLE"]
+  View["mockup_view.py<br/>translate + impact/CF/tornado builders"]
+  HTML["VP_Review_Mockup.html<br/>single-page UI · Plotly"]
+
+  Browser -->|upload xlsm| Streamlit
+  Streamlit --> Sidebar
+  Streamlit -->|load_pricing_model| Loader
+  Loader -->|canonical rows| Rows
+  Loader --> Audit
+  Audit --> Ref
+  Loader -->|projects dict| View
+  Audit -->|per-project findings| View
+  View -->|render_html + inject JSON| HTML
+  HTML -->|components.html iframe| Browser
+
+  classDef py fill:#e8f0f8,stroke:#1D6FA9,color:#050D25;
+  classDef ui fill:#f7f8fa,stroke:#518484,color:#050D25;
+  class Streamlit,Loader,Audit,Ref,View,Rows,Sidebar py;
+  class HTML,Browser ui;
 ```
 
 ### Live modules
@@ -87,7 +85,7 @@ pip install pytest
 python -m pytest tests/ -q
 ```
 
-Five test modules cover:
+Six test modules cover:
 
 | File | Scope |
 |---|---|
@@ -96,8 +94,9 @@ Five test modules cover:
 | `tests/test_mockup_view.py` | `_safe_json` XSS defense (U+2028 + `</script>`), `_compute_impact` unit rules, `_roll_up` leverage scaling, `render_html` inject round-trip |
 | `tests/test_filter_pipeline.py` | `list_candidate_projects → filter_projects → build_payload` consistency; placeholder-column rejection; MW total matches across layers |
 | `tests/test_bible_reference.py` | `lookup_market` fuzzy matcher (MD/DE normalization, utility containment) |
+| `tests/test_mockup_builders.py` | `_build_capital_stack` (illustrative flag, DSCR hint, ITC=0 zeros TE bar), `_build_cashflow` (25-yr shape, terminal defensibility, MACRS, rate-component fallback), `_build_sensitivity` (ranked by magnitude, ≤7 inputs, sign direction), `render_html` round-trip with JSON re-parse |
 
-CI target: 100% pass, <1s wall time.
+CI target: 100% pass, <1s wall time. **74 tests** today.
 
 ---
 
