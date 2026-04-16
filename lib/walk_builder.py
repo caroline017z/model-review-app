@@ -49,8 +49,20 @@ BLUE_FONT = Font(color="0000FF", size=11)
 BOLD_FONT = Font(bold=True, size=11)
 NORMAL_FONT = Font(size=11)
 
-THIN_BOTTOM = Border(bottom=Side(style="thin"))
-DOUBLE_BOTTOM = Border(bottom=Side(style="double"))
+_THIN = Side(style="thin")
+_DOUBLE = Side(style="double")
+THIN_BOTTOM = Border(bottom=_THIN)
+DOUBLE_BOTTOM = Border(bottom=_DOUBLE)
+# Column separators for the NPP/IRR/delta grid
+THIN_LEFT = Border(left=_THIN)
+THIN_LEFT_RIGHT = Border(left=_THIN, right=_THIN)
+THIN_BOTTOM_LEFT = Border(bottom=_THIN, left=_THIN)
+THIN_BOTTOM_LEFT_RIGHT = Border(bottom=_THIN, left=_THIN, right=_THIN)
+# Boxed cell for variance section values
+THIN_BOX = Border(top=_THIN, bottom=_THIN, left=_THIN, right=_THIN)
+# Header row: bottom + left separator
+HDR_NPP = Border(bottom=_THIN, left=_THIN, top=_THIN)
+HDR_DELTA = Border(bottom=_THIN, left=_THIN, right=_THIN, top=_THIN)
 
 CENTER = Alignment(horizontal="center", vertical="center")
 CENTER_WRAP = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -537,40 +549,45 @@ def build_walk_xlsx(
 
     for ci in range(n_cases):
         npp_c, irr_c, delta_c = case_cols(ci)
-        for col, text, use_blue in [
-            (npp_c, "NPP ($/W)", False),
-            (irr_c, "IRR (%)", False),
-        ]:
-            cell = ws.cell(row=6, column=col, value=text)
-            cell.font = BLUE_FONT if use_blue else NORMAL_FONT
-            cell.fill = GREY_FILL
-            cell.border = THIN_BOTTOM
-            cell.alignment = CENTER
+        # NPP header — left border separator
+        cell = ws.cell(row=6, column=npp_c, value="NPP ($/W)")
+        cell.font = NORMAL_FONT
+        cell.fill = GREY_FILL
+        cell.border = HDR_NPP
+        cell.alignment = CENTER
+        # IRR header
+        cell = ws.cell(row=6, column=irr_c, value="IRR (%)")
+        cell.font = NORMAL_FONT
+        cell.fill = GREY_FILL
+        cell.border = THIN_BOTTOM
+        cell.alignment = CENTER
         if ci > 0:
+            # Delta header — left+right border
             cell = ws.cell(row=6, column=delta_c, value="\u2206 Base")
             cell.font = BLUE_FONT
             cell.fill = GREY_FILL
-            cell.border = THIN_BOTTOM
+            cell.border = HDR_DELTA
             cell.alignment = CENTER
 
-    # Rows 7+: Per-project data
+    # Rows 7+: Per-project data with column separators matching reference
     data_start = 7
     for pi, pm in enumerate(metrics):
         r = data_start + pi
         is_last = pi == len(metrics) - 1
-        row_border = THIN_BOTTOM if is_last else Border()
 
         # Project name — navy fill, white bold
         cell = ws.cell(row=r, column=2, value=pm["name"])
         cell.font = WHITE_BOLD
         cell.fill = NAVY_FILL
-        cell.border = row_border
+        if is_last:
+            cell.border = THIN_BOTTOM
 
         # MWdc
         cell = ws.cell(row=r, column=3, value=pm["mwdc"])
         cell.number_format = FMT_MW
         cell.alignment = CENTER
-        cell.border = row_border
+        if is_last:
+            cell.border = THIN_BOTTOM
 
         # Per-case NPP, IRR, delta
         case_vals = [
@@ -582,26 +599,27 @@ def build_walk_xlsx(
         for ci, (npp_val, irr_val) in enumerate(case_vals):
             npp_c, irr_c, delta_c = case_cols(ci)
 
-            # NPP
+            # NPP — left border separator
             cell = ws.cell(row=r, column=npp_c, value=npp_val)
             cell.number_format = FMT_NPP
             cell.alignment = CENTER
-            cell.border = row_border
+            cell.border = THIN_BOTTOM_LEFT if is_last else THIN_LEFT
 
             # IRR
             cell = ws.cell(row=r, column=irr_c, value=irr_val)
             cell.number_format = FMT_IRR
             cell.alignment = CENTER
-            cell.border = row_border
+            if is_last:
+                cell.border = THIN_BOTTOM
 
-            # Delta (only for non-base cases)
+            # Delta (only for non-base cases) — left+right border
             if ci > 0:
                 npp_letter = get_column_letter(npp_c)
                 formula = f"={npp_letter}{r}-{base_npp_col_letter}{r}"
                 cell = ws.cell(row=r, column=delta_c, value=formula)
                 cell.number_format = FMT_DELTA
                 cell.alignment = CENTER
-                cell.border = row_border
+                cell.border = THIN_BOTTOM_LEFT_RIGHT if is_last else THIN_LEFT_RIGHT
 
     # Summary row: MW-weighted averages
     summary_r = data_start + len(metrics)
@@ -727,26 +745,26 @@ def build_walk_xlsx(
                 m1_display = m1_sum / total_mw if m1_count else None
                 m2_display = m2_sum / total_mw if m2_count else None
 
-            # Case 1 value in col E
+            # Case 1 value in col E — boxed cell
             c_e = ws.cell(row=cur_row, column=5, value=m1_display)
             if not is_text_val and m1_display is not None:
                 c_e.number_format = nfmt
             c_e.alignment = CENTER_CONT
-            c_e.border = THIN_BOTTOM
+            c_e.border = THIN_BOX
 
-            # Delta in col G (=H{r}-E{r})
+            # Delta in col G (=H{r}-E{r}) — boxed cell
             if not is_text_val:
                 delta_cell = ws.cell(row=cur_row, column=7, value=f"=H{cur_row}-E{cur_row}")
                 delta_cell.number_format = FMT_DELTA
                 delta_cell.alignment = CENTER
-                delta_cell.border = THIN_BOTTOM
+                delta_cell.border = THIN_BOX
 
-            # Case 2 value in col H
+            # Case 2 value in col H — boxed cell
             c_h = ws.cell(row=cur_row, column=8, value=m2_display)
             if not is_text_val and m2_display is not None:
                 c_h.number_format = nfmt
             c_h.alignment = CENTER_CONT
-            c_h.border = THIN_BOTTOM
+            c_h.border = THIN_BOX
 
             # Yellow highlight on changed values
             if m1_display != m2_display:
