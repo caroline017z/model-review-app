@@ -15,11 +15,31 @@ const STATUS_LABEL: Record<string, string> = {
   OK: "OK", OFF: "FAIL", OUT: "FLAG", MISSING: "MISSING", REVIEW: "REVIEW",
 };
 
-function fmtVal(v: string | number | null | undefined): string {
+/** Format a value using the row's declared unit to pick the right precision. */
+function fmtVal(v: string | number | null | undefined, unit?: string): string {
   if (v == null) return "—";
   if (typeof v === "number") {
-    if (Math.abs(v) < 1 && v !== 0) return `${(v * 100).toFixed(2)}%`;
+    const u = (unit || "").toLowerCase();
+    // Percentage rows: display as X.XX% (multiply fraction by 100)
+    if (u === "%" || u === "ratio") {
+      const display = Math.abs(v) <= 1.5 ? v * 100 : v;
+      return `${display.toFixed(2)}%`;
+    }
+    // $/W rows: 3 decimal places
+    if (u.includes("$/w") || u.includes("/w")) {
+      return `$${v.toFixed(3)}`;
+    }
+    // $/MW rows: integer with comma separator
+    if (u.includes("$/mw") || u.includes("/mw")) {
+      return `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    }
+    // $/kWh rows: 4 decimal places
+    if (u.includes("$/kwh") || u.includes("/kwh")) {
+      return `$${v.toFixed(4)}`;
+    }
+    // Large numbers: comma-separated integer
     if (Math.abs(v) >= 1000) return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    // Small decimals without a unit hint: 3dp
     return v.toFixed(3);
   }
   return String(v);
@@ -81,8 +101,8 @@ function CategorySection({ cat, rows }: { cat: string; rows: BibleMappingRow[] }
                 >
                   <td className={`px-3 py-1 ${isOk ? "" : "font-semibold"}`}>{r.label}</td>
                   <td className="text-center px-2 py-1" style={{ color: "var(--muted)" }}>{r.unit}</td>
-                  <td className="text-center px-2 py-1 tabular-nums">{fmtVal(r.expected)}</td>
-                  <td className="text-center px-2 py-1 tabular-nums">{fmtVal(r.actual)}</td>
+                  <td className="text-center px-2 py-1 tabular-nums">{fmtVal(r.expected, r.unit)}</td>
+                  <td className="text-center px-2 py-1 tabular-nums">{fmtVal(r.actual, r.unit)}</td>
                   <td className="text-center px-2 py-1">
                     <span className={`text-[8px] px-1.5 py-px rounded font-bold ${STATUS_CLS[r.status] || ""}`}>
                       {STATUS_LABEL[r.status] || r.status}
