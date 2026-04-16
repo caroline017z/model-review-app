@@ -1,0 +1,2135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>38DN — VP Pricing Review (Mockup)</title>
+<!-- Plotly: try multiple CDNs in case one is blocked -->
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"
+        onerror="var s=document.createElement('script');s.src='https://unpkg.com/plotly.js-dist-min@2.35.2/plotly.min.js';document.head.appendChild(s);"></script>
+<style>
+  :root{
+    /* 38DN core palette */
+    --navy:#050D25; --indigo:#212B48; --teal:#518484; --teal-deep:#3d6868;
+    --green:#45A750; --blue:#1D6FA9;
+    /* Surfaces */
+    --bg:#f7f8fa; --surface:#ffffff; --inset:#eef0f5; --raised:#fafbfc;
+    /* Text */
+    --text:#050D25; --text-2:#3a4357; --muted:#7d8694; --muted-2:#aab1bc;
+    /* Borders */
+    --border:rgba(5,13,37,0.08); --border-strong:rgba(5,13,37,0.16);
+    /* Status — RED RESERVED FOR HARD ERRORS ONLY */
+    --off:#b83230; --off-bg:#fbecea;
+    --out:#3d6868; --out-bg:rgba(81,132,132,0.10);   /* teal-deep, not yellow */
+    --miss:#7d8694; --miss-bg:#eef0f5;                /* neutral grey */
+    --rev:#1D6FA9;  --rev-bg:rgba(29,111,169,0.08);
+    --ok:#3a7d44;  --ok-bg:rgba(58,125,68,0.08);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Inter','Segoe UI','Century Gothic',system-ui,sans-serif;
+    font-size:13px;-webkit-font-smoothing:antialiased;}
+
+  /* ===== Top bar ===== */
+  .topbar{
+    height:46px;background:var(--navy);color:#fff;
+    display:flex;align-items:center;padding:0 18px;gap:20px;
+    border-bottom:1px solid rgba(255,255,255,0.06);
+    box-shadow:0 1px 4px rgba(5,13,37,0.25);
+    position:relative;z-index:10;
+  }
+  .brand{font-weight:700;letter-spacing:0.08em;font-size:11.5px;text-transform:uppercase;}
+  .brand span{color:var(--teal);}
+  .modes{display:flex;background:rgba(255,255,255,0.04);border-radius:4px;padding:2px;gap:1px;}
+  .mode{padding:5px 13px;font-size:11px;font-weight:600;border-radius:3px;color:rgba(255,255,255,0.50);cursor:pointer;letter-spacing:0.04em;transition:all .15s ease;}
+  .mode:hover{color:rgba(255,255,255,0.80);background:rgba(255,255,255,0.04);}
+  .mode.active{background:var(--teal);color:#fff;box-shadow:0 1px 3px rgba(81,132,132,0.3);}
+  .top-meta{margin-left:auto;display:flex;gap:16px;font-size:10.5px;color:rgba(255,255,255,0.60);letter-spacing:0.02em;}
+  .top-meta b{color:rgba(255,255,255,0.92);font-weight:600;}
+
+  /* ===== Audit summary strip ===== */
+  .audit-strip{
+    background:var(--surface);border-bottom:1px solid var(--border);
+    padding:8px 18px;display:flex;gap:6px;align-items:center;
+  }
+  .strip-label{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.10em;color:var(--muted);margin-right:4px;}
+  .pill{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:4px 9px;border-radius:4px;font-size:11px;font-weight:600;
+    border:1px solid var(--border);background:var(--surface);cursor:default;color:var(--text-2);
+    transition:border-color .12s ease;
+  }
+  .pill:hover{border-color:var(--border-strong);}
+  .pill .num{font-size:12.5px;font-weight:700;color:inherit;font-variant-numeric:tabular-nums;}
+  .pill.off{background:var(--off-bg);color:var(--off);border-color:rgba(184,50,48,0.2);}
+  .pill.out{background:var(--out-bg);color:var(--out);border-color:rgba(81,132,132,0.25);}
+  .pill.miss{background:var(--miss-bg);color:var(--miss);border-color:rgba(125,134,148,0.25);}
+  .pill.rev{background:var(--rev-bg);color:var(--rev);border-color:rgba(29,111,169,0.25);}
+  .strip-divider{width:1px;height:22px;background:var(--border);margin:0 6px;}
+  .impact{margin-left:auto;font-size:12px;color:var(--text-2);}
+  .impact b{color:var(--off);font-weight:700;font-size:13.5px;}
+
+  /* ===== Layout ===== */
+  .layout{display:grid;grid-template-columns:260px 1fr 280px;gap:1px;background:var(--border);min-height:calc(100vh - 50px - 47px);}
+  .panel{background:var(--bg);padding:14px;overflow-y:auto;min-width:0;}
+  .panel.center{padding:18px;}
+  .panel.right{min-width:0;}
+  /* Responsive: drop the right reference panel on narrower viewports
+     (reviewer can reach the same data via the Reference top-bar mode). */
+  @media (max-width:1380px){
+    .layout{grid-template-columns:260px 1fr 0;}
+    .panel.right{display:none;}
+  }
+  @media (max-width:1040px){
+    .layout{grid-template-columns:220px 1fr 0;}
+  }
+
+  /* ===== Project navigator ===== */
+  .nav-header{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between;}
+  .nav-search{
+    width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;
+    background:var(--surface);font-size:12px;margin-bottom:10px;
+  }
+  .filter-row{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;}
+  .chip{font-size:10px;padding:3px 8px;border-radius:10px;background:var(--inset);color:var(--text-2);cursor:pointer;border:1px solid transparent;}
+  .chip.active{background:var(--indigo);color:#fff;}
+  .proj-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:4px;
+    padding:7px 10px;margin-bottom:4px;cursor:pointer;
+    border-left:2px solid transparent;transition:all .12s ease;
+  }
+  .proj-card:hover{border-color:var(--border-strong);background:var(--raised);}
+  .proj-card.selected{border-left-color:var(--teal);background:#fff;box-shadow:0 1px 3px rgba(5,13,37,0.06);}
+  .proj-card.proj-approved{border-left-color:var(--teal);background:rgba(81,132,132,0.04);}
+  .proj-card.proj-approved .pchips{opacity:0.5;}
+  .proj-card .pname{font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:6px;}
+  .proj-rank{font-size:9.5px;font-weight:700;color:var(--muted);background:var(--inset);padding:1px 5px;border-radius:3px;letter-spacing:0.02em;}
+  .proj-card.selected .proj-rank{background:rgba(81,132,132,0.18);color:var(--teal-deep);}
+  .proj-pnum{
+    font-size:9px;font-weight:700;letter-spacing:0.04em;
+    background:var(--rev-bg);color:var(--rev);
+    padding:1px 5px;border-radius:3px;margin-right:6px;font-variant-numeric:tabular-nums;
+  }
+  .proj-card .pmeta{font-size:10.5px;color:var(--muted);margin-top:2px;}
+  .proj-card .pchips{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap;}
+  .micro{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:3px;letter-spacing:0.04em;}
+  .micro.off{background:var(--off-bg);color:var(--off);}
+  .micro.out{background:var(--out-bg);color:var(--out);}
+  .micro.miss{background:var(--miss-bg);color:var(--miss);}
+  .micro.rev{background:var(--rev-bg);color:var(--rev);}
+  .micro.ok{background:var(--ok-bg);color:var(--ok);}
+
+  /* ===== Center deep-dive ===== */
+  .deal-header{
+    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+    margin-bottom:12px;overflow:hidden;
+  }
+  .deal-header-bar{
+    background:var(--navy);
+    color:#fff;padding:14px 18px;display:flex;align-items:center;gap:14px;
+  }
+  .deal-title{font-size:19px;font-weight:700;letter-spacing:-0.01em;color:#fff;}
+  .deal-sub{color:rgba(255,255,255,0.55);font-size:11.5px;}
+  .verdict{
+    padding:5px 11px;border-radius:4px;font-weight:800;font-size:11px;
+    text-transform:uppercase;letter-spacing:0.06em;color:#fff;
+    background:rgba(184,50,48,0.28);border:1px solid rgba(255,255,255,0.25);
+  }
+  .verdict.v-clean {background:rgba(58,125,68,0.28);border-color:rgba(155,224,166,0.4);}
+  .verdict.v-review{background:rgba(81,132,132,0.28);border-color:rgba(207,230,230,0.4);}
+  .verdict.v-rework{background:rgba(184,50,48,0.28);border-color:rgba(255,154,152,0.35);}
+  .impact-objs{margin-left:auto;display:flex;gap:8px;}
+  .impact-obj{
+    background:#ffffff;border:1px solid rgba(255,255,255,0.22);
+    border-radius:5px;padding:7px 13px;min-width:120px;
+  }
+  .impact-obj .iol{font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);}
+  .impact-obj .iov{font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;margin-top:1px;}
+  .impact-obj .ios{font-size:9.5px;color:var(--muted);margin-top:1px;letter-spacing:0.02em;}
+  .impact-obj.bad{border-left:3px solid var(--off);background:#ffffff;}
+  /* Equity chip is primary — same width as siblings, bigger type font. */
+  .impact-obj.impact-equity .iov{font-size:18px;}
+  .impact-obj.bad .iov{color:var(--off);}
+  .deal-header-body{padding:14px 18px;}
+  .deal-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;}
+  /* Reflow on the SAME boundary where the right panel drops (1380px) so
+     there's never a moment when 6 KPIs squeeze into a narrowed 3-col layout. */
+  @media (max-width:1380px){.deal-kpis{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));}}
+  /* Header wraps below ~1040px so the equity/IRR/NPP chips don't clip. */
+  @media (max-width:1080px){
+    .deal-header-bar{flex-wrap:wrap;row-gap:8px;}
+    .impact-objs{flex-wrap:wrap;}
+  }
+  .kpi{background:var(--raised);border:1px solid var(--border);border-radius:5px;padding:10px 12px;border-left:2px solid var(--border);}
+  .kpi.k-accent{border-left-color:var(--teal);}
+  .kpi.k-off{border-left-color:var(--off);}
+  .kpi-label{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);}
+  .kpi-value{font-size:16.5px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums;}
+  .kpi-sub{font-size:10.5px;color:var(--muted);margin-top:2px;}
+  .kpi-sub.neg{color:var(--off);font-weight:600;}
+
+  .card{
+    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+    margin-bottom:12px;overflow:hidden;
+  }
+  .card-h{
+    display:flex;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);
+    background:var(--raised);
+  }
+  .card-h h3{margin:0;font-size:12.5px;font-weight:700;letter-spacing:0.02em;}
+  .card-h .h-meta{margin-left:auto;font-size:10.5px;color:var(--muted);}
+  .card-body{padding:14px 16px;}
+
+  /* Findings table */
+  .findings-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+  .findings-tbl th{
+    text-align:left;padding:8px 10px;font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);
+    border-bottom:1px solid var(--border);background:var(--raised);
+  }
+  .findings-tbl td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  .findings-tbl tr:last-child td{border-bottom:none;}
+  .findings-tbl tr:hover td{background:var(--inset);}
+  .field{font-weight:600;}
+  .num-cell{font-variant-numeric:tabular-nums;text-align:right;}
+  .delta-neg{color:var(--off);font-weight:700;}
+  .delta-pos{color:var(--text);font-weight:600;}    /* not green — neutral */
+  .impact-cell{font-weight:700;text-align:right;font-variant-numeric:tabular-nums;}
+  .impact-cell.neg{color:var(--off);}
+  /* Accounting-style negatives — red parentheses, never minus-black */
+  .neg-acct{color:var(--off);font-weight:700;font-variant-numeric:tabular-nums;}
+  .kpi-sub.neg{color:var(--off);font-weight:600;}
+  .status-tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:0.04em;}
+  .status-tag.off{background:var(--off-bg);color:var(--off);}
+  .status-tag.out{background:var(--out-bg);color:var(--out);}
+  .status-tag.miss{background:var(--miss-bg);color:var(--miss);}
+  .row-action{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-height:22px;padding:3px 8px;border-radius:3px;
+    border:1px solid var(--border);background:var(--surface);
+    font-size:10px;color:var(--teal);cursor:pointer;font-weight:700;
+    letter-spacing:0.04em;user-select:none;
+  }
+  .row-action:hover{background:var(--inset);color:var(--teal-deep);}
+  .row-action.active-accept{background:rgba(58,125,68,0.16);color:var(--ok);border-color:rgba(58,125,68,0.4);font-weight:700;}
+  .row-action.active-flag  {background:rgba(184,50,48,0.16);color:var(--off);border-color:rgba(184,50,48,0.4);font-weight:700;}
+  .row-action.active-skip  {background:rgba(125,134,148,0.16);color:var(--muted);border-color:rgba(125,134,148,0.4);font-weight:700;}
+  .row-note-toggle.has-note{background:rgba(29,111,169,0.12);color:var(--blue);border-color:rgba(29,111,169,0.3);}
+  .action-cell{white-space:nowrap;display:inline-flex;gap:4px;}
+  .row-status-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:0.05em;padding:1px 5px;border-radius:2px;margin-right:6px;vertical-align:middle;}
+  .row-status-badge.accepted{background:var(--ok-bg);color:var(--ok);}
+  .row-status-badge.flagged {background:var(--off-bg);color:var(--off);}
+  .finding-note-row td{border-bottom:1px solid var(--border);}
+  /* Hide the bottom border on a finding when its note row is open, so the
+     note visually belongs to its parent finding rather than floating. */
+  .finding-row.has-open-note td{border-bottom:none;}
+
+  /* ===== Audit log — entry cards rather than console output ===== */
+  .audit-log-section{margin-top:12px;display:none;}
+  .audit-log-header{
+    font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;
+    color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:8px;
+  }
+  .audit-log-header .audit-log-sub{
+    font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted-2);
+  }
+  .audit-log{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;}
+  .audit-entry{
+    display:grid;grid-template-columns:78px 96px 1fr;gap:10px;align-items:baseline;
+    padding:7px 10px;border:1px solid var(--border);border-radius:4px;
+    background:var(--surface);font-size:11.5px;color:var(--text-2);
+  }
+  .audit-entry .audit-tag{
+    display:inline-block;padding:2px 7px;border-radius:3px;
+    font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;
+    text-align:center;
+  }
+  .audit-entry .audit-tag.kind-approved{background:var(--ok-bg);color:var(--ok);}
+  .audit-entry .audit-tag.kind-override{background:var(--rev-bg);color:var(--rev);}
+  .audit-entry .audit-tag.kind-note    {background:var(--inset);color:var(--text-2);}
+  .audit-entry .audit-ts{
+    font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;color:var(--muted);
+  }
+  .audit-entry .audit-detail{color:var(--text);overflow-wrap:anywhere;}
+  .audit-entry .audit-detail b{color:var(--text);}
+
+  /* Project approval banner — lives at the top of the Findings card. */
+  .approval-banner{display:flex;align-items:center;flex-wrap:wrap;row-gap:6px;gap:12px;padding:10px 16px;background:var(--raised);border-bottom:1px solid var(--border);font-size:11.5px;}
+  .approval-banner .ap-counts{display:flex;gap:14px;flex:1 1 280px;min-width:0;color:var(--text-2);}
+  .approval-banner .ap-counts b{color:var(--text);}
+  .approval-banner .ap-counts .ap-accepted b{color:var(--ok);}
+  .approval-banner .ap-counts .ap-flagged b{color:var(--off);}
+  .approval-banner .ap-counts .ap-unhandled b{color:var(--out);}
+  .approval-banner .ap-status{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 8px;border-radius:3px;margin-right:4px;}
+  .approval-banner .ap-status.pending{background:var(--inset);color:var(--muted);}
+  .approval-banner .ap-status.approved{background:var(--ok-bg);color:var(--ok);}
+  .approval-banner button{padding:6px 14px;border-radius:4px;font-size:11.5px;font-weight:600;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text-2);}
+  .approval-banner button.primary{background:var(--teal);color:#fff;border-color:var(--teal);}
+  .approval-banner button.primary:disabled{background:var(--inset);color:var(--muted);border-color:var(--border);cursor:not-allowed;}
+  .approval-banner button.primary:not(:disabled):hover{background:var(--teal-deep);}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  /* ===== Right reference panel ===== */
+  .ref-section{margin-bottom:16px;}
+  .ref-h{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  .ref-item{
+    background:var(--surface);border:1px solid var(--border);border-radius:5px;
+    padding:8px 10px;margin-bottom:4px;font-size:11.5px;
+  }
+  .ref-item .rk{color:var(--muted);font-size:10px;}
+  .ref-item .rv{font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums;}
+  .ref-item .rs{font-size:10px;color:var(--muted);margin-top:2px;}
+
+  /* Bottom bar */
+  .bottom{
+    height:46px;background:var(--surface);border-top:1px solid var(--border);
+    display:flex;align-items:center;padding:0 20px;gap:8px;
+  }
+  .btn{
+    padding:6px 13px;border-radius:4px;font-size:11.5px;font-weight:600;
+    border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text-2);
+  }
+  .btn:hover{border-color:var(--border-strong);}
+  .btn.primary{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .btn.primary:hover{background:#0a1838;}
+  .btn.ghost{background:transparent;}
+
+  .plot{width:100%;}
+  .plot-fallback{padding:20px;color:var(--muted);font-size:11px;text-align:center;border:1px dashed var(--border);border-radius:4px;}
+
+  /* ===== Top-bar mode switching ===== */
+  /* Default (Deep-Dive) — explicitly restore everything that other modes hide.
+     Use initial display values (block/grid) instead of 'revert' for browser compat. */
+  body.mode-deep .deal-header,
+  body.mode-deep .classify-strip,
+  body.mode-deep .panel.left,
+  body.mode-deep .panel.center { display: block !important; }
+  body.mode-deep .panel.center > .card { display: block !important; }
+  body.mode-deep #walkPanel { display: none !important; }
+  body.mode-deep .card-portfolio-summary { display: none !important; }
+  body.mode-deep .panel.center > .grid-2 { display: grid !important; }
+  /* Portfolio mode: collapse the deep-dive detail; keep audit strip,
+     project nav, the portfolio summary table, and the heatmap card. */
+  .card-portfolio-summary { display: none; }
+  body.mode-portfolio .deal-header,
+  body.mode-portfolio .classify-strip,
+  body.mode-portfolio .panel.center > .card:not(.card-heatmap):not(.card-portfolio-summary),
+  body.mode-portfolio .panel.center > .grid-2 > .card:not(.card-heatmap),
+  body.mode-portfolio .panel.right {
+    display: none !important;
+  }
+  body.mode-portfolio .card-portfolio-summary { display: block !important; }
+  body.mode-portfolio .panel.center > .grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+  body.mode-portfolio #heatmapCard .card-body > .plot { height: 520px !important; }
+  body.mode-portfolio .layout { grid-template-columns: 280px 1fr !important; }
+
+  /* Build Walk mode: hide deep-dive detail, show walk panel */
+  #walkPanel { display: none; }
+  body.mode-walk #walkPanel { display: block !important; }
+  body.mode-walk .deal-header,
+  body.mode-walk .classify-strip,
+  body.mode-walk .panel.center > .card:not(#walkPanel),
+  body.mode-walk .panel.center > .grid-2,
+  body.mode-walk .panel.right {
+    display: none !important;
+  }
+  body.mode-walk .layout { grid-template-columns: 280px 1fr !important; }
+  #walkPanel .walk-summary {
+    max-width: 640px; margin: 40px auto; padding: 32px;
+    background: var(--surface); border-radius: 8px;
+    border: 1px solid var(--border); text-align: center;
+  }
+  #walkPanel .walk-summary h2 { font-size: 18px; margin-bottom: 12px; color: var(--navy); }
+  #walkPanel .walk-summary .walk-stats { font-size: 13px; color: var(--text-2); line-height: 1.8; }
+  #walkPanel .walk-summary .walk-stats b { color: var(--teal); }
+  #walkPanel .walk-download-hint {
+    margin-top: 20px; font-size: 12px; color: var(--muted);
+    padding: 12px; background: var(--inset); border-radius: 4px;
+  }
+
+  /* Portfolio summary table density + responsive overflow guard */
+  .card-portfolio-summary .card-body { overflow-x: auto; }
+  .portfolio-summary-tbl { min-width: 720px; }
+  .portfolio-summary-tbl th { font-size: 10px; white-space: nowrap; }
+  .portfolio-summary-tbl td { font-size: 11.5px; padding: 10px 12px; }
+  .portfolio-summary-tbl tr { cursor: pointer; }
+  .portfolio-summary-tbl tr:hover td { background: var(--inset); }
+  .portfolio-summary-tbl .rank-cell { font-weight: 700; color: var(--muted); text-align: center; width: 40px; }
+  .portfolio-summary-tbl .verdict-pill {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .portfolio-summary-tbl .verdict-pill.clean  { background: var(--ok-bg);  color: var(--ok); }
+  .portfolio-summary-tbl .verdict-pill.review { background: var(--out-bg); color: var(--out); }
+  .portfolio-summary-tbl .verdict-pill.rework { background: var(--off-bg); color: var(--off); }
+
+  /* Reference mode: hide nav + deep-dive, expand the reference panel. */
+  body.mode-reference .panel.left,
+  body.mode-reference .panel.center {
+    display: none !important;
+  }
+  body.mode-reference .layout { grid-template-columns: 1fr !important; }
+  body.mode-reference .panel.right { padding: 24px 40px; max-width: 960px; margin: 0 auto; }
+  body.mode-reference .ref-section { margin-bottom: 22px; }
+  body.mode-reference .ref-item { font-size: 13px; padding: 10px 14px; }
+  body.mode-reference .ref-item .rv { font-size: 15px; }
+
+  /* ===== Discreet auto-detect classification card ===== */
+  .classify-strip{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+    padding:8px 14px;margin-bottom:12px;font-size:11.5px;
+  }
+  .classify-strip details{flex:1;}
+  .classify-strip summary{
+    cursor:pointer;list-style:none;display:flex;align-items:center;gap:14px;
+    color:var(--text-2);
+  }
+  .classify-strip summary::-webkit-details-marker{display:none;}
+  /* SVG chevron (consistent across platforms; no font-dependent unicode). */
+  .classify-strip summary::after{
+    content:"";width:12px;height:12px;margin-left:auto;display:inline-block;
+    background-color:var(--muted);
+    -webkit-mask:no-repeat center / contain;mask:no-repeat center / contain;
+    -webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4 L6 8 L10 4' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4 L6 8 L10 4' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    transition:transform .15s ease;transform:rotate(0);
+  }
+  .classify-strip details[open] summary::after{transform:rotate(180deg);}
+  .classify-strip .auto-tag{
+    font-size:9.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+    padding:2px 7px;border-radius:3px;background:var(--rev-bg);color:var(--rev);
+    border:1px solid rgba(29,111,169,0.2);
+  }
+  .classify-strip .auto-field{display:inline-flex;align-items:center;gap:6px;}
+  .classify-strip .auto-field b{font-weight:700;color:var(--text);}
+  .classify-edit{
+    margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);
+    display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+  }
+  .classify-edit label{display:block;font-size:9.5px;font-weight:700;
+    text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:3px;}
+  .classify-edit select, .classify-edit input{
+    width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:4px;
+    background:var(--surface);font-size:12px;color:var(--text);font-family:inherit;
+  }
+  .classify-edit .helper{font-size:10px;color:var(--muted);margin-top:3px;}
+  .classify-actions{
+    grid-column:1/-1;display:flex;gap:6px;justify-content:flex-end;margin-top:4px;
+  }
+  .btn-tiny{
+    padding:4px 10px;font-size:10.5px;font-weight:600;border-radius:3px;
+    border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text-2);
+  }
+  .btn-tiny.primary{background:var(--teal);border-color:var(--teal);color:#fff;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">38<span>°</span>N · VP PRICING REVIEW</div>
+  <div class="modes" id="topModes">
+    <div class="mode" data-mode="portfolio">Portfolio</div>
+    <div class="mode active" data-mode="deep">Project Review</div>
+    <div class="mode" data-mode="reference">Reference</div>
+    <div class="mode" data-mode="walk" id="walkModeBtn">Build Walk</div>
+  </div>
+  <div class="top-meta">
+    <span>Model: <b id="modelName">Lightstar · IL</b></span>
+    <span>Bible: <b id="bibleLabel">Q1 '26</b></span>
+    <span>Loaded: <b id="loadedDate">Apr 15, 2026</b></span>
+    <span>Reviewer: <b id="reviewer">Caroline Z.</b></span>
+  </div>
+</div>
+
+<!-- Audit summary strip -->
+<div class="audit-strip">
+  <span class="strip-label">Portfolio Audit</span>
+  <span class="pill off" title="FAIL — exact-match miss vs bible benchmark">● <span class="num" id="pillOff">0</span> FAIL</span>
+  <span class="pill out" title="FLAG — out of tolerance range">▲ <span class="num" id="pillOut">0</span> FLAG</span>
+  <span class="pill miss" title="MISSING — value blank in the model">○ <span class="num" id="pillMiss">0</span> MISSING</span>
+  <span class="pill rev" title="REVIEW — bible references a sentinel (S-SFA / TBD) or requires reviewer judgment">◆ <span class="num" id="pillRev">0</span> REVIEW</span>
+  <div class="strip-divider"></div>
+  <span class="pill"><span class="num" id="pillCount">0</span> Projects</span>
+  <span class="pill"><span class="num" id="pillMw">0 MW</span> Total DC</span>
+  <span class="pill" style="margin-left:auto;"><span class="num" id="pillReviewed">0</span> Reviewed</span>
+  <span class="pill"><span class="num" id="pillPending">0</span> Pending</span>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT -->
+  <div class="panel left">
+    <div class="nav-header">
+      <span id="navProjCount">Projects · 0</span>
+      <span style="color:var(--teal);cursor:pointer;" id="navFilterToggle">+ Filter</span>
+    </div>
+    <input class="nav-search" id="navSearch" placeholder="Search projects…" />
+    <div class="filter-row" id="navFilters">
+      <span class="chip active" data-filter="all">All</span>
+      <span class="chip" data-filter="OFF">FAIL</span>
+      <span class="chip" data-filter="OUT">FLAG</span>
+      <span class="chip" data-filter="MISSING">MISSING</span>
+      <span class="chip" data-filter="REVIEW">REVIEW</span>
+    </div>
+    <div id="projList"></div>
+    <div id="projEmpty" style="display:none;padding:18px 10px;color:var(--muted);font-size:11.5px;text-align:center;">
+      No projects loaded. Upload a pricing model and click <b>Run Review</b>.
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="panel center">
+
+    <div class="deal-header">
+      <div class="deal-header-bar">
+        <div>
+          <div class="deal-title" id="dealTitle">Joel</div>
+          <div class="deal-sub" id="dealSub">Lightstar Renewables · IL Ameren · ABP Community · COD Q3 '26</div>
+        </div>
+        <span class="verdict" id="dealVerdict">REWORK REQUIRED</span>
+        <div class="impact-objs">
+          <div class="impact-obj bad impact-equity">
+            <div class="iol">Equity Δ</div>
+            <div class="iov" id="impEquity">($0)</div>
+            <div class="ios">Cumulative $ impact</div>
+          </div>
+          <div class="impact-obj bad">
+            <div class="iol">IRR Impact</div>
+            <div class="iov" id="impIRR">(1.85%)</div>
+            <div class="ios">FMV IRR</div>
+          </div>
+          <div class="impact-obj bad">
+            <div class="iol">NPP Impact</div>
+            <div class="iov" id="impNPP">($0.29/W)</div>
+            <div class="ios">Sponsor proceeds</div>
+          </div>
+        </div>
+      </div>
+      <div class="deal-header-body">
+        <div class="deal-kpis" id="dealKpis"></div>
+      </div>
+    </div>
+
+    <!-- Auto-detected classification: discreet override strip -->
+    <div class="classify-strip" id="classifyStrip">
+      <details>
+        <summary>
+          <span class="auto-tag" id="clsTag">AUTO-DETECTED</span>
+          <span class="auto-field">Program: <b id="clsProgramS">ABP</b></span>
+          <span class="auto-field">Mix LMI/Resi/Com: <b id="clsMixS">50 / 30 / 20</b></span>
+          <span class="auto-field">Haircut: <b id="clsHaircutS">11.5%</b></span>
+          <span class="auto-field">Acq+Mgmt: <b id="clsAcqMgmtS">$0.018/W</b></span>
+          <span style="margin-left:auto;font-size:10.5px;color:var(--muted);">click to override</span>
+        </summary>
+        <div style="padding:4px 14px 0;">
+          <div class="classify-edit" style="grid-template-columns:2fr 1fr;">
+            <div>
+              <label>Program Classification</label>
+              <select id="clsProgram">
+                <option value="ABP">ABP (IL)</option>
+                <option value="Non-ABP">Non-ABP (IL)</option>
+                <option value="VDER">VDER (NY)</option>
+                <option value="CSEP">CSEP (NJ)</option>
+                <option value="MD-Permanent">MD Permanent Program</option>
+                <option value="MD-Pilot">MD Pilot Program</option>
+                <option value="Community">Community Solar (generic)</option>
+              </select>
+              <div class="helper">Forces market lookup if auto-detect from rate components is wrong</div>
+            </div>
+            <div>
+              <label>Yield (kWh/Wp)</label>
+              <div id="clsYieldRO" style="padding:6px 8px;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.08);border-radius:3px;font-variant-numeric:tabular-nums;font-weight:600;">—</div>
+              <div class="helper">Pulled from the model's Project Inputs (read-only). Drives $/W ↔ $/kWh, $/W ↔ $/MWh apples-to-apples conversion</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;font-size:10.5px;font-weight:700;letter-spacing:0.6px;color:var(--muted);text-transform:uppercase;">
+            Customer Offtake Mix &nbsp;<span style="font-weight:500;text-transform:none;letter-spacing:0;">(must sum to 100%)</span>
+            <span id="clsMixWarn" style="float:right;color:var(--off);display:none;">⚠ doesn't sum to 100</span>
+          </div>
+          <div class="classify-edit" style="grid-template-columns:1fr 1fr 1fr;">
+            <div>
+              <label>LMI %</label>
+              <input id="clsLMI" type="number" step="1" min="0" max="100" />
+            </div>
+            <div>
+              <label>Residential %</label>
+              <input id="clsResi" type="number" step="1" min="0" max="100" />
+            </div>
+            <div>
+              <label>Commercial %</label>
+              <input id="clsCom" type="number" step="1" min="0" max="100" />
+            </div>
+          </div>
+          <div style="margin-top:10px;padding:8px 10px;background:rgba(81,132,132,0.08);border-left:3px solid var(--teal);border-radius:3px;font-size:11px;">
+            <div style="font-weight:700;color:var(--teal-deep);text-transform:uppercase;letter-spacing:0.5px;font-size:10px;margin-bottom:4px;">Computed from bible per-segment values</div>
+            <div id="clsComputed" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;"></div>
+          </div>
+        </div>
+        <div style="padding:8px 14px 4px;">
+          <label style="display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:3px;">
+            Override reason <span style="color:var(--off);">(required)</span>
+          </label>
+          <textarea id="clsReason" rows="2" placeholder="Why is this override correct? e.g. 'Met with sponsor 4/8 — confirmed LMI share is 60% per updated offtake book.'"
+            style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:11.5px;color:var(--text);resize:vertical;background:var(--surface);"></textarea>
+        </div>
+        <div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 10px;align-items:center;">
+          <span id="clsOverrideHint" style="flex:1;font-size:10.5px;color:var(--muted);"></span>
+          <button class="btn-tiny" id="clsReset">Reset to bible default</button>
+          <button class="btn-tiny primary" id="clsSave" disabled>Apply override &amp; recompute audit</button>
+        </div>
+      </details>
+    </div>
+
+    <!-- Wrapped EPC build breakdown -->
+    <div class="classify-strip" id="wrappedEpcStrip">
+      <details>
+        <summary>
+          <span class="auto-tag" style="background:rgba(29,111,169,0.14);color:var(--blue);">WRAPPED EPC</span>
+          <span class="auto-field">Total: <b id="wepcTotal">$1.22/W</b></span>
+          <span class="auto-field" style="color:var(--muted);">EPC + LNTP + Safe Harbor + Contingency</span>
+          <span style="margin-left:auto;font-size:10.5px;color:var(--muted);">click for component breakdown</span>
+        </summary>
+        <div id="wepcBreakdown" style="padding:6px 14px 12px;font-size:11.5px;color:var(--text);"></div>
+      </details>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h3>Bible Audit Findings</h3>
+        <div class="h-meta" id="findingsHeader">—</div>
+      </div>
+      <div class="approval-banner">
+        <span class="ap-status pending" id="approvalStatus">Pending</span>
+        <div class="ap-counts">
+          <span class="ap-accepted"><b id="approvalAccepted">0</b> accepted</span>
+          <span class="ap-flagged"><b id="approvalFlagged">0</b> flagged</span>
+          <span class="ap-unhandled"><b id="approvalUnhandled">0</b> unhandled</span>
+        </div>
+        <button id="approveProjectBtn" class="primary" disabled title="Accept or Flag every finding to enable">Approve project</button>
+        <button id="unapproveProjectBtn" style="display:none;">Unapprove</button>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <table class="findings-tbl">
+          <thead><tr>
+            <th>Field</th><th style="text-align:right;">Bible (Q1 '26)</th><th style="text-align:right;">Model</th><th style="text-align:right;">Δ</th>
+            <th style="text-align:right;">Est. $-impact</th><th>Status</th><th>Source</th><th></th>
+          </tr></thead>
+          <tbody id="findingsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-h"><h3>Bible Variance — by $-impact</h3><div class="h-meta">Joel · all flagged fields</div></div>
+        <div class="card-body"><div id="variance" class="plot" style="height:280px;"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-h">
+          <h3>Capital Stack — Illustrative (Model vs Bible)</h3>
+          <div class="h-meta" id="stackMeta">Derived · 55% debt / 85¢ TE assumption</div>
+        </div>
+        <div class="card-body"><div id="stack" class="plot" style="height:280px;"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>25-Year Cash Flow</h3><div class="h-meta">Operating CF + tax benefits + terminal</div></div>
+      <div class="card-body"><div id="cashflow" class="plot" style="height:260px;"></div></div>
+    </div>
+
+    <!-- Build Walk mode: summary + download hint -->
+    <div class="card" id="walkPanel">
+      <div class="walk-summary">
+        <h2>Build Walk</h2>
+        <div class="walk-stats" id="walkStats">
+          Loading walk comparison...
+        </div>
+        <div class="walk-download-hint" id="walkDownloadHint" style="display:none;">
+          Use the <b>Download Build Walk (.xlsx)</b> button below the review panel to get the formatted Walk Summary file.
+        </div>
+      </div>
+    </div>
+
+    <!-- Portfolio mode only: project-level summary table above the heatmap. -->
+    <div class="card card-portfolio-summary" id="portfolioSummaryCard">
+      <div class="card-h">
+        <h3>Portfolio Summary</h3>
+        <div class="h-meta" id="portfolioSummaryMeta">Ranked by absolute equity impact</div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div style="padding:8px 14px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;gap:12px;align-items:center;">
+          <span>Untick a row to temporarily hide a project from all charts and counts in this session.</span>
+          <span style="flex:1;"></span>
+          <button class="btn-tiny" id="portfolioRestoreAll">Restore all</button>
+        </div>
+        <table class="findings-tbl portfolio-summary-tbl">
+          <thead><tr>
+            <th style="width:28px;text-align:center;" title="Include in review">✓</th>
+            <th>Project</th>
+            <th>Developer</th>
+            <th>State · Program</th>
+            <th style="text-align:right;">MW</th>
+            <th style="text-align:center;">Verdict</th>
+            <th style="text-align:right;">Equity Δ</th>
+            <th style="text-align:right;" title="FAIL + FLAG count">Issues</th>
+            <th style="width:24px;"></th>
+          </tr></thead>
+          <tbody id="portfolioSummaryBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-h">
+          <h3>Sensitivity — ΔNPP $/W</h3>
+          <div class="h-meta" title="One-time CapEx shocks at t=0; multi-year flows at 7% WACC, 25-yr dampener (~0.55×).">±10% shock · present value</div>
+        </div>
+        <div class="card-body"><div id="tornado" class="plot" style="height:260px;"></div></div>
+      </div>
+      <div class="card card-heatmap" id="heatmapCard">
+        <div class="card-h"><h3>Portfolio Audit Heatmap</h3><div class="h-meta">All projects × bible fields</div></div>
+        <div class="card-body"><div id="heatmap" class="plot" style="height:260px;"></div></div>
+      </div>
+    </div>
+
+    <!-- Reviewer notes — optional, ships into export -->
+    <div class="card notes-card">
+      <div class="card-h">
+        <h3>Reviewer Notes <span style="font-weight:400;color:var(--muted);font-size:11px;margin-left:6px;">— optional · attached to export</span></h3>
+        <div class="h-meta"><span id="notesCount">0</span> chars · auto-saved</div>
+      </div>
+      <div class="card-body" style="padding:10px 14px;">
+        <textarea id="reviewerNotes" placeholder="Explain accepted variances, flagged items, or context for IC (e.g. 'EPC below bible — confirmed with Lightstar via signed PO 4/8/26'). Will appear in the Findings export and IC pack."
+          style="width:100%;min-height:64px;padding:9px 11px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:12px;color:var(--text);resize:vertical;background:var(--raised);"></textarea>
+        <div id="auditLogSection" class="audit-log-section">
+          <div class="audit-log-header">
+            <span>Audit log</span>
+            <span class="audit-log-sub">— immutable, session-scoped</span>
+          </div>
+          <div id="auditLog" class="audit-log" role="log" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT -->
+  <div class="panel right" id="refPanel">
+    <div class="ref-section">
+      <div class="ref-h" id="refBibleHeader">Bible</div>
+      <div id="refBible"></div>
+    </div>
+    <div class="ref-section">
+      <div class="ref-h" id="refMarketHeader">Market</div>
+      <div id="refMarket"></div>
+    </div>
+    <div class="ref-section">
+      <div class="ref-h">OpEx Benchmarks</div>
+      <div id="refOpex"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="bottom">
+  <button class="btn" id="btnPrev">← Prev</button>
+  <button class="btn" id="btnNext">Next →</button>
+  <div style="flex:1;text-align:center;font-size:11px;color:var(--muted);"><span id="navCount">1 of 8</span></div>
+  <button class="btn">Mark reviewed</button>
+  <button class="btn">Export findings (xlsx)</button>
+  <button class="btn primary">Generate IC pack (pdf)</button>
+</div>
+
+<script>
+// ===== Project navigation =====
+// Helper: format negatives as accounting-style red parens
+function fmtNeg(val, suffix){
+  // val is negative number; returns "(abs)" — caller wraps in red span
+  const abs = Math.abs(val);
+  return '(' + abs + (suffix||'') + ')';
+}
+function setNegHTML(el, val, formatter){
+  // val<0 → red parens; val===0 → neutral 0; val>0 → black with +
+  if(val < 0){ el.innerHTML = '<span style="color:var(--off);">'+formatter(-val,true)+'</span>'; }
+  else if(val > 0){ el.textContent = formatter(val,false); }
+  else { el.textContent = formatter(0,false); }
+}
+
+/* __INJECT_DATA_START__
+   Everything between __INJECT_DATA_START__ and __INJECT_DATA_END__ is replaced
+   at render time by mockup_view.py with real model data. The demo values below
+   keep this file openable standalone for design preview. */
+let PORTFOLIO = {
+  off:47, out:12, missing:8, review:3,
+  count:8, totalMw:62.4, reviewed:3, pending:5,
+  modelName:'Lightstar · IL', bibleLabel:"Q1 '26",
+  loadedDate:'Apr 15, 2026', reviewer:'Caroline Z.',
+};
+let PROJECTS = [
+  // For each project: full set of dynamic data so charts + table refresh on click
+  {name:'Joel',        sub:"Lightstar Renewables · IL Ameren · ABP Community · COD Q3 '26", verdict:'REWORK REQUIRED',
+    irrPct:-1.85, nppPerW:-0.29, equityK:-213,
+    kpis:{dc:'4.85', dcSub:'3.85 MW AC', epc:'$1.22', epcSub:'vs Bible $1.65', epcOff:true,
+          npp:'$2.18', nppSub:'Target $2.05', itc:'0%', itcSub:'vs Bible 40%', itcOff:true,
+          irr:'8.2%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'ITC %',                bible:'40%',     model:'0%',     delta:-40,    deltaUnit:'pp', impact:-1180000, status:'OFF', source:'CS Average'},
+      {field:'EPC ($/W)',            bible:'$1.65',   model:'$1.22',  delta:-0.43,  deltaUnit:'$',  impact:-213000,  status:'OFF', source:'CS Average'},
+      {field:'Upfront Incentive ($/W)', bible:'≤ $1.00', model:'$1.02', delta:0.02, deltaUnit:'$',  impact:-10000,   status:'OUT', source:'Range · IL/Ameren/ABP'},
+      {field:'Eligible Costs %',     bible:'97%',     model:null,     delta:null,   deltaUnit:'',   impact:null,     status:'MISSING', source:'CS Average'},
+    ],
+    variance:{labels:['ITC % (−40 pp)','EPC ($/W)','Upfront ($/W)','Eligible Costs %'], x:[-1180,-213,-10,0], txt:['($1.18M)','($213k)','($10k)','missing'], colors:['off','off','out','miss']},
+    stack:{model:[0.62, 0.00, 1.20, 1.02], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:1.0,
+    tornadoMul:1.0
+  },
+  {name:'Bishop Hill', sub:"Lightstar Renewables · IL ComEd · ABP · COD Q4 '26", verdict:'REVIEW',
+    irrPct:-0.42, nppPerW:-0.08, equityK:-58,
+    kpis:{dc:'7.20', dcSub:'5.70 MW AC', epc:'$1.62', epcSub:'vs Bible $1.65', epcOff:false,
+          npp:'$2.06', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.7%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'LNTP ($/W)',           bible:'$0.10',  model:'$0.16',  delta:0.06,  deltaUnit:'$',  impact:-48000,  status:'OFF', source:'CS Average'},
+      {field:'OpEx ($/kW-yr)',       bible:'≤ $19',  model:'$22',    delta:3,     deltaUnit:'$',  impact:-10000,  status:'OUT', source:'Range · IL'},
+    ],
+    variance:{labels:['LNTP ($/W)','OpEx ($/kW-yr)'], x:[-48,-10], txt:['($48k)','($10k)'], colors:['off','out']},
+    stack:{model:[0.55, 0.72, 1.15, 0.85], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:1.45, tornadoMul:1.45
+  },
+  {name:'Greenwood',   sub:"Lightstar Renewables · NY NYSEG · CDG · COD Q2 '26", verdict:'REWORK REQUIRED',
+    irrPct:-1.10, nppPerW:-0.18, equityK:-128,
+    kpis:{dc:'5.00', dcSub:'4.10 MW AC', epc:'$1.40', epcSub:'vs Bible $1.65', epcOff:true,
+          npp:'$2.12', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.3%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'EPC ($/W)',           bible:'$1.65',  model:'$1.40',  delta:-0.25, deltaUnit:'$',  impact:-125000, status:'OFF', source:'CS Average'},
+      {field:'Insurance ($/kW-yr)', bible:'$3,500', model:null,     delta:null,  deltaUnit:'',   impact:null,    status:'MISSING', source:'CS Average'},
+    ],
+    variance:{labels:['EPC ($/W)','Insurance'], x:[-125,0], txt:['($125k)','missing'], colors:['off','miss']},
+    stack:{model:[0.50, 0.78, 1.10, 0.85], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:1.05, tornadoMul:1.05
+  },
+  {name:'Marlboro',    sub:"Lightstar Renewables · MD BGE · MD Permanent · COD Q3 '26", verdict:'CLEAN',
+    irrPct:0, nppPerW:0, equityK:0,
+    kpis:{dc:'3.10', dcSub:'2.55 MW AC', epc:'$1.65', epcSub:'matches Bible', epcOff:false,
+          npp:'$2.05', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.6%', irrSub:'Threshold 7.5%'},
+    findings:[],
+    variance:{labels:['No findings'], x:[0], txt:['—'], colors:['miss']},
+    stack:{model:[0.41, 0.78, 1.10, 0.85], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:0.65, tornadoMul:0.65
+  },
+  {name:'Sussex East', sub:"Lightstar Renewables · DE Delmarva · COD Q1 '27", verdict:'REWORK REQUIRED',
+    irrPct:-1.40, nppPerW:-0.22, equityK:-186,
+    kpis:{dc:'8.40', dcSub:'6.80 MW AC', epc:'$1.30', epcSub:'vs Bible $1.65', epcOff:true,
+          npp:'$2.20', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.1%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'EPC ($/W)',     bible:'$1.65',  model:'$1.30',  delta:-0.35, deltaUnit:'$', impact:-294000, status:'OFF', source:'CS Average'},
+      {field:'Upfront ($/W)', bible:'≤ $0.95',model:'$1.05',  delta:0.10,  deltaUnit:'$', impact:-84000,  status:'OFF', source:'Market'},
+    ],
+    variance:{labels:['EPC ($/W)','Upfront ($/W)'], x:[-294,-84], txt:['($294k)','($84k)'], colors:['off','off']},
+    stack:{model:[0.58, 0.70, 1.20, 1.05], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:1.7, tornadoMul:1.7
+  },
+  {name:'Lake Geneva', sub:"Lightstar Renewables · IL ComEd · Non-ABP · COD Q4 '26", verdict:'REVIEW',
+    irrPct:-0.20, nppPerW:-0.04, equityK:-22,
+    kpis:{dc:'6.60', dcSub:'5.20 MW AC', epc:'$1.66', epcSub:'matches', epcOff:false,
+          npp:'$2.04', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.5%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'OpEx ($/kW-yr)', bible:'≤ $19', model:'$21', delta:2, deltaUnit:'$', impact:-22000, status:'OUT', source:'Range · IL'},
+    ],
+    variance:{labels:['OpEx ($/kW-yr)'], x:[-22], txt:['($22k)'], colors:['out']},
+    stack:{model:[0.42, 0.78, 1.12, 0.84], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:1.35, tornadoMul:1.35
+  },
+  {name:'Stanton',     sub:"Lightstar Renewables · NY National Grid · VDER · COD Q2 '27", verdict:'REVIEW',
+    irrPct:-0.65, nppPerW:-0.11, equityK:-78,
+    kpis:{dc:'12.10', dcSub:'9.90 MW AC', epc:'$1.50', epcSub:'vs Bible $1.65', epcOff:true,
+          npp:'$2.10', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'7.4%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'EPC ($/W)',  bible:'$1.65', model:'$1.50', delta:-0.15, deltaUnit:'$', impact:-181500, status:'OFF', source:'CS Average'},
+      {field:'VDER Value', bible:'S-SFA', model:'manual', delta:null,  deltaUnit:'',  impact:null,    status:'REVIEW', source:'Market lookup'},
+    ],
+    variance:{labels:['EPC ($/W)','VDER Value'], x:[-181,0], txt:['($181k)','review'], colors:['off','miss']},
+    stack:{model:[0.48, 0.75, 1.12, 0.88], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:2.45, tornadoMul:2.45
+  },
+  {name:'Ridge Run',   sub:"Lightstar Renewables · MD PEPCO · MD Permanent · COD Q3 '27", verdict:'REWORK REQUIRED',
+    irrPct:-1.95, nppPerW:-0.31, equityK:-308,
+    kpis:{dc:'15.20', dcSub:'12.40 MW AC', epc:'$1.20', epcSub:'vs Bible $1.65', epcOff:true,
+          npp:'$2.25', nppSub:'Target $2.05', itc:'40%', itcSub:'matches', itcOff:false,
+          irr:'6.9%', irrSub:'Threshold 7.5%'},
+    findings:[
+      {field:'EPC ($/W)',          bible:'$1.65',  model:'$1.20',  delta:-0.45, deltaUnit:'$', impact:-684000, status:'OFF', source:'CS Average'},
+      {field:'Insurance ($/kW-yr)',bible:'$3,500', model:'$4,200', delta:700,   deltaUnit:'$', impact:-22000,  status:'OUT', source:'Range · MD'},
+    ],
+    variance:{labels:['EPC ($/W)','Insurance'], x:[-684,-22], txt:['($684k)','($22k)'], colors:['off','out']},
+    stack:{model:[0.65, 0.65, 1.25, 0.85], bible:[0.41, 0.78, 1.10, 0.85]},
+    cashflowMul:3.1, tornadoMul:3.1
+  },
+];
+/* __INJECT_DATA_END__ */
+let currentIdx = 0;
+let projCards = [];   // populated by renderProjectList()
+// Client-side "excluded from this session" set keyed by project index.
+// Sidebar remains the authoritative permanent-exclusion UI; this is purely
+// for fast in-session hide/restore from the portfolio summary table.
+let EXCLUDED_IDX = new Set();
+// Per-finding reviewer actions: {projectIdx: {fieldKey: {action: 'accept'|'flag'|null, note: string}}}
+// Persisted to sessionStorage so drill-outs don't lose state.
+const _ACTIONS_KEY = 'vpReview.findingActions';
+let FINDING_ACTIONS = (function(){
+  try { return JSON.parse(sessionStorage.getItem(_ACTIONS_KEY) || '{}') || {}; }
+  catch(_) { return {}; }
+})();
+function _saveActions(){
+  try { sessionStorage.setItem(_ACTIONS_KEY, JSON.stringify(FINDING_ACTIONS)); } catch(_){}
+}
+
+// Per-project approval state: {projectIdx: {approved: true, timestamp: iso, reviewer: '...'}}
+const _APPROVAL_KEY = 'vpReview.projectApprovals';
+let PROJECT_APPROVALS = (function(){
+  try { return JSON.parse(sessionStorage.getItem(_APPROVAL_KEY) || '{}') || {}; }
+  catch(_) { return {}; }
+})();
+function _saveApprovals(){
+  try { sessionStorage.setItem(_APPROVAL_KEY, JSON.stringify(PROJECT_APPROVALS)); } catch(_){}
+}
+function _isApproved(idx){ return !!(PROJECT_APPROVALS[idx] && PROJECT_APPROVALS[idx].approved); }
+
+// Immutable audit log — separate from the free-text Reviewer Notes so a
+// reviewer can't silently erase provenance. Each entry is append-only.
+const _AUDIT_LOG_KEY = 'vpReview.auditLog';
+let AUDIT_LOG = (function(){
+  try { return JSON.parse(sessionStorage.getItem(_AUDIT_LOG_KEY) || '[]') || []; }
+  catch(_) { return []; }
+})();
+function _saveAuditLog(){
+  try { sessionStorage.setItem(_AUDIT_LOG_KEY, JSON.stringify(AUDIT_LOG)); } catch(_){}
+}
+function _appendAuditEntry(entry){
+  AUDIT_LOG.push(Object.assign({ts: new Date().toISOString().slice(0,16).replace('T',' ')}, entry));
+  _saveAuditLog();
+  _renderAuditLog();
+}
+function _renderAuditLog(){
+  const host = document.getElementById('auditLog');
+  const section = document.getElementById('auditLogSection');
+  if (!host || !section) return;
+  if (!AUDIT_LOG.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  // Newest first — reviewers scan top-down.
+  host.innerHTML = AUDIT_LOG.slice().reverse().map(e => {
+    const kind = (e.kind || 'NOTE').toString().toUpperCase();
+    const kindClass = 'kind-' + kind.toLowerCase();
+    const project = e.project ? '<b>' + _esc(e.project) + '</b>' : '';
+    const detail = e.detail ? (project ? ' · ' : '') + _esc(e.detail) : '';
+    return '<div class="audit-entry">'
+      + '<span class="audit-tag ' + kindClass + '">' + _esc(kind) + '</span>'
+      + '<span class="audit-ts">' + _esc(e.ts || '') + '</span>'
+      + '<span class="audit-detail">' + project + detail + '</span>'
+      + '</div>';
+  }).join('');
+}
+function _getAction(projIdx, field){
+  return ((FINDING_ACTIONS[projIdx]||{})[field] || {action:null, note:''});
+}
+function _setAction(projIdx, field, patch){
+  FINDING_ACTIONS[projIdx] = FINDING_ACTIONS[projIdx] || {};
+  const prev = FINDING_ACTIONS[projIdx][field] || {action:null, note:''};
+  FINDING_ACTIONS[projIdx][field] = Object.assign({}, prev, patch);
+  _saveActions();
+}
+function isIncluded(idx) { return !EXCLUDED_IDX.has(idx); }
+function visibleProjects() {
+  return PROJECTS.map((p, i) => ({p, i})).filter(({i}) => isIncluded(i));
+}
+
+// ---- accounting helpers ----
+function fmtMoneyShort(absVal){
+  if(absVal>=1e6) return '$'+(absVal/1e6).toFixed(2)+'M';
+  if(absVal>=1e3) return '$'+Math.round(absVal/1e3)+'k';
+  return '$'+absVal.toFixed(0);
+}
+function fmtNegMoney(v){ return v<0 ? '<span class="neg-acct">('+fmtMoneyShort(-v).replace('$','$')+')</span>' : (v===0?'$0':'$'+v.toLocaleString()); }
+function fmtNegPct(v, decimals){ return v<0 ? '<span class="neg-acct">('+(-v).toFixed(decimals||2)+'%)</span>' : v.toFixed(decimals||2)+'%'; }
+function fmtNegPerW(v){ return v<0 ? '<span class="neg-acct">($'+(-v).toFixed(2)+'/W)</span>' : '$'+v.toFixed(2)+'/W'; }
+
+// ---- KPI render ----
+function renderKpis(p){
+  const k = p.kpis;
+  const equityHTML = p.equityK<0 ? '<span class="neg-acct">($'+Math.abs(p.equityK)+'k)</span>' : (p.equityK===0?'$0':'$'+p.equityK+'k');
+  // equityHTML is pre-built from numeric p.equityK (below), safe to inject.
+  // Rate Component 1 info
+  const rc1 = p.rateComp1 || {};
+  const rc1Line = rc1.name && rc1.name !== '—'
+    ? '<div class="kpi-sub" title="'+_esc(rc1.name)+'">'+_esc(rc1.name)+(rc1.ghHaircut ? ' · GH -'+rc1.ghHaircut+'%' : '')+(rc1.isCustom ? ' · Rate Curves' : '')+'</div>'
+    : '';
+  // Property tax (only when custom toggle is on)
+  const ptax = p.propertyTax || {};
+  const ptaxLine = ptax.customToggle
+    ? '<div class="kpi k-accent"><div class="kpi-label">Prop Tax (Yr 1)</div><div class="kpi-value">'+_esc(ptax.yr1Display)+'</div><div class="kpi-sub">Esc '+_esc(ptax.escalator)+'</div></div>'
+    : '';
+  document.getElementById('dealKpis').innerHTML = `
+    <div class="kpi k-accent"><div class="kpi-label">DC Size</div><div class="kpi-value">${_esc(k.dc)} <span style="font-size:11px;color:var(--muted);">MW</span></div><div class="kpi-sub">${_esc(k.dcSub)}</div></div>
+    <div class="kpi ${k.epcOff?'k-off':'k-accent'}"><div class="kpi-label">EPC</div><div class="kpi-value">${_esc(k.epc)}<span style="font-size:11px;color:var(--muted);">/W</span></div><div class="kpi-sub${k.epcOff?' neg':''}">${_esc(k.epcSub)}</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">NPP</div><div class="kpi-value">${_esc(k.npp)}<span style="font-size:11px;color:var(--muted);">/W</span></div><div class="kpi-sub">${_esc(k.nppSub)}</div></div>
+    <div class="kpi ${k.itcOff?'k-off':'k-accent'}"><div class="kpi-label">ITC</div><div class="kpi-value">${_esc(k.itc)}</div><div class="kpi-sub${k.itcOff?' neg':''}">${_esc(k.itcSub)}</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">${_esc(k.irrLabel||'Appraisal IRR')}</div><div class="kpi-value">${_esc(k.irr)}</div><div class="kpi-sub">${_esc(k.irrSub)}</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">Levered PT IRR</div><div class="kpi-value">${_esc(k.levIrr||'—')}</div><div class="kpi-sub">${k.activeFmv && k.activeFmv!=='—' ? 'MFV '+_esc(k.activeFmv) : ''}</div></div>
+    <div class="kpi ${p.equityK<0?'k-off':'k-accent'}"><div class="kpi-label">Equity Δ</div><div class="kpi-value">${equityHTML}</div><div class="kpi-sub${p.equityK<0?' neg':''}">vs bible-aligned</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">Revenue Rate</div><div class="kpi-value">${_esc(rc1.rateDisplay||'—')}</div>${rc1Line}</div>
+    ${ptaxLine}
+  `;
+}
+
+// ---- findings table render ----
+function renderFindings(p){
+  const body = document.getElementById('findingsBody');
+  if(!p.findings.length){
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-style:italic;">No bible findings — this project is clean.</td></tr>';
+    return;
+  }
+  body.innerHTML = p.findings.map((f, fIdx)=>{
+    const deltaCell = (f.delta===null) ? '<td class="num-cell" style="color:var(--muted);">missing</td>'
+      : `<td class="num-cell${f.delta<0?' neg-acct':''}" style="${f.delta<0?'':'color:var(--text);font-weight:600;'}">${_fmtDelta(f.delta, f.deltaUnit)}</td>`;
+    const impactCell = (f.impact===null) ? '<td class="impact-cell" style="color:var(--muted);">—</td>'
+      : `<td class="impact-cell neg-acct">(${fmtMoneyShort(Math.abs(f.impact))})</td>`;
+    const statusCls = {OFF:'off',OUT:'out',MISSING:'miss',REVIEW:'rev'}[f.status]||'miss';
+    // Per-finding reviewer state (survives drill-out via sessionStorage).
+    const state = _getAction(currentIdx, f.field);
+    const canAccept = f.status !== 'MISSING';  // can't "accept" a blank cell
+    const acceptCls = 'row-action row-btn' + (state.action==='accept' ? ' active-accept' : '');
+    const flagCls   = 'row-action row-btn' + (state.action==='flag'   ? ' active-flag' : '');
+    const noteCls   = 'row-action row-note-toggle' + (state.note ? ' has-note' : '');
+    const fieldAttr = _esc(f.field);
+    const rowStatus = state.action === 'accept' ? 'accepted' : (state.action === 'flag' ? 'flagged' : (state.action === 'skip' ? 'skipped' : ''));
+    const rowBadge = rowStatus
+      ? '<span class="row-status-badge ' + rowStatus + '">' + rowStatus.toUpperCase() + '</span>'
+      : '';
+    const acceptBtn = canAccept
+      ? '<span class="' + acceptCls + '" data-action="accept" data-field="' + fieldAttr + '" role="button" tabindex="0">Accept</span>'
+      : '';
+    const flagBtn   = '<span class="' + flagCls   + '" data-action="flag"   data-field="' + fieldAttr + '" role="button" tabindex="0">Flag</span>';
+    const skipCls   = 'row-action row-btn' + (state.action==='skip' ? ' active-skip' : '');
+    const skipBtn   = (f.status === 'MISSING' || f.status === 'REVIEW')
+      ? '<span class="' + skipCls + '" data-action="skip" data-field="' + fieldAttr + '" role="button" tabindex="0" title="Skip without resolving">Skip</span>'
+      : '';
+    const noteBtn   = '<span class="' + noteCls   + '" data-action="note"   data-field="' + fieldAttr + '" role="button" tabindex="0" title="Add a note">Note</span>';
+    // Buttons are now separated by .action-cell's flex gap, not a text joiner.
+    const actions = [acceptBtn, flagBtn, skipBtn, noteBtn].filter(Boolean).join('');
+    const noteOpen = !!state.note;
+    const noteRow = `<tr class="finding-note-row" data-field="${fieldAttr}" style="${noteOpen?'':'display:none;'}">
+        <td colspan="8" style="padding:6px 12px 10px;background:var(--inset);">
+          <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);display:block;margin-bottom:3px;">Reviewer note — ${_esc(f.field)}</label>
+          <textarea class="finding-note-input" data-field="${fieldAttr}" rows="2"
+            placeholder="Why is this acceptable / flagged? Cite a source."
+            style="width:100%;padding:6px 9px;border:1px solid var(--border);border-radius:3px;font-family:inherit;font-size:11.5px;color:var(--text);resize:vertical;background:var(--surface);">${_esc(state.note||'')}</textarea>
+        </td>
+      </tr>`;
+    return `<tr class="finding-row" data-field="${fieldAttr}" data-status="${rowStatus}">
+      <td class="field">${rowBadge}${_esc(f.field)}</td>
+      <td class="num-cell">${_esc(f.bible??'—')}</td>
+      <td class="num-cell"${f.model===null?' style="color:var(--muted);"':''}>${_esc(f.model??'—')}</td>
+      ${deltaCell}${impactCell}
+      <td><span class="status-tag ${statusCls}">${_esc(_statusLabel(f.status))}</span></td>
+      <td style="font-size:11px;color:var(--muted);">${_esc(f.source)}</td>
+      <td class="action-cell">${actions}</td>
+    </tr>${noteRow}`;
+  }).join('');
+
+  // Wire up per-finding actions (Accept / Flag / Note).
+  body.querySelectorAll('.row-action').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.preventDefault();
+      const action = btn.getAttribute('data-action');
+      const field  = btn.getAttribute('data-field');
+      if (action === 'note') {
+        const row = body.querySelector('tr.finding-note-row[data-field="'+CSS.escape(field)+'"]');
+        const parent = body.querySelector('tr.finding-row[data-field="'+CSS.escape(field)+'"]');
+        if (row) {
+          const opening = (row.style.display === 'none');
+          row.style.display = opening ? '' : 'none';
+          if (parent) parent.classList.toggle('has-open-note', opening);
+        }
+        return;
+      }
+      const state = _getAction(currentIdx, field);
+      const nextAction = (state.action === action) ? null : action;  // toggle off if same
+      _setAction(currentIdx, field, {action: nextAction});
+      renderFindings(PROJECTS[currentIdx]);
+      _updateProjectApprovalBanner();
+    });
+  });
+  body.querySelectorAll('.finding-note-input').forEach(ta=>{
+    ta.addEventListener('input', e=>{
+      const field = ta.getAttribute('data-field');
+      _setAction(currentIdx, field, {note: ta.value});
+      // Toggle the has-note class on the Note button without a full re-render.
+      const btn = body.querySelector('.row-note-toggle[data-field="'+CSS.escape(field)+'"]');
+      if (btn) btn.classList.toggle('has-note', !!ta.value.trim());
+    });
+  });
+
+  // Update Findings card header + approval banner.
+  const hdr = document.getElementById('findingsHeader');
+  if (hdr) hdr.textContent = p.findings.length + ' findings · sorted by $-impact';
+  _updateProjectApprovalBanner();
+}
+
+// Approval banner: counts, enable state, click handlers.
+function _updateProjectApprovalBanner(){
+  const p = PROJECTS[currentIdx];
+  if (!p) return;
+  const findings = p.findings || [];
+  let accepted = 0, flagged = 0, skipped = 0, unhandled = 0;
+  findings.forEach(f => {
+    const st = _getAction(currentIdx, f.field);
+    if (st.action === 'accept') accepted++;
+    else if (st.action === 'flag') flagged++;
+    else if (st.action === 'skip') skipped++;
+    else unhandled++;   // every non-acted finding needs a decision
+  });
+  // Guard every approval-banner write — if the banner is ever conditionally
+  // hidden (Reference mode, future feature flag), null.textContent would
+  // throw and abort the rest of selectProject.
+  const _set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  _set('approvalAccepted', accepted);
+  _set('approvalFlagged',  flagged);
+  _set('approvalUnhandled', unhandled);
+
+  const approved = _isApproved(currentIdx);
+  const statusEl = document.getElementById('approvalStatus');
+  if (statusEl) {
+    statusEl.textContent = approved ? 'Approved' : 'Pending';
+    statusEl.classList.toggle('approved', approved);
+    statusEl.classList.toggle('pending', !approved);
+  }
+
+  const approveBtn = document.getElementById('approveProjectBtn');
+  const unapproveBtn = document.getElementById('unapproveProjectBtn');
+  if (!approveBtn || !unapproveBtn) return;
+  if (approved) {
+    approveBtn.style.display = 'none';
+    unapproveBtn.style.display = '';
+  } else {
+    approveBtn.style.display = '';
+    unapproveBtn.style.display = 'none';
+    approveBtn.disabled = (unhandled > 0);
+    approveBtn.title = unhandled > 0
+      ? `${unhandled} finding(s) need Accept or Flag before approval.`
+      : 'Record approval and stamp Reviewer Notes.';
+  }
+}
+
+(function wireApproval(){
+  const approveBtn = document.getElementById('approveProjectBtn');
+  const unapproveBtn = document.getElementById('unapproveProjectBtn');
+  if (!approveBtn || !unapproveBtn) return;
+  approveBtn.addEventListener('click', e=>{
+    e.preventDefault();
+    if (approveBtn.disabled) return;
+    const p = PROJECTS[currentIdx];
+    const reviewer = (PORTFOLIO && PORTFOLIO.reviewer) || '—';
+    const ts = new Date().toISOString().slice(0,16).replace('T',' ');
+    PROJECT_APPROVALS[currentIdx] = {
+      approved: true, timestamp: ts, reviewer: reviewer, project: p.name,
+    };
+    _saveApprovals();
+    const acts = (FINDING_ACTIONS[currentIdx]||{});
+    const accepted = Object.keys(acts).filter(k => acts[k].action==='accept').length;
+    const flagged  = Object.keys(acts).filter(k => acts[k].action==='flag').length;
+    // Append to immutable audit log (reviewer cannot edit this).
+    _appendAuditEntry({
+      kind: 'APPROVED',
+      project: p.name,
+      detail: accepted + ' accepted · ' + flagged + ' flagged — ' + reviewer,
+    });
+    _updateProjectApprovalBanner();
+    // Refresh sidebar to show teal APPROVED badge
+    renderProjectList();
+    // Refresh portfolio strip to reflect improved audit stats
+    renderPortfolio();
+    // Auto-advance to next unreviewed project
+    const nextUnreviewed = PROJECTS.findIndex((proj, idx) =>
+      idx !== currentIdx && isIncluded(idx) && !_isApproved(idx)
+    );
+    if (nextUnreviewed >= 0) {
+      setTimeout(() => selectProject(nextUnreviewed), 300);
+    }
+  });
+  unapproveBtn.addEventListener('click', e=>{
+    e.preventDefault();
+    delete PROJECT_APPROVALS[currentIdx];
+    _saveApprovals();
+    _updateProjectApprovalBanner();
+  });
+})();
+
+// ---- classification (auto-detected w/ override) ----
+// Bible per-program defaults: mix [LMI, Resi, Com] (%), per-segment haircut (%),
+// per-segment Cust Acq ($/kWh) and Cust Mgmt ($/MWh).
+// CSEP = NJ. MD has separate Permanent and Pilot programs with distinct bible values.
+const BIBLE_OFFTAKE = {
+  'IL-ABP':         {mix:[50,30,20], haircut:[20,10,5],  acq:[0.012,0.008,0.004], mgmt:[3.5,2.0,1.0]},
+  'IL-Non-ABP':     {mix:[ 0,40,60], haircut:[20,10,5],  acq:[0.012,0.008,0.004], mgmt:[3.5,2.0,1.0]},
+  'NY-VDER':        {mix:[ 0,30,70], haircut:[15, 8,4],  acq:[0.010,0.007,0.003], mgmt:[3.0,1.8,0.9]},
+  'NY-Community':   {mix:[25,50,25], haircut:[15,10,5],  acq:[0.011,0.008,0.004], mgmt:[3.2,1.9,1.0]},
+  'NJ-CSEP':        {mix:[40,40,20], haircut:[18,10,5],  acq:[0.011,0.008,0.004], mgmt:[3.2,1.9,1.0]},
+  'MD-Permanent':   {mix:[40,40,20], haircut:[18,10,5],  acq:[0.011,0.008,0.004], mgmt:[3.2,1.9,1.0]},
+  'MD-Pilot':       {mix:[30,50,20], haircut:[22,12,6],  acq:[0.014,0.009,0.005], mgmt:[3.8,2.2,1.1]},
+  'DE-Community':   {mix:[30,40,30], haircut:[15, 9,5],  acq:[0.010,0.007,0.003], mgmt:[3.0,1.8,0.9]},
+  'DEFAULT':        {mix:[33,34,33], haircut:[15,10,5],  acq:[0.011,0.008,0.004], mgmt:[3.2,1.9,1.0]},
+};
+function bibleKey(state, prog){
+  const k = state+'-'+prog;
+  if(BIBLE_OFFTAKE[k]) return k;
+  if(prog==='MD-Permanent') return 'MD-Permanent';
+  if(prog==='MD-Pilot')     return 'MD-Pilot';
+  if(prog==='CSEP')         return 'NJ-CSEP';
+  if(prog==='Community' && state==='NY') return 'NY-Community';
+  if(prog==='Community' && state==='DE') return 'DE-Community';
+  return 'DEFAULT';
+}
+function deriveClassify(p){
+  const s = (p.sub||'').toLowerCase();
+  // Detect state
+  let state = 'IL';
+  if(s.includes(' md ')||s.startsWith('md ')||s.includes(' md.'))  state='MD';
+  else if(s.includes(' nj ')||s.startsWith('nj ')) state='NJ';
+  else if(s.includes(' de ')||s.startsWith('de ')) state='DE';
+  else if(s.includes(' ny ')||s.startsWith('ny ')) state='NY';
+  else if(s.includes(' il ')||s.startsWith('il ')) state='IL';
+  // Detect program
+  let prog = 'Community';
+  if(s.includes('non-abp')) prog='Non-ABP';
+  else if(s.includes('vder')) prog='VDER';
+  else if(s.includes('csep')) { prog='CSEP'; state='NJ'; } // CSEP is NJ
+  else if(s.includes('abp')) prog='ABP';
+  // MD: default to Permanent (Pilot only if explicitly mentioned)
+  if(state==='MD') prog = s.includes('pilot') ? 'MD-Pilot' : 'MD-Permanent';
+  const key = bibleKey(state, prog);
+  const b = BIBLE_OFFTAKE[key];
+  // Yield comes from model upload — read from project data when present
+  const yieldFromModel = (p.kpis && p.kpis.yieldKwhPerWp) ? p.kpis.yieldKwhPerWp : 1.55;
+  return {
+    program:prog, state:state, bibleKey:key,
+    mix:[...b.mix],
+    yield: yieldFromModel,
+    manual:false,
+  };
+}
+function blendedFromMix(c){
+  const b = BIBLE_OFFTAKE[c.bibleKey] || BIBLE_OFFTAKE.DEFAULT;
+  const w = c.mix.map(x=>x/100);
+  // Bible blended values (native units)
+  const haircut = w[0]*b.haircut[0] + w[1]*b.haircut[1] + w[2]*b.haircut[2]; // %
+  const acqKwh  = w[0]*b.acq[0]     + w[1]*b.acq[1]     + w[2]*b.acq[2];     // $/kWh
+  const mgmtMwh = w[0]*b.mgmt[0]    + w[1]*b.mgmt[1]    + w[2]*b.mgmt[2];    // $/MWh
+  // For UI parity / display: also express each in $/W using model yield.
+  // Conversion logic (apples-to-apples flows BOTH directions for bible compare):
+  //   $/kWh × yield (kWh/Wp) = $/W      →  reverse:  $/W ÷ yield = $/kWh
+  //   $/MWh × yield / 1000   = $/W      →  reverse:  $/W ÷ yield × 1000 = $/MWh
+  const acqPerW  = acqKwh  * c.yield;
+  const mgmtPerW = (mgmtMwh / 1000) * c.yield;
+  return {haircut, acqKwh, mgmtMwh, acqPerW, mgmtPerW, totalPerW: acqPerW+mgmtPerW, b};
+}
+// Reverse helpers — used when comparing the model's $/W input back to bible $/kWh or $/MWh
+function modelPerW_to_perKwh(perW, yieldKwhPerWp){ return perW / (yieldKwhPerWp||1); }
+function modelPerW_to_perMwh(perW, yieldKwhPerWp){ return perW / (yieldKwhPerWp||1) * 1000; }
+function renderClassify(p){
+  if(!p.classify) p.classify = deriveClassify(p);
+  const c = p.classify;
+  // Lock auto-baseline so we can compute deltas vs bible default
+  if(!p.classifyAuto) p.classifyAuto = JSON.parse(JSON.stringify(deriveClassify(p)));
+  const bl = blendedFromMix(c);
+  // Summary chips
+  document.getElementById('clsProgramS').textContent = c.program + (c.state==='MD'?' (MD Permanent)':'');
+  document.getElementById('clsMixS').textContent     = c.mix[0]+' / '+c.mix[1]+' / '+c.mix[2];
+  document.getElementById('clsHaircutS').textContent = bl.haircut.toFixed(1)+'%';
+  document.getElementById('clsAcqMgmtS').textContent = '$'+bl.totalPerW.toFixed(3)+'/W';
+  // Inputs
+  const validProgs = ['ABP','Non-ABP','VDER','CSEP','MD-Permanent','MD-Pilot','Community'];
+  document.getElementById('clsProgram').value     = validProgs.includes(c.program)?c.program:'Community';
+  document.getElementById('clsYieldRO').textContent = c.yield.toFixed(2)+' kWh/Wp · from model';
+  document.getElementById('clsLMI').value         = c.mix[0];
+  document.getElementById('clsResi').value        = c.mix[1];
+  document.getElementById('clsCom').value         = c.mix[2];
+  // Mix sum warning
+  const sum = c.mix[0]+c.mix[1]+c.mix[2];
+  document.getElementById('clsMixWarn').style.display = (sum===100) ? 'none' : 'inline';
+  // Computed block
+  const segB = bl.b;
+  document.getElementById('clsComputed').innerHTML = `
+    <div>
+      <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.4px;">Custom Rate Curve Haircut</div>
+      <div style="font-size:16px;font-weight:700;color:var(--teal-deep);font-variant-numeric:tabular-nums;">${bl.haircut.toFixed(2)}%</div>
+      <div style="font-size:10px;color:var(--muted);">Guidehouse strip · weighted ${segB.haircut[0]}/${segB.haircut[1]}/${segB.haircut[2]}%</div>
+    </div>
+    <div>
+      <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.4px;">Cust Acquisition (bible $/kWh)</div>
+      <div style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;">$${bl.acqKwh.toFixed(4)}/kWh</div>
+      <div style="font-size:11px;color:var(--text);">Model equiv: <b>$${bl.acqPerW.toFixed(4)}/W</b></div>
+      <div style="font-size:10px;color:var(--muted);">$/kWh × yield (${c.yield.toFixed(2)} kWh/Wp) ↔ $/W</div>
+    </div>
+    <div>
+      <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.4px;">Cust Management (bible $/MWh)</div>
+      <div style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;">$${bl.mgmtMwh.toFixed(2)}/MWh</div>
+      <div style="font-size:11px;color:var(--text);">Model equiv: <b>$${bl.mgmtPerW.toFixed(4)}/W</b></div>
+      <div style="font-size:10px;color:var(--muted);">$/MWh × yield ÷ 1000 ↔ $/W</div>
+    </div>`;
+  // Tag state
+  const tag = document.getElementById('clsTag');
+  tag.textContent = c.manual ? 'MANUAL OVERRIDE' : 'AUTO-DETECTED';
+  tag.style.background = c.manual ? 'rgba(184,50,48,0.12)' : 'rgba(81,132,132,0.18)';
+  tag.style.color      = c.manual ? 'var(--off)' : 'var(--teal-deep)';
+}
+
+// ---- Recompute audit IRR/NPP/equity impact from delta vs auto-detected baseline ----
+function recomputeImpactFromClassify(p){
+  if(!p.irrPctAuto)   p.irrPctAuto   = p.irrPct;
+  if(!p.nppPerWAuto)  p.nppPerWAuto  = p.nppPerW;
+  if(!p.equityKAuto)  p.equityKAuto  = p.equityK;
+  const baseline = blendedFromMix(p.classifyAuto);
+  const current  = blendedFromMix(p.classify);
+  // Δ$/W in offtake-economics & haircut → flows directly to NPP $/W (negative if costs rise / haircut deepens)
+  const dHaircutPct = (current.haircut - baseline.haircut);   // pp (positive = deeper haircut = bad)
+  const dAcqMgmtW   = (current.totalPerW - baseline.totalPerW); // $/W (positive = more cost = bad)
+  // Approx NPP $/W impact: $X/W per 1pp haircut — constant ships from Python via PORTFOLIO.constants.
+  const C = (PORTFOLIO && PORTFOLIO.constants) || {};
+  const haircutImpact = (C.haircutImpactPerPct != null) ? C.haircutImpactPerPct : 0.014;
+  const irrPerCent    = (C.irrPctPerCent       != null) ? C.irrPctPerCent       : 0.18;
+  const dNppPerW = -(dHaircutPct * haircutImpact + dAcqMgmtW);
+  // IRR sensitivity ~ X% per $0.01/W of sponsor proceeds — same source of truth.
+  const dIrrPct  = (dNppPerW / 0.01) * irrPerCent;
+  // Equity ≈ NPP $/W × DC kW × 1000 (rough)
+  const dcMW = parseFloat((p.kpis && p.kpis.dc) || '5') || 5;
+  const dEquityK = Math.round(dNppPerW * dcMW * 1000);
+  p.irrPct  = +(p.irrPctAuto  + dIrrPct).toFixed(2);
+  p.nppPerW = +(p.nppPerWAuto + dNppPerW).toFixed(3);
+  p.equityK = p.equityKAuto + dEquityK;
+}
+
+// ===== Classification override: live warnings, required reason, audit log =====
+function _clsBeforeAfterDiff(before, after){
+  const show = v => (v == null || v === '' ? '—' : v);
+  const parts = [];
+  if (before.program !== after.program) parts.push('program ' + show(before.program) + '→' + show(after.program));
+  if (before.state   !== after.state)   parts.push('state '   + show(before.state)   + '→' + show(after.state));
+  const bm = before.mix||[], am = after.mix||[];
+  if (bm[0]!==am[0] || bm[1]!==am[1] || bm[2]!==am[2]) {
+    parts.push('mix ' + (bm.join('/')||'—') + ' → ' + (am.join('/')||'—'));
+  }
+  return parts.join('; ');
+}
+
+function _clsRefreshEnable(){
+  const lmi=+document.getElementById('clsLMI').value||0;
+  const resi=+document.getElementById('clsResi').value||0;
+  const com=+document.getElementById('clsCom').value||0;
+  const sumsOK = (lmi+resi+com)===100;
+  document.getElementById('clsMixWarn').style.display = sumsOK ? 'none' : 'inline';
+  const reason = (document.getElementById('clsReason')||{}).value || '';
+  const btn = document.getElementById('clsSave');
+  const hint = document.getElementById('clsOverrideHint');
+  const reasonOK = reason.trim().length >= 6;
+  if (btn) btn.disabled = !(sumsOK && reasonOK);
+  if (hint) hint.textContent = !sumsOK ? 'Mix must sum to 100%.'
+    : !reasonOK ? 'Override reason required (min 6 chars).'
+    : 'Will log override → Reviewer Notes.';
+}
+
+['clsLMI','clsResi','clsCom','clsProgram','clsReason'].forEach(id=>{
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', _clsRefreshEnable);
+});
+
+{ const _clsSaveEl = document.getElementById('clsSave'); if (_clsSaveEl) _clsSaveEl.addEventListener('click', e=>{
+  e.preventDefault();
+  const p = PROJECTS[currentIdx];
+  const prog = document.getElementById('clsProgram').value;
+  // Infer state from program (CSEP→NJ, MD-* →MD); otherwise keep prior state
+  let state = (p.classify && p.classify.state) || 'IL';
+  if(prog==='CSEP') state='NJ';
+  else if(prog==='MD-Permanent' || prog==='MD-Pilot') state='MD';
+  const yieldKwhPerWp = (p.classify && p.classify.yield) || 1.55;
+  const before = {
+    program: p.classify && p.classify.program,
+    state:   p.classify && p.classify.state,
+    mix:     (p.classify && p.classify.mix) ? [...p.classify.mix] : [0,0,0],
+  };
+  const after = {
+    program: prog,
+    state:   state,
+    mix: [
+      parseInt(document.getElementById('clsLMI').value)||0,
+      parseInt(document.getElementById('clsResi').value)||0,
+      parseInt(document.getElementById('clsCom').value)||0,
+    ],
+  };
+  p.classify = {...after, bibleKey: bibleKey(state, prog), yield: yieldKwhPerWp, manual: true};
+  recomputeImpactFromClassify(p);
+  // Audit-trail: append to the immutable audit log (reviewer cannot edit).
+  const reason = (document.getElementById('clsReason').value || '').trim();
+  const diff = _clsBeforeAfterDiff(before, after) || 'no structural change';
+  _appendAuditEntry({
+    kind: 'OVERRIDE',
+    project: (p.name||'project'),
+    detail: diff + ' — ' + reason,
+  });
+  // Clear reason for the next potential override.
+  const reasonEl = document.getElementById('clsReason');
+  if (reasonEl) reasonEl.value = '';
+  if (typeof _clsRefreshEnable === 'function') _clsRefreshEnable();
+  selectProject(currentIdx);
+}); }
+
+{ const _clsResetEl = document.getElementById('clsReset'); if (_clsResetEl) _clsResetEl.addEventListener('click', e=>{
+  e.preventDefault();
+  const p = PROJECTS[currentIdx];
+  if (!p) return;
+  p.classify = deriveClassify(p);
+  if(p.irrPctAuto!==undefined)  p.irrPct  = p.irrPctAuto;
+  if(p.nppPerWAuto!==undefined) p.nppPerW = p.nppPerWAuto;
+  if(p.equityKAuto!==undefined) p.equityK = p.equityKAuto;
+  selectProject(currentIdx);
+  if (typeof _clsRefreshEnable === 'function') _clsRefreshEnable();
+}); }
+
+// ---- wrapped EPC breakdown ----
+function deriveWrappedEpc(p){
+  // Build illustrative components if not provided. Total reconciles to KPI EPC.
+  const totalStr = (p.kpis && p.kpis.epc) ? p.kpis.epc : '$1.22';
+  const total = parseFloat(totalStr.replace(/[^0-9.]/g,'')) || 1.22;
+  // Plausible split: EPC ~78%, LNTP ~13%, Safe Harbor ~6%, Contingency ~3%
+  return {
+    total: total,
+    bibleTotal: 1.65,
+    components: [
+      {label:'EPC (base)',          value: +(total*0.78).toFixed(3)},
+      {label:'LNTP',                value: +(total*0.13).toFixed(3)},
+      {label:'Safe Harbor module',  value: +(total*0.06).toFixed(3)},
+      {label:'EPC Contingency',     value: +(total*0.03).toFixed(3)},
+    ],
+  };
+}
+function renderWrappedEpc(p){
+  if(!p.wrappedEpc) p.wrappedEpc = deriveWrappedEpc(p);
+  const w = p.wrappedEpc;
+  document.getElementById('wepcTotal').textContent = '$'+w.total.toFixed(2)+'/W';
+  const delta = w.total - w.bibleTotal;
+  const deltaHTML = delta<0
+    ? '<span class="neg-acct">($'+Math.abs(delta).toFixed(2)+'/W vs bible $'+w.bibleTotal.toFixed(2)+')</span>'
+    : '<span style="color:var(--text);">+$'+delta.toFixed(2)+'/W vs bible $'+w.bibleTotal.toFixed(2)+'</span>';
+  const rows = w.components.map(c=>`
+    <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted rgba(0,0,0,0.08);">
+      <span style="color:var(--muted);">${_esc(c.label)}</span>
+      <b style="font-variant-numeric:tabular-nums;">$${c.value.toFixed(3)}/W</b>
+    </div>`).join('');
+  document.getElementById('wepcBreakdown').innerHTML = rows + `
+    <div style="display:flex;justify-content:space-between;padding:6px 0 0;font-weight:700;">
+      <span>Wrapped Total (Project Inputs row 118)</span>
+      <span>$${w.total.toFixed(3)}/W</span>
+    </div>
+    <div style="margin-top:6px;font-size:11px;">${deltaHTML}</div>
+    <div style="margin-top:4px;color:var(--muted);font-size:10.5px;">This wrapped total is what the bible audit compares — not raw EPC alone.</div>`;
+}
+
+function selectProject(idx){
+  if(!PROJECTS.length){ currentIdx = 0; return; }
+  if(typeof idx !== 'number' || isNaN(idx)) idx = 0;
+  if(idx < 0) idx = PROJECTS.length - 1;
+  if(idx >= PROJECTS.length) idx = 0;
+  currentIdx = idx;
+  const p = PROJECTS[idx];
+  // Header
+  document.getElementById('dealTitle').textContent = p.name;
+  document.getElementById('dealSub').textContent   = p.sub;
+  document.getElementById('impIRR').innerHTML = p.irrPct<0 ? '('+(-p.irrPct).toFixed(2)+'%)' : p.irrPct.toFixed(2)+'%';
+  document.getElementById('impNPP').innerHTML = p.nppPerW<0 ? '($'+(-p.nppPerW).toFixed(2)+'/W)' : '$'+p.nppPerW.toFixed(2)+'/W';
+  // Equity impact — absolute $ is the go/no-go number in an IC pack.
+  const eqEl = document.getElementById('impEquity');
+  if (eqEl) eqEl.innerHTML = p.equityK<0
+    ? '('+fmtMoneyShort(Math.abs(p.equityK*1000)).replace('$','$')+')'
+    : (p.equityK>0 ? fmtMoneyShort(p.equityK*1000) : '$0');
+  // Verdict — toggle a semantic class instead of juggling inline styles.
+  const v = document.getElementById('dealVerdict');
+  if (v) {
+    // Restore visibility in case the empty-state branch hid it earlier.
+    v.style.display = '';
+    v.textContent = p.verdict;
+    v.classList.remove('v-clean', 'v-review', 'v-rework');
+    v.classList.add(p.verdict==='CLEAN' ? 'v-clean'
+                    : p.verdict==='REVIEW' ? 'v-review'
+                    : 'v-rework');
+  }
+  // Impact objects: bad if any negative impact. Guard against missing .iov.
+  document.querySelectorAll('.impact-obj').forEach(el=>{
+    const isBad = p.verdict!=='CLEAN' && (p.irrPct<0 || p.nppPerW<0);
+    el.classList.toggle('bad', isBad);
+    const iov = el.querySelector('.iov');
+    if (iov) iov.style.color = isBad ? 'var(--off)' : 'var(--text)';
+  });
+  // KPIs + findings + classification strip + references — each in its own
+  // try/catch so a thrown payload field doesn't abort the rest of the boot.
+  try { renderKpis(p); }            catch(err){ console.error('renderKpis', err); }
+  try { renderFindings(p); }        catch(err){ console.error('renderFindings', err); }
+  try { renderClassify(p); }        catch(err){ console.error('renderClassify', err); }
+  try { renderWrappedEpc(p); }      catch(err){ console.error('renderWrappedEpc', err); }
+  try { renderReferences(p); }      catch(err){ console.error('renderReferences', err); }
+  if (typeof _clsRefreshEnable === 'function') {
+    try { _clsRefreshEnable(); } catch(_){}
+  }
+  // Charts
+  if (typeof Plotly !== 'undefined') {
+    try { renderCharts(p); } catch(err){ console.error('renderCharts', err); }
+  }
+  // Sidebar selection — projCards is built from a filtered+sorted view, so
+  // the original `idx` is NOT a position in projCards. Map via data-idx.
+  const navPos = projCards.findIndex(
+    c => parseInt(c.getAttribute('data-idx')) === idx
+  );
+  projCards.forEach((c, i) => c.classList.toggle('selected', i === navPos));
+  const navCount = document.getElementById('navCount');
+  if (navCount) navCount.textContent = (navPos >= 0 ? (navPos + 1) : '?') + ' of ' + projCards.length;
+  if (navPos >= 0 && projCards[navPos]) {
+    projCards[navPos].scrollIntoView({block:'nearest', behavior:'smooth'});
+  }
+}
+// Wrap every top-level addEventListener in null-guarded IIFEs so a missing
+// DOM element (e.g. a feature-flagged section) can't kill the rest of boot.
+(function wireProjectNav(){
+  const next = document.getElementById('btnNext');
+  const prev = document.getElementById('btnPrev');
+  if (next) next.addEventListener('click', ()=>selectProject(currentIdx+1));
+  if (prev) prev.addEventListener('click', ()=>selectProject(currentIdx-1));
+})();
+// Keyboard: J / K or arrow keys
+document.addEventListener('keydown', e=>{
+  const tag = (e.target && e.target.tagName) || '';
+  if(tag==='TEXTAREA' || tag==='INPUT' || (e.target && e.target.isContentEditable)) return;
+  if(e.key==='ArrowDown' || e.key==='j') selectProject(currentIdx+1);
+  if(e.key==='ArrowUp'   || e.key==='k') selectProject(currentIdx-1);
+});
+
+// ===== Reviewer notes auto-counter =====
+(function wireReviewerNotes(){
+  const notes = document.getElementById('reviewerNotes');
+  const notesCount = document.getElementById('notesCount');
+  if (!notes) return;
+  notes.addEventListener('input', ()=>{
+    if (notesCount) notesCount.textContent = notes.value.length;
+  });
+})();
+
+// ===== Model-name parser: strip "38DN-", "Pricing Model", and dates =====
+// Example: "38DN-Lightstar-IL-Pricing Model-2026-04-15.xlsm" → "Lightstar · IL"
+function parseModelName(filename){
+  if(!filename) return '';
+  let n = filename.replace(/\.(xlsm|xlsx|xls)$/i,'');
+  n = n.replace(/^38DN[-_\s]*/i,'');
+  n = n.replace(/[-_\s]*Pricing[\s_-]*Model[-_\s]*/ig,'-');
+  n = n.replace(/\d{4}[-_]\d{2}[-_]\d{2}/g,'');                 // YYYY-MM-DD
+  n = n.replace(/\d{1,2}[-_]\d{1,2}[-_]\d{2,4}/g,'');           // MM-DD-YY(YY)
+  n = n.replace(/Q[1-4][\s_-]*['‘]?\d{2,4}/ig,'');              // Q3 '26
+  n = n.replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
+  return n.split(' ').filter(Boolean).join(' · ');
+}
+// ===== Portfolio / top-bar renderer =====
+function renderPortfolio(){
+  const P = PORTFOLIO || {};
+  const S = (id, v) => { const el=document.getElementById(id); if(el) el.textContent = v; };
+  S('modelName',  P.modelName  || 'No model loaded');
+  S('bibleLabel', P.bibleLabel || "Q1 '26");
+  S('loadedDate', P.loadedDate || '—');
+  S('reviewer',   P.reviewer   || '—');
+  // Recompute FAIL/FLAG/MISSING/REVIEW + count + MW from currently-visible projects
+  // so in-session exclusions reflect in the audit strip.
+  const vis = visibleProjects();
+  const visCounts = {OFF:0, OUT:0, MISSING:0, REVIEW:0};
+  let visMw = 0;
+  vis.forEach(({p}) => {
+    (p.findings||[]).forEach(f => {
+      if (visCounts[f.status] != null) visCounts[f.status]++;
+    });
+    const dc = parseFloat(p.kpis && p.kpis.dc);
+    if (isFinite(dc)) visMw += dc;
+  });
+  S('pillOff',    visCounts.OFF);
+  S('pillOut',    visCounts.OUT);
+  S('pillMiss',   visCounts.MISSING);
+  S('pillRev',    visCounts.REVIEW);
+  S('pillCount',  vis.length);
+  S('pillMw',     visMw.toFixed(1) + ' MW');
+  // Count approved vs pending from live session state
+  const nApproved = vis.filter(({i}) => _isApproved(i)).length;
+  S('pillReviewed', nApproved);
+  S('pillPending',  vis.length - nApproved);
+  S('navProjCount', 'Projects · ' + vis.length);
+}
+
+// ===== Project-list renderer (left nav) =====
+function projChipsHTML(p){
+  // Build micro-chip markers from the project's findings
+  const sigs = [];
+  (p.findings||[]).forEach(f=>{
+    if(f.status==='OFF' || f.status==='OUT' || f.status==='MISSING' || f.status==='REVIEW'){
+      sigs.push({code:(f.short||f.field).toString().split('(')[0].trim().slice(0,12).toUpperCase(), status:f.status});
+    }
+  });
+  const uniq = [];
+  const seen = new Set();
+  sigs.forEach(s=>{ const k=s.code+s.status; if(!seen.has(k)){seen.add(k); uniq.push(s);} });
+  const top = uniq.slice(0,4);
+  if(top.length===0) return '<span class="micro ok">CLEAN</span>';
+  const clsMap = {OFF:'off', OUT:'out', REVIEW:'rev', MISSING:'miss'};
+  const tagMap = {OFF:' FAIL', OUT:' FLAG', REVIEW:' REV', MISSING:''};
+  return top.map(s=>'<span class="micro '+(clsMap[s.status]||'miss')+'">'+_esc(s.code)+(tagMap[s.status]||'')+'</span>').join('');
+}
+
+let _navFilter = 'all';   // 'all' | 'OFF' | 'OUT' | 'MISSING' | 'REVIEW'
+let _navSearch = '';
+
+function _projMatchesFilter(p){
+  if(_navFilter === 'all') return true;
+  return (p.findings||[]).some(f=>f.status===_navFilter);
+}
+function _projMatchesSearch(p){
+  if(!_navSearch) return true;
+  const q = _navSearch.toLowerCase();
+  return (p.name||'').toLowerCase().includes(q) || (p.sub||'').toLowerCase().includes(q);
+}
+
+function _esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+// Audit status — internal codes map to human-facing display labels plus a
+// single-glyph prefix so reviewers can distinguish at a glance without
+// memorizing the vocabulary. Python audit engine still speaks OFF/OUT.
+const STATUS_LABELS = {OFF:'FAIL', OUT:'FLAG', MISSING:'MISSING', REVIEW:'REVIEW'};
+const STATUS_GLYPHS = {OFF:'●', OUT:'▲', MISSING:'○', REVIEW:'◆'};
+function _statusLabel(code){
+  const g = STATUS_GLYPHS[code] || '';
+  const l = STATUS_LABELS[code] || code || '';
+  return g ? g + ' ' + l : l;
+}
+
+// Format a signed numeric delta with its unit code. $ units prefix; others suffix.
+function _fmtDelta(val, unit){
+  const u = (unit||'').toString().trim();
+  const mag = Math.abs(val);
+  const body = u === '$' ? '$' + mag : (mag + (u ? ' ' + _esc(u) : ''));
+  if (val < 0) return '(' + body + ')';
+  const prefix = u === '$' ? '+$' : '+';
+  return prefix + (u === '$' ? mag : mag + (u ? ' ' + _esc(u) : ''));
+}
+
+function renderProjectList(){
+  const host = document.getElementById('projList');
+  const empty = document.getElementById('projEmpty');
+  if(!host) return;
+  if(!PROJECTS.length){ host.innerHTML=''; if(empty){ empty.style.display='block'; empty.innerHTML='No projects loaded. Upload a pricing model and click <b>Run Review</b>.'; } projCards=[]; return; }
+  const filtered = PROJECTS
+    .map((p,i)=>({p,i}))
+    .filter(({p,i})=>isIncluded(i) && _projMatchesFilter(p) && _projMatchesSearch(p));
+  // Sort by worst-first (largest |equityK|). Within ties, keep original order.
+  filtered.sort((a,b)=>Math.abs(b.p.equityK||0) - Math.abs(a.p.equityK||0));
+  if(!filtered.length){
+    host.innerHTML='';
+    if(empty){ empty.style.display='block'; empty.innerHTML='No projects match the current filter.'; }
+    projCards=[]; return;
+  }
+  if(empty) empty.style.display='none';
+  host.innerHTML = filtered.map(({p,i}, rank)=>{
+    const meta = p.sub || '';
+    const dc = (p.kpis && p.kpis.dc && p.kpis.dc!=='—') ? p.kpis.dc+' MW' : '';
+    // Tiny rank badge — only for projects with a non-zero equity impact.
+    const rankBadge = (p.equityK && Math.abs(p.equityK) > 0)
+      ? '<span class="proj-rank">#'+(rank+1)+'</span>' : '';
+    // Project # from row 2 — disambiguates duplicate names.
+    const pnumBadge = (p.projNumber != null)
+      ? '<span class="proj-pnum" title="Project #'+p.projNumber+'">P'+_esc(p.projNumber)+'</span>' : '';
+    const isApproved = _isApproved(i);
+    const approvedBadge = isApproved
+      ? '<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:0.05em;background:var(--teal);color:#fff;margin-left:auto;">APPROVED</span>'
+      : '';
+    return '<div class="proj-card'+(isApproved?' proj-approved':'')+'" data-idx="'+i+'">'
+      + '<div class="pname" style="display:flex;align-items:center;gap:6px;">'+rankBadge+pnumBadge+_esc(p.name||'Unnamed')+approvedBadge+'</div>'
+      + '<div class="pmeta">'+_esc(meta+(dc?' — '+dc:''))+'</div>'
+      + '<div class="pchips">'+projChipsHTML(p)+'</div>'
+      + '</div>';
+  }).join('');
+  projCards = Array.from(host.querySelectorAll('.proj-card'));
+  projCards.forEach((el)=>{
+    const origIdx = parseInt(el.getAttribute('data-idx'));
+    el.addEventListener('click', ()=>selectProject(origIdx));
+    if(origIdx===currentIdx) el.classList.add('selected');
+  });
+  // If the currently-selected project is no longer in the filtered set,
+  // promote the worst visible project so the center panel stays in sync.
+  if(!filtered.some(({i})=>i===currentIdx)){
+    selectProject(filtered[0].i);
+  }
+}
+
+// ===== Portfolio Summary table (portfolio mode) =====
+function renderPortfolioSummary(){
+  const body = document.getElementById('portfolioSummaryBody');
+  const meta = document.getElementById('portfolioSummaryMeta');
+  if(!body) return;
+  if(!PROJECTS.length){
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted);font-style:italic;">No projects loaded.</td></tr>';
+    if(meta) meta.textContent = 'Ranked by absolute equity impact';
+    return;
+  }
+  // Every project renders in the table (even excluded), ranked by full-set
+  // equity magnitude, so the reviewer can see what's hidden.
+  const ranked = PROJECTS.map((p,i)=>({p,i})).sort((a,b)=>Math.abs(b.p.equityK||0)-Math.abs(a.p.equityK||0));
+  // Totals count only included (not-excluded) projects.
+  const visible = ranked.filter(({i}) => isIncluded(i));
+  const totalEquity = visible.reduce((s,{p})=>s+(p.equityK||0), 0);
+  const totalMw = visible.reduce((s,{p})=>{
+    const dc = parseFloat(p.kpis && p.kpis.dc);
+    return s + (isFinite(dc) ? dc : 0);
+  }, 0);
+  if(meta){
+    const totalHTML = (totalEquity<0?'('+fmtMoneyShort(Math.abs(totalEquity*1000))+')':fmtMoneyShort(totalEquity*1000));
+    const hiddenCount = ranked.length - visible.length;
+    meta.innerHTML = visible.length + ' in review · ' + totalMw.toFixed(1) + ' MWdc · portfolio equity Δ ' + totalHTML
+      + (hiddenCount ? ' <span style="color:var(--muted);">· ' + hiddenCount + ' hidden</span>' : '');
+  }
+  body.innerHTML = ranked.map(({p,i}, rank)=>{
+    // Prefer first-class developer field; fall back to legacy sub[0] parse.
+    const developer = p.developer || (p.sub||'').split(' · ')[0] || '—';
+    const stateProgram = [p.state, p.program].filter(Boolean).join(' · ') || '—';
+    const dcStr = (p.kpis && p.kpis.dc && p.kpis.dc !== '—') ? p.kpis.dc : '—';
+    const verdict = p.verdict || 'REVIEW';
+    const vClass = verdict==='CLEAN' ? 'clean' : (verdict==='REVIEW' ? 'review' : 'rework');
+    const eqK = p.equityK || 0;
+    const eqDisplay = eqK<0
+      ? '<span class="neg-acct">('+fmtMoneyShort(Math.abs(eqK*1000)).replace('$','$')+')</span>'
+      : (eqK>0 ? fmtMoneyShort(eqK*1000) : '$0');
+    const counts = (p.findings||[]).reduce((acc,f)=>{ acc[f.status]=(acc[f.status]||0)+1; return acc; }, {});
+    const nFail = counts.OFF || 0;
+    const nFlag = counts.OUT || 0;
+    const issues = nFail + nFlag;
+    // Combined "Issues" cell: bold count + a small ▪ FAIL / ▫ FLAG breakdown.
+    const issuesHtml = issues > 0
+      ? '<b>'+issues+'</b> <span style="font-size:9.5px;color:var(--muted);white-space:nowrap;">'
+         + (nFail ? '<span style="color:var(--off);">● '+nFail+'</span>' : '')
+         + (nFail && nFlag ? ' ' : '')
+         + (nFlag ? '<span style="color:var(--out);">▲ '+nFlag+'</span>' : '')
+         + '</span>'
+      : '<span style="color:var(--muted);">0</span>';
+    const included = isIncluded(i);
+    const rowStyle = included ? '' : 'opacity:0.45;';
+    // Rank chip: "#3"; Project # chip from row 2 (disambiguates duplicates).
+    const rankBadge = '<span class="proj-rank" style="margin-right:6px;">#'+(rank+1)+'</span>';
+    const pnumBadge = (p.projNumber != null)
+      ? '<span class="proj-pnum" title="Project # from Project Inputs row 2">P'+_esc(p.projNumber)+'</span>'
+      : '';
+    return '<tr data-idx="'+i+'" style="'+rowStyle+'">'
+      + '<td style="text-align:center;"><input type="checkbox" class="portfolio-include-chk" data-idx="'+i+'" '+(included?'checked':'')+' aria-label="Include in review"></td>'
+      + '<td class="field">'+rankBadge+pnumBadge+_esc(p.name||'Unnamed')+'</td>'
+      + '<td>'+_esc(developer)+'</td>'
+      + '<td>'+_esc(stateProgram)+'</td>'
+      + '<td class="num-cell">'+_esc(dcStr)+'</td>'
+      + '<td style="text-align:center;"><span class="verdict-pill '+vClass+'">'+_esc(verdict)+'</span></td>'
+      + '<td class="num-cell impact-cell'+(eqK<0?' neg':'')+'">'+eqDisplay+'</td>'
+      + '<td class="num-cell">'+issuesHtml+'</td>'
+      + '<td style="color:var(--muted);text-align:center;" title="Open in Deep-Dive">' + (included ? '→' : '') + '</td>'
+      + '</tr>';
+  }).join('');
+
+  // Checkbox: toggle in-session exclusion. Click bubbles from input, so
+  // the row-click handler below checks the event target first to avoid
+  // both firing on a single click.
+  body.querySelectorAll('.portfolio-include-chk').forEach(chk=>{
+    chk.addEventListener('click', e=>e.stopPropagation());
+    chk.addEventListener('change', e=>{
+      const idx = parseInt(chk.getAttribute('data-idx'));
+      if (chk.checked) EXCLUDED_IDX.delete(idx);
+      else EXCLUDED_IDX.add(idx);
+      _onInclusionChanged();
+    });
+  });
+  // Row click (not on checkbox) → select project + switch to Deep-Dive.
+  body.querySelectorAll('tr[data-idx]').forEach(row=>{
+    row.addEventListener('click', e=>{
+      if (e.target && e.target.classList && e.target.classList.contains('portfolio-include-chk')) return;
+      const idx = parseInt(row.getAttribute('data-idx'));
+      if (!isIncluded(idx)) {
+        // Flash the row briefly to acknowledge the click, then fade back.
+        row.style.transition = 'background 0.3s';
+        row.style.background = 'var(--off-bg)';
+        setTimeout(() => { row.style.background = ''; }, 600);
+        return;
+      }
+      selectProject(idx);
+      const deepBtn = document.querySelector('#topModes .mode[data-mode="deep"]');
+      if(deepBtn) deepBtn.click();
+    });
+  });
+}
+
+// Cross-cutting refresh when the in-session exclusion set changes.
+function _onInclusionChanged(){
+  renderPortfolio();
+  renderProjectList();
+  renderPortfolioSummary();
+  // If the currently-selected project was just hidden, promote the worst visible.
+  if (!isIncluded(currentIdx)) {
+    const vis = visibleProjects();
+    if (vis.length) {
+      selectProject(vis[0].i);
+    } else {
+      // All projects excluded — clear center panel to avoid stale data.
+      const dt = document.getElementById('dealTitle');
+      if (dt) dt.textContent = 'All projects excluded';
+      const ds = document.getElementById('dealSub');
+      if (ds) ds.textContent = 'Restore at least one project to view findings.';
+      const dv = document.getElementById('dealVerdict');
+      if (dv) dv.style.display = 'none';
+    }
+  } else {
+    // Re-render charts to reflect new portfolio totals / heatmap row order.
+    // Skip in walk mode — chart containers are hidden and Plotly would error.
+    const isWalkMode = document.body.classList.contains('mode-walk');
+    if (!isWalkMode && typeof Plotly !== 'undefined' && PROJECTS.length) {
+      try { renderCharts(PROJECTS[currentIdx]); } catch(_){}
+    }
+  }
+}
+
+// Default-select the worst project on initial load rather than index 0.
+function _worstProjectIdx(){
+  if(!PROJECTS.length) return 0;
+  let worstIdx = 0, worstMag = -1;
+  PROJECTS.forEach((p,i)=>{
+    const m = Math.abs(p.equityK||0);
+    if(m > worstMag){ worstMag = m; worstIdx = i; }
+  });
+  return worstIdx;
+}
+
+// ===== Top-bar mode switching (Portfolio / Project Review / Reference) =====
+(function wireTopModes(){
+  const modes = document.getElementById('topModes');
+  if(!modes) return;
+  function applyMode(mode){
+    document.body.classList.remove('mode-portfolio','mode-deep','mode-reference','mode-walk');
+    document.body.classList.add('mode-' + mode);
+    modes.querySelectorAll('.mode').forEach(m =>
+      m.classList.toggle('active', m.getAttribute('data-mode') === mode)
+    );
+    // Scroll the iframe to the top of the new mode's primary content so the
+    // change is immediately visible (Portfolio mode lands on the summary
+    // table; Reference mode on the bible card).
+    const target = mode === 'portfolio' ? document.getElementById('portfolioSummaryCard')
+                  : mode === 'reference' ? document.getElementById('refPanel')
+                  : mode === 'walk' ? document.getElementById('walkPanel')
+                  : document.getElementById('dealTitle');
+    if (target) target.scrollIntoView({block:'start', behavior:'smooth'});
+    // Plotly charts need a re-render after the container resizes.
+    // Skip in walk/reference modes where chart containers are hidden.
+    if(mode !== 'walk' && mode !== 'reference' && typeof Plotly !== 'undefined' && PROJECTS.length){
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try { renderCharts(PROJECTS[currentIdx]); } catch(_){}
+        });
+      });
+    }
+    // Reset sidebar filter/search so the project list reflects the new mode context.
+    _navFilter = 'all';
+    _navSearch = '';
+    const searchEl = document.getElementById('navSearch');
+    if (searchEl) searchEl.value = '';
+    const filterChips = document.getElementById('navFilters');
+    if (filterChips) {
+      filterChips.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-filter') === 'all'));
+    }
+    renderProjectList();
+  }
+  modes.addEventListener('click', e => {
+    const btn = e.target.closest('.mode');
+    if(!btn) return;
+    const mode = btn.getAttribute('data-mode') || 'deep';
+    applyMode(mode);
+  });
+  // Initial mode = Project Review.
+  applyMode('deep');
+})();
+
+// ===== Filter chips + search wiring =====
+(function wireNavFilters(){
+  const filters = document.getElementById('navFilters');
+  if(filters){
+    filters.addEventListener('click', e=>{
+      const chip = e.target.closest('.chip');
+      if(!chip) return;
+      filters.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      _navFilter = chip.getAttribute('data-filter') || 'all';
+      renderProjectList();
+    });
+  }
+  const search = document.getElementById('navSearch');
+  if(search){
+    search.addEventListener('input', e=>{
+      _navSearch = e.target.value || '';
+      renderProjectList();
+    });
+  }
+})();
+
+// ===== Right-panel reference renderer =====
+function renderReferences(p){
+  const R = (p && p.references) || {bible:[], market:[], opex:[], marketMatched:false};
+  const bh = document.getElementById('refBibleHeader');
+  const mh = document.getElementById('refMarketHeader');
+  if(bh) bh.textContent = R.bibleHeader || 'Bible';
+  if(mh) mh.textContent = R.marketHeader || 'Market';
+  const fmt = x => '<div class="ref-item"><div class="rk">'+_esc(x.k)+'</div><div class="rv">'+_esc(x.v)+'</div>'+(x.s?'<div class="rs">'+_esc(x.s)+'</div>':'')+'</div>';
+  const emptyMsg = (msg) => '<div class="ref-item" style="color:var(--muted);font-style:italic;">'+_esc(msg)+'</div>';
+  const host = (id, items, empty) => { const el=document.getElementById(id); if(el) el.innerHTML = (items && items.length) ? items.map(fmt).join('') : emptyMsg(empty); };
+  host('refBible',  R.bible,  'No bible entries');
+  host('refMarket', R.market, R.marketMatched===false ? 'No market match' : 'No market entries');
+  host('refOpex',   R.opex,   'No OpEx benchmarks');
+}
+
+// ----- Plotly bootstrap with retry + graceful fallback -----
+const NAVY='#050D25', INDIGO='#212B48', TEAL='#518484', TEAL_DEEP='#3d6868',
+      BLUE='#1D6FA9', OFF='#b83230', MUTED='#7d8694', INSET='#eef0f5';
+
+function fallbackPlot(id, msg){
+  var el=document.getElementById(id);
+  if(el) el.innerHTML='<div class="plot-fallback">Chart library failed to load — '+(msg||'check network connection.')+'</div>';
+}
+
+const COLOR_MAP = {off:OFF, out:TEAL_DEEP, miss:MUTED};
+const baseLayout = {
+  font:{family:'Inter, Segoe UI, sans-serif', size:11, color:'#212B48'},
+  paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+  xaxis:{gridcolor:'rgba(5,13,37,0.05)', zerolinecolor:'rgba(5,13,37,0.15)', automargin:true, ticklabelstandoff:6, title:{standoff:14}},
+  yaxis:{gridcolor:'rgba(5,13,37,0.05)', zerolinecolor:'rgba(5,13,37,0.15)', automargin:true, ticklabelstandoff:6, title:{standoff:14}},
+};
+const cfg={displayModeBar:false, responsive:true};
+const TEAL_DEEP_VAR = '#3d6868';
+
+function renderCharts(p){
+  if(typeof Plotly==='undefined') return;
+
+  // ----- Variance: dynamic margins so labels never overlap -----
+  const vColors = p.variance.colors.map(c => COLOR_MAP[c] || MUTED);
+  // Compute padding to keep "outside" text labels from clipping
+  const minX = Math.min(...p.variance.x, 0);
+  const maxX = Math.max(...p.variance.x, 0);
+  const xPad = Math.max(Math.abs(minX), Math.abs(maxX)) * 0.30 || 50;
+  Plotly.react('variance', [{
+    type:'bar', orientation:'h',
+    x:p.variance.x, y:p.variance.labels,
+    marker:{color:vColors},
+    text:p.variance.txt,
+    textposition:'outside', cliponaxis:false, textfont:{color:'#212B48', size:11},
+    hovertemplate:'%{y}<br>$-impact: $%{x}k<extra></extra>',
+  }], {...baseLayout,
+    margin:{l:10, r:10, t:14, b:50, pad:4, autoexpand:true},
+    xaxis:{...baseLayout.xaxis, title:{text:'Equity $-impact (thousands)', standoff:14},
+           tickprefix:'$', ticksuffix:'k',
+           range:[minX - xPad, maxX + xPad]},
+    yaxis:{...baseLayout.yaxis, automargin:true},
+  }, cfg);
+
+  // ----- Capital stack subtitle (DSCR-schedule hint if model carries one) -----
+  const stackMeta = document.getElementById('stackMeta');
+  if (stackMeta) {
+    const a = (p.stack && p.stack.assumptions) || {};
+    const isIllustrative = !!(p.stack && p.stack.illustrative);
+    const pieces = [];
+    pieces.push('Debt ' + Math.round((a.debtFraction||0.55)*100) + '% · TE ' + Math.round((a.teMonetization||0.85)*100) + '¢');
+    if (a.hasModelDscr) pieces.push('model carries DSCR schedule — sizing TBD');
+    stackMeta.textContent = (isIllustrative ? 'ILLUSTRATIVE · Derived · ' : 'Derived · ') + pieces.join(' · ');
+    stackMeta.style.color = isIllustrative ? 'var(--off)' : '';
+    stackMeta.style.fontWeight = isIllustrative ? '700' : '';
+  }
+
+  // ----- Capital stack -----
+  Plotly.react('stack', [
+    {type:'bar', name:'Sponsor Equity', x:['Model','Bible'], y:[p.stack.model[0], p.stack.bible[0]], marker:{color:NAVY}},
+    {type:'bar', name:'Tax Equity',     x:['Model','Bible'], y:[p.stack.model[1], p.stack.bible[1]], marker:{color:TEAL}},
+    {type:'bar', name:'Debt',           x:['Model','Bible'], y:[p.stack.model[2], p.stack.bible[2]], marker:{color:INDIGO}},
+    {type:'bar', name:'Incentives',     x:['Model','Bible'], y:[p.stack.model[3], p.stack.bible[3]], marker:{color:BLUE}},
+  ],{...baseLayout, barmode:'stack',
+    yaxis:{...baseLayout.yaxis, title:{text:'$/W', standoff:12}, tickprefix:'$', tickformat:'.2f'},
+    xaxis:{...baseLayout.xaxis, automargin:true},
+    legend:{orientation:'h', y:-0.22, font:{size:10}},
+    margin:{l:10, r:10, t:14, b:60, autoexpand:true}
+  }, cfg);
+
+  // ----- 25-year cash flow (real arrays from Python) -----
+  const cf = p.cashflow || {};
+  const opCF     = Array.isArray(cf.opCF)     ? cf.opCF     : [];
+  const taxBn    = Array.isArray(cf.taxBn)    ? cf.taxBn    : [];
+  const terminal = Array.isArray(cf.terminal) ? cf.terminal : [];
+  const yrs = Array.from({length:Math.max(opCF.length, 25)},(_,i)=>i+1);
+  Plotly.react('cashflow', [
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Operating CF', x:yrs, y:opCF,    fillcolor:'rgba(81,132,132,0.55)'},
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Tax Benefits', x:yrs, y:taxBn,   fillcolor:'rgba(33,43,72,0.45)'},
+    {type:'scatter', mode:'none', stackgroup:'one', name:'Terminal',     x:yrs, y:terminal,fillcolor:'rgba(29,111,169,0.45)'},
+  ],{...baseLayout,
+    xaxis:{...baseLayout.xaxis, title:{text:'Year', standoff:12}, dtick:5, automargin:true},
+    yaxis:{...baseLayout.yaxis, title:{text:'$ thousands', standoff:14}, tickprefix:'$', tickformat:',.0f'},
+    legend:{orientation:'h', y:-0.25, font:{size:10}},
+    margin:{l:10, r:10, t:14, b:60, autoexpand:true}
+  }, cfg);
+
+  // ----- Sensitivity tornado (real ΔNPP $/W arrays) -----
+  const torn = p.tornado || {labels:[], lo:[], hi:[]};
+  const inputs = torn.labels.slice().reverse();  // reverse so largest swing is on top
+  const lo = torn.lo.slice().reverse();
+  const hi = torn.hi.slice().reverse();
+  const tMin = lo.length ? Math.min(...lo, 0) : 0;
+  const tMax = hi.length ? Math.max(...hi, 0) : 0;
+  const tPad = Math.max(Math.abs(tMin), Math.abs(tMax))*0.15 || 0.02;
+  Plotly.react('tornado', [
+    {type:'bar', orientation:'h', name:'−10%', x:lo, y:inputs, marker:{color:OFF}, hovertemplate:'%{y}: $%{x:.2f}<extra>−10%</extra>'},
+    {type:'bar', orientation:'h', name:'+10%', x:hi, y:inputs, marker:{color:TEAL}, hovertemplate:'%{y}: $%{x:.2f}<extra>+10%</extra>'},
+  ],{...baseLayout, barmode:'overlay',
+    xaxis:{...baseLayout.xaxis, title:{text:'ΔNPP ($/W)', standoff:14}, tickprefix:'$', tickformat:'.2f',
+           zeroline:true, zerolinewidth:2, zerolinecolor:'#212B48',
+           range:[tMin-tPad, tMax+tPad]},
+    yaxis:{...baseLayout.yaxis, automargin:true},
+    legend:{orientation:'h', y:-0.25, font:{size:10}},
+    margin:{l:10, r:10, t:14, b:60, autoexpand:true}
+  }, cfg);
+
+  // ----- Heatmap (with current project highlighted via a row marker) -----
+  const HM = (PORTFOLIO && PORTFOLIO.heatmap) || {projects:[], fields:[], z:[]};
+  // Filter by in-session exclusions so the heatmap only shows in-review projects.
+  const fullProjects = HM.projects.length ? HM.projects : PROJECTS.map(x=>x.name);
+  const fullZ = HM.z.length ? HM.z : fullProjects.map(()=>HM.fields.map(()=>0));
+  // Map heatmap rows to PROJECTS indices by name so exclusion filtering works
+  // even when heatmap order doesn't match PROJECTS order.
+  const keepMask = fullProjects.map((name, k) => {
+    const pi = PROJECTS.findIndex(p => p.name === name);
+    return pi >= 0 && isIncluded(pi);
+  });
+  const projects = fullProjects.filter((_, k) => keepMask[k]);
+  const z = fullZ.filter((_, k) => keepMask[k]);
+  const fields = HM.fields.length ? HM.fields : ['EPC','LNTP','C&L','ITC','Elig Cost','Upfront','Insurance','O&M','AM Fee'];
+  // Map currentIdx (full-PROJECTS) → row index in the FILTERED heatmap so
+  // the highlight rect doesn't drift when projects are excluded.
+  const currentName = (PROJECTS[currentIdx] || {}).name;
+  const hlPos = currentName ? projects.indexOf(currentName) : -1;
+  const shapes = (hlPos >= 0) ? [{
+      type:'rect', xref:'paper', x0:0, x1:1,
+      y0:hlPos-0.5, y1:hlPos+0.5,
+      line:{color:TEAL, width:2}, fillcolor:'rgba(0,0,0,0)',
+    }] : [];
+  Plotly.react('heatmap', [{
+    type:'heatmap', z, x:fields, y:projects,
+    colorscale:[[0,'#f7f8fa'],[0.34,'rgba(81,132,132,0.25)'],[0.67,'rgba(184,50,48,0.55)'],[1,'#dfe2e8']],
+    showscale:false, xgap:3, ygap:3,
+    hovertemplate:'%{y} · %{x}: status %{z}<extra></extra>',
+  }],{...baseLayout,
+    margin:{l:10, r:10, t:14, b:40, autoexpand:true},
+    xaxis:{...baseLayout.xaxis, side:'bottom', automargin:true},
+    yaxis:{...baseLayout.yaxis, automargin:true},
+    shapes,
+  }, cfg);
+}
+
+function bootCharts(){
+  if(typeof Plotly==='undefined'){
+    ['variance','stack','cashflow','tornado','heatmap'].forEach(id=>fallbackPlot(id));
+    return;
+  }
+  if(PROJECTS.length) renderCharts(PROJECTS[currentIdx]);
+}
+
+// ===== Portfolio table: Restore-all button =====
+(function wireRestoreAll(){
+  const btn = document.getElementById('portfolioRestoreAll');
+  if (btn) btn.addEventListener('click', e => {
+    e.preventDefault();
+    if (EXCLUDED_IDX.size === 0) return;
+    EXCLUDED_IDX.clear();
+    _onInclusionChanged();
+  });
+})();
+
+// ===== Boot =====
+renderPortfolio();
+renderProjectList();
+renderPortfolioSummary();
+_renderAuditLog();
+if(PROJECTS.length){
+  // Land on the worst-impact project so the reviewer sees the biggest
+  // problem first instead of whatever sits at index 0.
+  selectProject(_worstProjectIdx());
+} else {
+  // Empty state: clear center panel placeholders and show guidance.
+  const dt=document.getElementById('dealTitle'); if(dt) dt.textContent='No projects loaded';
+  const ds=document.getElementById('dealSub');   if(ds) ds.textContent='Upload a pricing model and click Run Review in the sidebar.';
+  const dv=document.getElementById('dealVerdict'); if(dv) dv.style.display='none';
+  const dk=document.getElementById('dealKpis');  if(dk) dk.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--muted);"><div style="font-size:28px;margin-bottom:12px;">&#9728;</div><div style="font-size:13px;font-weight:600;">No projects loaded</div><div style="font-size:11.5px;margin-top:4px;">Upload a pricing model in the sidebar and click <b>Run Review</b> to begin.</div></div>';
+  const fb=document.getElementById('findingsBody'); if(fb) fb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted);font-style:italic;">Run a review to populate findings.</td></tr>';
+  const nc=document.getElementById('navCount'); if(nc) nc.textContent = '0 of 0';
+  renderReferences({references:{bibleHeader:'Bible', marketHeader:'Market', bible:[], market:[], opex:[], marketMatched:false}});
+}
+
+// ===== Build Walk: conditional visibility + summary rendering =====
+(function wireWalkPanel(){
+  const walkBtn = document.getElementById('walkModeBtn');
+  if(!walkBtn) return;
+  // Hide the Build Walk button if WALK_AVAILABLE is not set
+  if(typeof WALK_AVAILABLE === 'undefined' || !WALK_AVAILABLE){
+    walkBtn.style.display = 'none';
+    return;
+  }
+  // Render walk summary stats
+  const statsEl = document.getElementById('walkStats');
+  const hintEl = document.getElementById('walkDownloadHint');
+  if(statsEl && typeof WALK_SUMMARY !== 'undefined' && WALK_SUMMARY.m1_label){
+    const W = WALK_SUMMARY;
+    const matched = W.n_matched || 0;
+    const diffs = W.n_diffs || 0;
+    const cats = W.categories || [];
+    if(matched > 0){
+      statsEl.innerHTML =
+        'Comparing <b>' + _esc(W.m1_label) + '</b> vs <b>' + _esc(W.m2_label) + '</b><br>' +
+        '<b>' + matched + '</b> projects matched by Project #<br>' +
+        '<b>' + diffs + '</b> input differences found across <b>' +
+        cats.length + '</b> categories' +
+        (cats.length ? '<br><span style="font-size:11px;color:var(--muted);">' +
+          cats.join(' \u00b7 ') + '</span>' : '');
+    } else {
+      statsEl.innerHTML =
+        'Comparing <b>' + _esc(W.m1_label) + '</b> vs <b>' + _esc(W.m2_label) + '</b><br>' +
+        '<span style="color:var(--off);">No projects matched by Project # between the two models.</span><br>' +
+        '<span style="font-size:11px;color:var(--muted);">Check that both models have the same Project # values in row 2 of Project Inputs.</span>';
+    }
+    if(hintEl) hintEl.style.display = '';
+  } else {
+    statsEl.innerHTML = 'Upload two models in the sidebar and click <b>Run Review</b> to generate a Walk Summary.';
+  }
+})();
+
+// Wait for Plotly script — including the onerror fallback chain
+let tries=0;
+(function waitForPlotly(){
+  if(typeof Plotly!=='undefined'){ if(PROJECTS.length) renderCharts(PROJECTS[currentIdx]); return; }
+  if(tries++ > 40){ bootCharts(); return; }   // gives up after ~4s, shows fallback
+  setTimeout(waitForPlotly, 100);
+})();
+</script>
+</body>
+</html>
