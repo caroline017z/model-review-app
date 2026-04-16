@@ -107,6 +107,13 @@ def audit_project(proj_data):
     # Program lives in different rows depending on model — try a couple
     program = proj_data.get(ROW_PROGRAM_A) or proj_data.get(ROW_PROGRAM_B)
 
+    # Size-dependent EPC bible value: >5 MWdc = $1.65/W, <5 MWdc = $1.75/W
+    dc_mw = safe_float(proj_data.get(11)) or 0  # ROW_DC_MW = 11
+    epc_override = None
+    if dc_mw > 0 and dc_mw < 5:
+        epc_override = {"value": 1.75, "unit": "$/W", "tol": 0.10,
+                        "label": "PV EPC Cost", "note": "<5 MWdc: $1.75/W all-in"}
+
     # ABP REC LIVE OVERRIDE -------------------------------------------------
     # If an "ABP REC" rate component is toggled on for the equity model,
     # treat the project as ABP regardless of how the program field is labeled.
@@ -133,6 +140,9 @@ def audit_project(proj_data):
 
     # ---- 1. CS_AVERAGE: cross-market exact-match ----
     for row, spec in CS_AVERAGE.items():
+        # Size-dependent EPC override for small projects (<5 MWdc)
+        if row == 118 and epc_override:
+            spec = epc_override
         expected = spec["value"]
         tol = spec.get("tol", _DEFAULT_MONEY_TOL)
         # State override?

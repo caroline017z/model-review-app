@@ -43,7 +43,6 @@ BIBLE_BENCHMARKS = {
     },
     "Incentives & Tax": {
         "Upfront Incentive ($/W)": {"row": 216, "min": 0.00, "max": 1.00, "unit": "$/W"},
-        "ITC Rate (%)":            {"row": 597, "min": 0.20, "max": 0.50, "unit": "%"},
         "Eligible Costs (%)":      {"row": 602, "min": 0.80, "max": 1.00, "unit": "%"},
     },
     "System Details": {

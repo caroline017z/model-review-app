@@ -44,8 +44,7 @@ CS_AVERAGE = {
     # Row mappings approximate; FMV WACC and TE pref aren't all on Project Inputs
     # but are useful for IC narrative checks.
 
-    # Tax & ITC
-    597: {"value": 0.40,   "unit": "%",         "tol": 0.0,    "label": "ITC Rate"},
+    # Eligible costs — ITC Rate itself is NOT a bible benchmark (varies by deal)
     602: {"value": 0.97,   "unit": "%",         "tol": 0.03,   "label": "Eligible Costs %"},
 }
 
