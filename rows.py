@@ -47,7 +47,7 @@ ROW_FMV_PER_W          = 33
 ROW_LEVERED_PT_IRR     = 37
 ROW_NPP                = 38
 ROW_NPP_DOLLARS        = 39
-ROW_ACTIVE_MFV         = 681
+ROW_ACTIVE_FMV         = 681
 
 # --- Property Tax -------------------------------------------------------------
 ROW_CUSTOM_PROPTAX_TOGGLE = 291

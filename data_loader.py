@@ -130,7 +130,7 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
     293: ["PropTax Escalator", "Property Tax Escalator", "Prop Tax Esc"],
     302: ["Internal AM Costs", "Internal Asset Management"],
     587: ["COD Quarter"],
-    681: ["Active MFV", "Active Market FMV", "MFV"],
+    681: ["Active FMV", "Active Fair Market Value", "FMV", "Active Market Value"],
     591: ["Tax Treatment", "Tax Equity Treatment"],
     596: ["TE Structure", "Tax Equity Structure"],
     597: ["ITC Rate", "ITC %", "Investment Tax Credit Rate", "Investment Tax Credit %", "Tax Credit Rate"],

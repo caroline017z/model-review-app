@@ -30,7 +30,7 @@ from rows import (
     ROW_CLOSING, ROW_PPA_RATE, ROW_ESCALATOR, ROW_NPP, ROW_FMV_IRR, ROW_FMV_PER_W,
     ROW_UPFRONT, ROW_INSURANCE, ROW_ITC_PCT, ROW_ELIG_COSTS,
     ROW_OM_PREV, ROW_OM_CORR, ROW_AM_FEE,
-    ROW_APPRAISAL_IRR, ROW_LEVERED_PT_IRR, ROW_ACTIVE_MFV,
+    ROW_APPRAISAL_IRR, ROW_LEVERED_PT_IRR, ROW_ACTIVE_FMV,
     ROW_CUSTOM_PROPTAX_TOGGLE, ROW_PROPERTY_TAX_YR1, ROW_PROPTAX_ESCALATOR,
 )
 
@@ -501,7 +501,7 @@ def _build_kpis(proj: dict, findings: list[dict]) -> dict:
     itc = _num(data.get(ROW_ITC_PCT))
     appraisal_irr = _num(data.get(ROW_APPRAISAL_IRR))   # row 31
     levered_pt_irr = _num(data.get(ROW_LEVERED_PT_IRR))  # row 37
-    active_mfv = _num(data.get(ROW_ACTIVE_MFV))          # row 681
+    active_fmv = _num(data.get(ROW_ACTIVE_FMV))          # row 681
     epc_off = any(f["status"] == "OFF" and "EPC" in f["field"].upper() for f in findings)
     itc_off = any(f["status"] == "OFF" and "ITC" in f["field"].upper() for f in findings)
 
@@ -554,7 +554,7 @@ def _build_kpis(proj: dict, findings: list[dict]) -> dict:
         "irrSub": irr_sub,
         "irrLabel": "Appraisal IRR",
         "levIrr": lev_irr_display or "—",
-        "activeMfv": f"${active_mfv:,.0f}" if active_mfv is not None else "—",
+        "activeFmv": f"${active_fmv:,.0f}" if active_fmv is not None else "—",
     }
 
 
@@ -804,33 +804,58 @@ def _build_rate_comp1(proj: dict) -> dict:
     """Extract Rate Component 1 details for display.
 
     In community solar models, there's no single PPA rate — revenue comes from
-    rate components. RC1 is typically the Guidehouse rate with a haircut
-    (discount) mentioned in the component name (e.g., "GH25 -22.5%").
+    rate components. RC1 is typically the Guidehouse rate with a discount
+    mentioned in the component name (e.g., "GH25 -22.5%").
+
+    For "Custom" rate components, the energy_rate on Project Inputs is blank —
+    the actual rate lives on the Rate Curves tab. We attempt to pull the COD-
+    matched rate from the rate_curves data attached to the project.
+
+    The "discount" at RC1 offset+7 is the CUSTOMER discount, not the GH haircut.
+    The GH haircut is only indicated in the RC1 name.
     """
+    import re as _rc_re
+
     comps = proj.get("rate_comps") or {}
     rc1 = comps.get(1) or {}
     name = str(rc1.get("name") or "").strip()
     rate = _num(rc1.get("energy_rate"))
+    custom_generic = str(rc1.get("custom_generic") or "").strip().lower()
     esc = rc1.get("escalator")
-    discount = _num(rc1.get("discount"))
+    cust_discount = _num(rc1.get("discount"))  # this is the CUSTOMER discount
     equity_on = bool(rc1.get("equity_on"))
 
-    # Try to extract haircut % from the name (e.g., "GH25 -22.5%" → -22.5)
-    haircut_pct = None
+    # For Custom rate components, energy_rate is blank on Project Inputs.
+    # Pull from Rate Curves data if available (COD-matched column).
+    is_custom = custom_generic == "custom"
+    if is_custom and rate is None:
+        # rate_curves attached by data_loader stores per-project monthly rates
+        # keyed by datetime. Pick the first available value as representative.
+        rc_data = proj.get("_rate_curves_rc1") or {}
+        if rc_data:
+            # Use the first month's rate as the COD rate
+            first_val = next(iter(rc_data.values()), None)
+            if first_val is not None:
+                rate = _num(first_val)
+
+    # Extract GH haircut % from the name (e.g., "GH25 -22.5%" → 22.5)
+    gh_haircut_pct = None
     if name:
-        import re as _rc_re
         m = _rc_re.search(r'[-–]\s*(\d+\.?\d*)\s*%', name)
         if m:
-            haircut_pct = float(m.group(1))
+            gh_haircut_pct = float(m.group(1))
 
     return {
         "name": name or "—",
+        "isCustom": is_custom,
         "rate": round(rate, 6) if rate is not None else None,
         "rateDisplay": f"${rate:.4f}/kWh" if rate is not None else "—",
+        "rateSource": "Rate Curves" if is_custom else "Project Inputs",
         "escalator": str(esc) if esc is not None else "—",
-        "discount": round(discount, 4) if discount is not None else None,
-        "discountDisplay": f"{discount*100:.1f}%" if discount is not None else "—",
-        "haircut": haircut_pct,
+        "custDiscount": round(cust_discount, 4) if cust_discount is not None else None,
+        "custDiscountDisplay": f"{cust_discount*100:.1f}%" if cust_discount is not None else "—",
+        "ghHaircut": gh_haircut_pct,
+        "ghHaircutDisplay": f"-{gh_haircut_pct:.1f}%" if gh_haircut_pct is not None else "—",
         "equityOn": equity_on,
     }
 

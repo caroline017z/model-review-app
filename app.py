@@ -580,6 +580,13 @@ def main():
                 if isinstance(k, str) and k.startswith("_"):
                     continue
                 merged_projects.setdefault(k, v)
+            # Add Model 2 projects (offset column keys to avoid collisions)
+            if m2_projects:
+                m2_offset = max((k for k in merged_projects if isinstance(k, int)), default=100) + 1000
+                for k, v in m2_projects.items():
+                    if not isinstance(v, dict) or "data" not in v:
+                        continue
+                    merged_projects[m2_offset + (k if isinstance(k, int) else 0)] = v
 
             _status.update(label="Identifying active projects…")
             candidates = list_candidate_projects(merged_projects)
@@ -792,6 +799,17 @@ def main():
             )
 
     review_projects = filter_projects(merged_projects, confirmed_ids) if candidates else {}
+
+    # Attach Rate Curves RC1 data to each project so Custom rate components
+    # can pull the COD-matched rate for display in the mockup.
+    if review_projects and m1_result:
+        from data_loader import get_rate_curves
+        rc = get_rate_curves(m1_result)
+        rc_projects = rc.get("projects", {}) if rc else {}
+        for _col, proj in review_projects.items():
+            pname = proj.get("name", "")
+            proj_rc = rc_projects.get(pname, {})
+            proj["_rate_curves_rc1"] = proj_rc.get(1, {})  # RC1 monthly rates
 
     # Visible status strip just above the iframe so the reviewer can sanity-
     # check what the embedded mockup is being asked to render. If this number

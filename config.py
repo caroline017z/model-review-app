@@ -66,7 +66,7 @@ OUTPUT_ROWS = {
     37: "Live Levered Pre-Tax IRR",
     38: "NPP ($/W) - SOLVE",
     39: "NPP ($)",
-    681: "Active MFV",
+    681: "Active FMV",
 }
 
 INPUT_ROW_LABELS = {
@@ -105,7 +105,7 @@ INPUT_ROW_LABELS = {
     302: "Internal AM Costs",
     587: "COD Quarter",
     591: "Tax Treatment", 596: "TE Structure", 597: "ITC Rate", 602: "Eligible Costs %",
-    681: "Active MFV",
+    681: "Active FMV",
 }
 
 PCT_ROWS = {30, 31, 36, 37, 158, 161, 162, 168, 219, 220, 221, 227, 229, 231,

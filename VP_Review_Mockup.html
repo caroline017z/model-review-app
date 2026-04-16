@@ -211,6 +211,7 @@
   .row-action:hover{background:var(--inset);color:var(--teal-deep);}
   .row-action.active-accept{background:rgba(58,125,68,0.16);color:var(--ok);border-color:rgba(58,125,68,0.4);font-weight:700;}
   .row-action.active-flag  {background:rgba(184,50,48,0.16);color:var(--off);border-color:rgba(184,50,48,0.4);font-weight:700;}
+  .row-action.active-skip  {background:rgba(125,134,148,0.16);color:var(--muted);border-color:rgba(125,134,148,0.4);font-weight:700;}
   .row-note-toggle.has-note{background:rgba(29,111,169,0.12);color:var(--blue);border-color:rgba(29,111,169,0.3);}
   .action-cell{white-space:nowrap;display:inline-flex;gap:4px;}
   .row-status-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:0.05em;padding:1px 5px;border-radius:2px;margin-right:6px;vertical-align:middle;}
@@ -968,7 +969,7 @@ function renderKpis(p){
   // Rate Component 1 info
   const rc1 = p.rateComp1 || {};
   const rc1Line = rc1.name && rc1.name !== '—'
-    ? '<div class="kpi-sub" title="'+_esc(rc1.name)+'">RC1: '+_esc(rc1.rateDisplay||'—')+(rc1.haircut ? ' · -'+rc1.haircut+'% haircut' : '')+'</div>'
+    ? '<div class="kpi-sub" title="'+_esc(rc1.name)+'">'+_esc(rc1.name)+(rc1.ghHaircut ? ' · GH -'+rc1.ghHaircut+'%' : '')+(rc1.isCustom ? ' · Rate Curves' : '')+'</div>'
     : '';
   // Property tax (only when custom toggle is on)
   const ptax = p.propertyTax || {};
@@ -981,7 +982,7 @@ function renderKpis(p){
     <div class="kpi k-accent"><div class="kpi-label">NPP</div><div class="kpi-value">${_esc(k.npp)}<span style="font-size:11px;color:var(--muted);">/W</span></div><div class="kpi-sub">${_esc(k.nppSub)}</div></div>
     <div class="kpi ${k.itcOff?'k-off':'k-accent'}"><div class="kpi-label">ITC</div><div class="kpi-value">${_esc(k.itc)}</div><div class="kpi-sub${k.itcOff?' neg':''}">${_esc(k.itcSub)}</div></div>
     <div class="kpi k-accent"><div class="kpi-label">${_esc(k.irrLabel||'Appraisal IRR')}</div><div class="kpi-value">${_esc(k.irr)}</div><div class="kpi-sub">${_esc(k.irrSub)}</div></div>
-    <div class="kpi k-accent"><div class="kpi-label">Levered PT IRR</div><div class="kpi-value">${_esc(k.levIrr||'—')}</div><div class="kpi-sub">${k.activeMfv && k.activeMfv!=='—' ? 'MFV '+_esc(k.activeMfv) : ''}</div></div>
+    <div class="kpi k-accent"><div class="kpi-label">Levered PT IRR</div><div class="kpi-value">${_esc(k.levIrr||'—')}</div><div class="kpi-sub">${k.activeFmv && k.activeFmv!=='—' ? 'MFV '+_esc(k.activeFmv) : ''}</div></div>
     <div class="kpi ${p.equityK<0?'k-off':'k-accent'}"><div class="kpi-label">Equity Δ</div><div class="kpi-value">${equityHTML}</div><div class="kpi-sub${p.equityK<0?' neg':''}">vs bible-aligned</div></div>
     <div class="kpi k-accent"><div class="kpi-label">Revenue Rate</div><div class="kpi-value">${_esc(rc1.rateDisplay||'—')}</div>${rc1Line}</div>
     ${ptaxLine}
@@ -1008,7 +1009,7 @@ function renderFindings(p){
     const flagCls   = 'row-action row-btn' + (state.action==='flag'   ? ' active-flag' : '');
     const noteCls   = 'row-action row-note-toggle' + (state.note ? ' has-note' : '');
     const fieldAttr = _esc(f.field);
-    const rowStatus = state.action === 'accept' ? 'accepted' : (state.action === 'flag' ? 'flagged' : '');
+    const rowStatus = state.action === 'accept' ? 'accepted' : (state.action === 'flag' ? 'flagged' : (state.action === 'skip' ? 'skipped' : ''));
     const rowBadge = rowStatus
       ? '<span class="row-status-badge ' + rowStatus + '">' + rowStatus.toUpperCase() + '</span>'
       : '';
@@ -1016,9 +1017,13 @@ function renderFindings(p){
       ? '<span class="' + acceptCls + '" data-action="accept" data-field="' + fieldAttr + '" role="button" tabindex="0">Accept</span>'
       : '';
     const flagBtn   = '<span class="' + flagCls   + '" data-action="flag"   data-field="' + fieldAttr + '" role="button" tabindex="0">Flag</span>';
+    const skipCls   = 'row-action row-btn' + (state.action==='skip' ? ' active-skip' : '');
+    const skipBtn   = (f.status === 'MISSING' || f.status === 'REVIEW')
+      ? '<span class="' + skipCls + '" data-action="skip" data-field="' + fieldAttr + '" role="button" tabindex="0" title="Skip without resolving">Skip</span>'
+      : '';
     const noteBtn   = '<span class="' + noteCls   + '" data-action="note"   data-field="' + fieldAttr + '" role="button" tabindex="0" title="Add a note">Note</span>';
     // Buttons are now separated by .action-cell's flex gap, not a text joiner.
-    const actions = [acceptBtn, flagBtn, noteBtn].filter(Boolean).join('');
+    const actions = [acceptBtn, flagBtn, skipBtn, noteBtn].filter(Boolean).join('');
     const noteOpen = !!state.note;
     const noteRow = `<tr class="finding-note-row" data-field="${fieldAttr}" style="${noteOpen?'':'display:none;'}">
         <td colspan="8" style="padding:6px 12px 10px;background:var(--inset);">
