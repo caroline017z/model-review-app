@@ -95,7 +95,7 @@ INPUT_ROW_LABELS = {
     282: "Decom Disposal Cost %", 283: "Decom Cost Inflation", 284: "Decom End of Life",
     285: "Decom Bond $", 286: "Decom Annual Premium",
     291: "Custom PropTax Toggle", 292: "Property Taxes Yr 1", 293: "PropTax Escalator",
-    296: "P&C Insurance", 297: "P&C Insurance Esc",
+    296: "P&C Insurance Annual Premium", 297: "P&C Insurance Esc",
     298: "Catastrophic Coverage", 299: "Catastrophic Esc",
     302: "Internal AM Costs",
     587: "COD Quarter",

@@ -92,7 +92,7 @@ def _labels_match(canonical, actual):
 # Canonical row → list of alternative labels accepted as matches.
 # Keeps matching tolerant to template drift without relaxing _labels_match.
 ROW_LABEL_ALIASES: dict[int, list[str]] = {
-    2: ["Project #", "Project Number", "Project No", "#", "Project ID", "Proj #", "Proj No", "Project Code"],
+    2: ["Project #", "Project Number", "Project No", "#", "Project ID", "Proj #", "Proj No", "Project Code", "Proj", "No.", "No", "Project Inputs"],
     4: ["Project Name", "Projects", "Project"],
     7: ["Toggle (On/Off)", "Project Toggle (on/off)", "Project Toggle", "Toggle"],
     10: ["Developer", "Developer Name"],
@@ -123,8 +123,8 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
     240: ["Customer Mgmt Cost", "Customer Management Cost", "Cust Mgmt", "Customer Mgmt"],
     241: ["Customer Mgmt Esc", "Customer Management Escalator", "Cust Mgmt Escalator"],
     286: ["Decom Annual Premium", "Decom Bond Annual Premium"],
-    296: ["P&C Insurance", "P&C Insurance Annual Premium", "Insurance", "Property & Casualty Insurance", "P&C Insurance ($/MW-dc/yr)"],
-    297: ["P&C Insurance Esc", "P&C Insurance Escalator", "Insurance Escalator", "Insurance Esc"],
+    296: ["P&C Insurance Annual Premium", "P&C Insurance ($/MW-dc/yr)", "Insurance Annual Premium", "P&C Insurance"],
+    297: ["P&C Insurance Esc", "P&C Insurance Escalator", "Insurance Escalator", "Insurance Esc", "P&C Insurance Escalator"],
     291: ["Custom PropTax Toggle", "Custom Property Tax Toggle", "Custom Prop Tax"],
     292: ["Property Taxes Yr 1", "Property Tax Year 1", "Property Taxes"],
     293: ["PropTax Escalator", "Property Tax Escalator", "Prop Tax Esc"],
