@@ -184,12 +184,11 @@ st.markdown(
         padding-top: 0 !important;
         max-width: 100% !important;
       }
-      /* Small breathing-room strip between the sidebar edge and the mockup,
-         plus a matching buffer on the right edge of the window. */
+      /* Minimal breathing-room strip between sidebar/window edges and mockup. */
       .main .block-container {
         padding-top: 0.25rem !important;
-        padding-left: 5px !important;
-        padding-right: 5px !important;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
       }
       /* When the sidebar is collapsed, keep the 44px reserved for the
          always-visible teal chevron (set below) — no extra gap needed. */
