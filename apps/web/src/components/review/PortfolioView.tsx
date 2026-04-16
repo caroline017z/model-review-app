@@ -52,7 +52,7 @@ export function PortfolioView() {
             </thead>
             <tbody>
               {ranked.map(({ p, i }, rank) => {
-                const included = !excludedIds.has(i);
+                const included = !excludedIds[i];
                 const nFail = p.findings?.filter((f) => f.status === "OFF").length || 0;
                 const nFlag = p.findings?.filter((f) => f.status === "OUT").length || 0;
                 return (

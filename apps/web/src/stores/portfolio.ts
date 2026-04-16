@@ -8,43 +8,46 @@ interface ModelEntry {
   projects: CandidateProject[];
 }
 
+// Use plain objects instead of Set — Zustand can shallow-compare objects
+// but not Set instances (every new Set() is a new reference → infinite re-renders).
+type IdSet = Record<string, boolean>;
+type IdxSet = Record<number, boolean>;
+
 interface PortfolioState {
-  // Uploaded models
   model1: ModelEntry | null;
   model2: ModelEntry | null;
-
-  // Review data (populated after audit)
   reviewProjects: ProjectPayload[];
   portfolio: PortfolioPayload | null;
+  selectedIds: IdSet;
+  excludedIds: IdxSet;
 
-  // Selected project IDs for review
-  selectedIds: Set<string>;
-  excludedIds: Set<number>;
-
-  // Actions
   setModel1: (data: UploadResponse, label: string) => void;
   setModel2: (data: UploadResponse, label: string) => void;
   clearModel2: () => void;
   setReviewData: (data: ReviewResponse) => void;
   toggleSelected: (id: string) => void;
   toggleExcluded: (idx: number) => void;
+  isExcluded: (idx: number) => boolean;
   selectAll: (ids: string[]) => void;
   selectNone: () => void;
 }
 
-export const usePortfolioStore = create<PortfolioState>((set) => ({
+export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   model1: null,
   model2: null,
   reviewProjects: [],
   portfolio: null,
-  selectedIds: new Set(),
-  excludedIds: new Set(),
+  selectedIds: {},
+  excludedIds: {},
 
-  setModel1: (data, label) =>
+  setModel1: (data, label) => {
+    const ids: IdSet = {};
+    data.projects.filter((p) => p.suggested).forEach((p) => { ids[p.id] = true; });
     set({
       model1: { modelId: data.model_id, filename: data.filename, label, projects: data.projects },
-      selectedIds: new Set(data.projects.filter((p) => p.suggested).map((p) => p.id)),
-    }),
+      selectedIds: ids,
+    });
+  },
 
   setModel2: (data, label) =>
     set({
@@ -58,20 +61,26 @@ export const usePortfolioStore = create<PortfolioState>((set) => ({
 
   toggleSelected: (id) =>
     set((state) => {
-      const next = new Set(state.selectedIds);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const next = { ...state.selectedIds };
+      if (next[id]) delete next[id];
+      else next[id] = true;
       return { selectedIds: next };
     }),
 
   toggleExcluded: (idx) =>
     set((state) => {
-      const next = new Set(state.excludedIds);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
+      const next = { ...state.excludedIds };
+      if (next[idx]) delete next[idx];
+      else next[idx] = true;
       return { excludedIds: next };
     }),
 
-  selectAll: (ids) => set({ selectedIds: new Set(ids) }),
-  selectNone: () => set({ selectedIds: new Set() }),
+  isExcluded: (idx) => !!get().excludedIds[idx],
+
+  selectAll: (ids) => {
+    const s: IdSet = {};
+    ids.forEach((id) => { s[id] = true; });
+    set({ selectedIds: s });
+  },
+  selectNone: () => set({ selectedIds: {} }),
 }));

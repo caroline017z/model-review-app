@@ -22,7 +22,7 @@ export function TopBar() {
     // Reset all stores to initial state
     usePortfolioStore.setState({
       model1: null, model2: null, reviewProjects: [], portfolio: null,
-      selectedIds: new Set(), excludedIds: new Set(),
+      selectedIds: {}, excludedIds: {},
     });
     useUiStore.setState({ mode: "project", selectedProjectIdx: 0, navSearch: "", navFilter: "all" });
     clearReviewer();

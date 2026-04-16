@@ -23,7 +23,7 @@ export function ProjectNavigator() {
   const filtered = reviewProjects
     .map((p, i) => ({ p, i }))
     .filter(({ p, i }) => {
-      if (excludedIds.has(i)) return false;
+      if (excludedIds[i]) return false;
       if (navSearch && !p.name.toLowerCase().includes(navSearch.toLowerCase())) return false;
       if (navFilter !== "all" && !p.findings?.some((f) => f.status === navFilter)) return false;
       return true;
