@@ -451,6 +451,12 @@ def build_walk_xlsx(
     if include_proj_numbers is not None:
         matched = [m for m in matched if m["proj_number"] in include_proj_numbers]
 
+    # Filter out template placeholders ("Project 15", "Anchor", etc.)
+    import re as _walk_re
+    _PLACEHOLDER_RE = _walk_re.compile(r"^\s*project\s+\d+\s*$", _walk_re.IGNORECASE)
+    matched = [m for m in matched if not _PLACEHOLDER_RE.match(m["name"])
+               and m["name"].strip().lower() not in ("anchor", "sample", "")]
+
     if not matched:
         logger.warning("No projects matched between the two models by Project #.")
         # Flag so we can write an explanatory message into the xlsx below
@@ -477,12 +483,16 @@ def build_walk_xlsx(
     # Column layout: B=proj name, C=MWdc, D=units
     # Cases start at col E (5). Each case = 3 cols: NPP, IRR, ∆ Base
     # Case 1: E,F,G (5,6,7)  Case 2: H,I,J (8,9,10)
+    # Column layout: E(5)=NPP1, F(6)=IRR1, G(7)=delta, H(8)=NPP2, I(9)=IRR2
+    DELTA_COL = 7  # fixed between the two cases
     def case_cols(case_idx: int) -> tuple[int, int, int]:
         """Return (npp_col, irr_col, delta_col) for a case (0-indexed)."""
-        base = 5 + case_idx * 3
-        return base, base + 1, base + 2
+        if case_idx == 0:
+            return 5, 6, DELTA_COL  # E, F, G
+        else:
+            return 8, 9, DELTA_COL  # H, I, G (delta shared)
 
-    last_col = 4 + n_cases * 3  # 10 for 2 cases
+    last_col = 9  # E through I (with G as delta between)
 
     # --- Column widths ---
     ws.column_dimensions["A"].width = 2
@@ -496,40 +506,32 @@ def build_walk_xlsx(
     # TOP SECTION: NPP / IRR comparison table
     # ===================================================================
 
-    # Row 3: Case numbers with merged cells and double border
-    for ci, label in enumerate(case_labels):
-        npp_c, irr_c, delta_c = case_cols(ci)
-        npp_l = get_column_letter(npp_c)
-        # Merge across the 3-col case group (or 2 for case 1 which has no delta)
-        if ci == 0:
-            # Base case: only NPP + IRR (no delta from self)
-            merge_end = get_column_letter(irr_c)
-        else:
-            merge_end = get_column_letter(delta_c)
-        ws.merge_cells(f"{npp_l}3:{merge_end}3")
-        cell = ws.cell(row=3, column=npp_c, value=ci + 1)
-        cell.font = NORMAL_FONT
-        cell.alignment = CENTER
-        cell.border = DOUBLE_BOTTOM
-        # Apply border to all merged cells
-        for mc in range(npp_c, (delta_c if ci > 0 else irr_c) + 1):
-            ws.cell(row=3, column=mc).border = DOUBLE_BOTTOM
+    # Row 3: Case numbers — Case 0 merges E:F, Case 1 merges H:I, G is delta
+    # Case 0
+    ws.merge_cells("E3:F3")
+    ws.cell(row=3, column=5, value=1).font = NORMAL_FONT
+    ws.cell(row=3, column=5).alignment = CENTER
+    for c in range(5, 7):
+        ws.cell(row=3, column=c).border = DOUBLE_BOTTOM
+    # Delta header in G
+    ws.cell(row=3, column=7).border = DOUBLE_BOTTOM
+    # Case 1
+    ws.merge_cells("H3:I3")
+    ws.cell(row=3, column=8, value=2).font = NORMAL_FONT
+    ws.cell(row=3, column=8).alignment = CENTER
+    for c in range(7, 10):
+        ws.cell(row=3, column=c).border = DOUBLE_BOTTOM
 
-    # Row 5: Case labels with merged cells
-    for ci, label in enumerate(case_labels):
-        npp_c, irr_c, delta_c = case_cols(ci)
-        npp_l = get_column_letter(npp_c)
-        if ci == 0:
-            merge_end = get_column_letter(irr_c)
-        else:
-            merge_end = get_column_letter(delta_c)
-        ws.merge_cells(f"{npp_l}5:{merge_end}5")
-        cell = ws.cell(row=5, column=npp_c, value=label)
-        cell.font = BOLD_FONT
-        cell.alignment = CENTER_WRAP
-        cell.border = THIN_BOTTOM
-        for mc in range(npp_c, (delta_c if ci > 0 else irr_c) + 1):
-            ws.cell(row=5, column=mc).border = THIN_BOTTOM
+    # Row 5: Case labels — E:F for Case 1, H:I for Case 2
+    ws.merge_cells("E5:F5")
+    c = ws.cell(row=5, column=5, value=case_labels[0])
+    c.font = BOLD_FONT; c.alignment = CENTER_WRAP; c.border = THIN_BOTTOM
+    ws.cell(row=5, column=6).border = THIN_BOTTOM
+    ws.cell(row=5, column=7).border = THIN_BOTTOM  # delta col
+    ws.merge_cells("H5:I5")
+    c = ws.cell(row=5, column=8, value=case_labels[1])
+    c.font = BOLD_FONT; c.alignment = CENTER_WRAP; c.border = THIN_BOTTOM
+    ws.cell(row=5, column=9).border = THIN_BOTTOM
 
     # Row 6: Column headers with grey fill
     headers_fixed = [
@@ -547,27 +549,18 @@ def build_walk_xlsx(
     ws.cell(row=6, column=4).fill = GREY_FILL
     ws.cell(row=6, column=4).border = THIN_BOTTOM
 
-    for ci in range(n_cases):
-        npp_c, irr_c, delta_c = case_cols(ci)
-        # NPP header — left border separator
-        cell = ws.cell(row=6, column=npp_c, value="NPP ($/W)")
-        cell.font = NORMAL_FONT
-        cell.fill = GREY_FILL
-        cell.border = HDR_NPP
-        cell.alignment = CENTER
-        # IRR header
-        cell = ws.cell(row=6, column=irr_c, value="IRR (%)")
-        cell.font = NORMAL_FONT
-        cell.fill = GREY_FILL
-        cell.border = THIN_BOTTOM
-        cell.alignment = CENTER
-        if ci > 0:
-            # Delta header — left+right border
-            cell = ws.cell(row=6, column=delta_c, value="\u2206 Base")
-            cell.font = BLUE_FONT
-            cell.fill = GREY_FILL
-            cell.border = HDR_DELTA
-            cell.alignment = CENTER
+    # Row 6 headers: E=NPP, F=IRR, G=delta, H=NPP, I=IRR
+    for npp_c, irr_c, lbl_npp, lbl_irr in [(5, 6, "NPP ($/W)", "IRR (%)"), (8, 9, "NPP ($/W)", "IRR (%)")]:
+        cell = ws.cell(row=6, column=npp_c, value=lbl_npp)
+        cell.font = NORMAL_FONT; cell.fill = GREY_FILL; cell.border = HDR_NPP; cell.alignment = CENTER
+        cell = ws.cell(row=6, column=irr_c, value=lbl_irr)
+        cell.font = NORMAL_FONT; cell.fill = GREY_FILL; cell.border = THIN_BOTTOM; cell.alignment = CENTER
+    # Delta header at G
+    cell = ws.cell(row=6, column=DELTA_COL, value="\u2206 Base")
+    cell.font = BLUE_FONT
+    cell.fill = GREY_FILL
+    cell.border = HDR_DELTA
+    cell.alignment = CENTER
 
     # Rows 7+: Per-project data with column separators matching reference
     data_start = 7
