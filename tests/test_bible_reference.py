@@ -1,5 +1,5 @@
 """Unit tests for the fuzzy market lookup."""
-from bible_reference import lookup_market, MARKET_BIBLE
+from bible_reference import lookup_market, MARKET_BIBLE, normalize_state
 
 
 class TestLookupMarket:
@@ -34,3 +34,23 @@ class TestLookupMarket:
             result = lookup_market("IL", f"{util} Illinois", prog)
             # Fuzzy matcher permits containment either way
             assert result is not None
+
+
+class TestNormalizeState:
+    def test_md_to_md_de(self):
+        assert normalize_state("MD") == "MD/DE"
+
+    def test_de_to_md_de(self):
+        assert normalize_state("DE") == "MD/DE"
+
+    def test_lowercase_uppercased(self):
+        assert normalize_state("il") == "IL"
+
+    def test_none_returns_empty(self):
+        assert normalize_state(None) == ""
+
+    def test_empty_returns_empty(self):
+        assert normalize_state("") == ""
+
+    def test_whitespace_stripped(self):
+        assert normalize_state("  NY  ") == "NY"

@@ -145,7 +145,7 @@ def _format_cell(v: Any, unit: str = "") -> str:
         return "—"
     if isinstance(v, (int, float)):
         if unit == "%":
-            display = v * 100 if abs(v) <= 1.5 else v
+            display = _pct_display(v)
             return f"{display:.2f}%"
         if unit == "$":
             return f"${v:,.2f}"
@@ -162,11 +162,11 @@ def _format_cell(v: Any, unit: str = "") -> str:
 
 
 def _as_fraction(v: Any) -> float | None:
-    """Treat 0.4 and 40 both as 40%."""
+    """Treat 0.4 and 40 both as 40% → 0.4 fraction."""
     n = _num(v)
     if n is None:
         return None
-    return n if abs(n) <= 1.5 else n / 100.0
+    return n if abs(n) <= _PCT_THRESHOLD else n / 100.0
 
 
 def _compute_impact(info: dict, data: dict) -> float | None:
@@ -854,7 +854,7 @@ def _build_property_tax(data: dict) -> dict:
         "customToggle": is_custom,
         "yr1": round(yr1, 2) if yr1 is not None else None,
         "yr1Display": f"${yr1:,.0f}" if yr1 is not None else "—",
-        "escalator": f"{esc*100:.2f}%" if esc is not None and abs(esc) <= 1.5 else (f"{esc:.2f}%" if esc is not None else "—"),
+        "escalator": f"{_pct_display(esc):.2f}%" if esc is not None else "—",
     }
 
 
