@@ -69,6 +69,8 @@ def export_review(req: ExportRequest):
     ws.column_dimensions["G"].width = 12
     ws.column_dimensions["H"].width = 30
 
+    ws.sheet_view.showGridLines = False  # Clean presentation
+
     # Title
     r = 1
     cell = ws.cell(row=r, column=2, value=f"38°N Pricing Model Review — {req.model_label}")

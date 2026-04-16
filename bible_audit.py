@@ -131,6 +131,14 @@ def audit_project(proj_data):
 
     findings = {}
 
+    # Model-sourced units keyed by canonical row number; fall back to
+    # the hardcoded INPUT_ROW_UNITS when the model column is empty.
+    model_units = proj_data.get("_units_by_row") or {}
+
+    def _unit_for(row, fallback=""):
+        """Return the best available unit string for a canonical row."""
+        return model_units.get(row) or INPUT_ROW_UNITS.get(row, fallback)
+
     # ---- 1. CS_AVERAGE: cross-market exact-match ----
     for row, spec in CS_AVERAGE.items():
         expected = spec["value"]
@@ -141,7 +149,7 @@ def audit_project(proj_data):
             expected = override["value"]
             tol = override.get("tol", tol)
 
-        unit = spec.get("unit", "")
+        unit = spec.get("unit") or _unit_for(row)
         status, note = _exact_check(proj_data.get(row), expected, tol, unit, row=row)
         findings[row] = {
             "status": status, "expected": expected, "actual": proj_data.get(row),
@@ -159,8 +167,7 @@ def audit_project(proj_data):
             tol = 0.0  # tight match for market values
             # Market values for pct rows (161, 162, 240) are stored as fractions;
             # the _exact_check magnitude guard handles unit drift either way.
-            # Lookup unit from INPUT_ROW_UNITS if available.
-            mkt_unit = INPUT_ROW_UNITS.get(k, "")
+            mkt_unit = _unit_for(k)
             status, note = _exact_check(proj_data.get(k), expected, tol, mkt_unit, row=k)
             findings[k] = {
                 "status": status, "expected": expected, "actual": proj_data.get(k),

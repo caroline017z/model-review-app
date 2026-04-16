@@ -177,8 +177,7 @@ def audit_project(proj_data):
             tol = 0.0  # tight match for market values
             # Market values for pct rows (161, 162, 240) are stored as fractions;
             # the _exact_check magnitude guard handles unit drift either way.
-            # Lookup unit from INPUT_ROW_UNITS if available.
-            mkt_unit = INPUT_ROW_UNITS.get(k, "")
+            mkt_unit = _unit_for(k)
             status, note = _exact_check(proj_data.get(k), expected, tol, mkt_unit, row=k)
             findings[k] = {
                 "status": status, "expected": expected, "actual": proj_data.get(k),
@@ -214,7 +213,7 @@ def audit_project(proj_data):
                     "status": status, "expected": None, "actual": proj_data.get(row),
                     "tol": None, "note": note,
                     "source": f"Range: {category}", "label": label,
-                    "unit": spec.get("unit", ""), "range": (spec["min"], spec["max"]),
+                    "unit": spec.get("unit") or _unit_for(row), "range": (spec["min"], spec["max"]),
                 }
 
     # ---- 4. GUIDEHOUSE DISCOUNT: rate-component-level audit ----
