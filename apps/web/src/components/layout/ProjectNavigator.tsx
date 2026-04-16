@@ -33,8 +33,8 @@ export function ProjectNavigator() {
   const setNavFilter = useUiStore((s) => s.setNavFilter);
   const activeModelTab = useUiStore((s) => s.activeModelTab);
   const setActiveModelTab = useUiStore((s) => s.setActiveModelTab);
-  const isApproved = useReviewerStore((s) => s.isApproved);
   const approvals = useReviewerStore((s) => s.approvals);
+  const isApproved = (idx: number) => !!approvals[idx]?.approved;
 
   const hasTwoModels = !!(model1 && model2);
 

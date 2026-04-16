@@ -31,10 +31,10 @@ function Pill({ count, label, variant = "default" }: PillProps) {
 export function AuditStrip() {
   const portfolio = usePortfolioStore((s) => s.portfolio);
   const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
-  const approvals = useReviewerStore((s) => s.approvals);
+  const reviewerApprovals = useReviewerStore((s) => s.approvals);
   if (!portfolio) return null;
 
-  const nApproved = reviewProjects.filter((_, i) => approvals[i]?.approved).length;
+  const nApproved = reviewProjects.filter((_, i) => reviewerApprovals[i]?.approved).length;
   const nPending = portfolio.count - nApproved;
 
   return (

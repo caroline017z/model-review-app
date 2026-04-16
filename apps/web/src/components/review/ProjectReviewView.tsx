@@ -17,11 +17,16 @@ export function ProjectReviewView() {
   const project = reviewProjects[selectedIdx];
 
   // Persisted reviewer actions (localStorage via Zustand persist)
-  const getAction = useReviewerStore((s) => s.getAction);
+  // Subscribe to `actions` and `approvals` directly so component re-renders on changes
+  const reviewerActions = useReviewerStore((s) => s.actions);
+  const reviewerApprovals = useReviewerStore((s) => s.approvals);
   const setActionStore = useReviewerStore((s) => s.setAction);
   const setNoteStore = useReviewerStore((s) => s.setNote);
   const approveProject = useReviewerStore((s) => s.approveProject);
-  const isApproved = useReviewerStore((s) => s.isApproved);
+
+  const getAction = (idx: number, field: string) =>
+    reviewerActions[idx]?.[field] || { action: null, note: "" };
+  const isApproved = (idx: number) => !!reviewerApprovals[idx]?.approved;
   const [sortBy, setSortBy] = useState<"field" | "status" | "impact">("impact");
   const [sortAsc, setSortAsc] = useState(false);
 
