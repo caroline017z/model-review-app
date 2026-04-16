@@ -633,11 +633,43 @@ def main():
 
     review_projects = filter_projects(merged_projects, confirmed_ids) if candidates else {}
 
+    # Visible status strip just above the iframe so the reviewer can sanity-
+    # check what the embedded mockup is being asked to render. If this number
+    # disagrees with what the iframe shows, it's a render bug — not a filter
+    # bug — so direct people to a hard reload.
+    n_review = len(review_projects)
+    if n_review:
+        st.markdown(
+            f"<div style=\"font-size:11px;color:#7d8694;padding:4px 12px;"
+            f"background:#eef0f5;border-bottom:1px solid rgba(5,13,37,0.08);\">"
+            f"<b>{n_review}</b> project(s) sent to the review panel."
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    elif candidates:
+        st.warning(
+            "No projects in the current confirmed selection. Tick at least one "
+            "in the sidebar and click **Confirm selection** to populate the "
+            "Project Review panel."
+        )
+
     mockup_html = render_mockup_html(
         review_projects,
         model_label=m1_label or "Model 1",
         reviewer="Caroline Z.",
         bible_label="Q1 '26",
+    )
+    # Cache-bust the iframe by suffixing a deterministic hash of the payload
+    # as an HTML comment. Streamlit's component diffing reuses the iframe when
+    # the HTML is byte-identical; injecting the hash guarantees a fresh frame
+    # whenever the project set changes.
+    import hashlib as _hashlib
+    payload_sig = _hashlib.md5(
+        ("|".join(sorted(str(c) for c in review_projects.keys())) or "empty").encode("utf-8")
+    ).hexdigest()[:10]
+    mockup_html = mockup_html.replace(
+        "</body>",
+        f"<!-- vp-review payload sig: {payload_sig} -->\n</body>",
     )
     components.html(mockup_html, height=1400, scrolling=True)
 
