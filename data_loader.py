@@ -99,7 +99,7 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
     11: ["Size MWDC", "Size (MWDC)", "DC Size", "MWdc"],
     12: ["Size MWAC", "Size (MWAC)", "AC Size", "MWac"],
     # Returns block — use template's actual labels first, fall back to legacy
-    31: ["Live Appraisal IRR", "Appraisal IRR"],
+    31: ["Live Appraisal IRR", "Appraisal IRR", "Live Appraisal Model IRR"],
     33: ["FMV Calculated", "FMV Calculated ($/W)", "FMV $/W"],
     36: ["Target IRR"],
     37: ["Live Levered Pre-Tax IRR", "Levered Pre-Tax IRR", "Live Levered PT IRR", "Levered PT IRR"],
@@ -134,11 +134,11 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
     591: ["Tax Treatment", "Tax Equity Treatment"],
     596: ["TE Structure", "Tax Equity Structure"],
     597: ["ITC Rate", "ITC %", "Investment Tax Credit Rate", "Investment Tax Credit %", "Tax Credit Rate"],
-    602: ["Eligible Costs %", "ITC Eligible Costs", "Eligible Cost %", "ITC Eligible Cost %", "Eligible Costs"],
+    602: ["Eligible Costs %", "ITC Eligible Costs", "Eligible Cost %", "ITC Eligible Cost %", "Eligible Costs", "Eligible Cost"],
 }
 
 
-def _detect_label_column(ws, max_row=800):
+def _detect_label_column(ws, max_row=1000):
     """Detect which column (B-E) contains the input row labels."""
     known = {_normalize_label(v) for v in INPUT_ROW_LABELS.values() if v}
     best_col, best_count = 2, 0
@@ -169,7 +169,7 @@ WRAPPED_EPC_LABEL_PATTERNS = [
 ]
 
 
-def _scan_wrapped_epc_rows(ws, label_col, max_row=800):
+def _scan_wrapped_epc_rows(ws, label_col, max_row=1000):
     """Return list of (row, component_name) for wrapped-EPC build rows."""
     found = []
     for r in range(1, max_row + 1):
@@ -249,7 +249,7 @@ def _scan_rate_components(ws, col):
 _CRITICAL_CANONICAL_ROWS = (4, 7, 10, 11, 18, 22, 31, 33, 37, 38, 39, 118, 681)
 
 
-def _build_row_mapping(ws, label_col, max_row=800):
+def _build_row_mapping(ws, label_col, max_row=1000):
     """Build canonical_row -> actual_row mapping by scanning labels in the model.
 
     Returns a dict where keys are canonical row numbers (from INPUT_ROW_LABELS)
