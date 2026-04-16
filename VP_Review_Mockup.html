@@ -100,6 +100,8 @@
   }
   .proj-card:hover{border-color:var(--border-strong);background:var(--raised);}
   .proj-card.selected{border-left-color:var(--teal);background:#fff;box-shadow:0 1px 3px rgba(5,13,37,0.06);}
+  .proj-card.proj-approved{border-left-color:var(--teal);background:rgba(81,132,132,0.04);}
+  .proj-card.proj-approved .pchips{opacity:0.5;}
   .proj-card .pname{font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:6px;}
   .proj-rank{font-size:9.5px;font-weight:700;color:var(--muted);background:var(--inset);padding:1px 5px;border-radius:3px;letter-spacing:0.02em;}
   .proj-card.selected .proj-rank{background:rgba(81,132,132,0.18);color:var(--teal-deep);}
@@ -1088,11 +1090,12 @@ function _updateProjectApprovalBanner(){
   const p = PROJECTS[currentIdx];
   if (!p) return;
   const findings = p.findings || [];
-  let accepted = 0, flagged = 0, unhandled = 0;
+  let accepted = 0, flagged = 0, skipped = 0, unhandled = 0;
   findings.forEach(f => {
     const st = _getAction(currentIdx, f.field);
     if (st.action === 'accept') accepted++;
     else if (st.action === 'flag') flagged++;
+    else if (st.action === 'skip') skipped++;
     else unhandled++;   // every non-acted finding needs a decision
   });
   // Guard every approval-banner write — if the banner is ever conditionally
@@ -1151,6 +1154,17 @@ function _updateProjectApprovalBanner(){
       detail: accepted + ' accepted · ' + flagged + ' flagged — ' + reviewer,
     });
     _updateProjectApprovalBanner();
+    // Refresh sidebar to show teal APPROVED badge
+    renderProjectList();
+    // Refresh portfolio strip to reflect improved audit stats
+    renderPortfolio();
+    // Auto-advance to next unreviewed project
+    const nextUnreviewed = PROJECTS.findIndex((proj, idx) =>
+      idx !== currentIdx && isIncluded(idx) && !_isApproved(idx)
+    );
+    if (nextUnreviewed >= 0) {
+      setTimeout(() => selectProject(nextUnreviewed), 300);
+    }
   });
   unapproveBtn.addEventListener('click', e=>{
     e.preventDefault();
@@ -1555,8 +1569,10 @@ function renderPortfolio(){
   S('pillRev',    visCounts.REVIEW);
   S('pillCount',  vis.length);
   S('pillMw',     visMw.toFixed(1) + ' MW');
-  S('pillReviewed', P.reviewed ?? 0);
-  S('pillPending',  vis.length);
+  // Count approved vs pending from live session state
+  const nApproved = vis.filter(({i}) => _isApproved(i)).length;
+  S('pillReviewed', nApproved);
+  S('pillPending',  vis.length - nApproved);
   S('navProjCount', 'Projects · ' + vis.length);
 }
 
@@ -1640,8 +1656,12 @@ function renderProjectList(){
     // Project # from row 2 — disambiguates duplicate names.
     const pnumBadge = (p.projNumber != null)
       ? '<span class="proj-pnum" title="Project #'+p.projNumber+'">P'+_esc(p.projNumber)+'</span>' : '';
-    return '<div class="proj-card" data-idx="'+i+'">'
-      + '<div class="pname">'+rankBadge+pnumBadge+_esc(p.name||'Unnamed')+'</div>'
+    const isApproved = _isApproved(i);
+    const approvedBadge = isApproved
+      ? '<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:0.05em;background:var(--teal);color:#fff;margin-left:auto;">APPROVED</span>'
+      : '';
+    return '<div class="proj-card'+(isApproved?' proj-approved':'')+'" data-idx="'+i+'">'
+      + '<div class="pname" style="display:flex;align-items:center;gap:6px;">'+rankBadge+pnumBadge+_esc(p.name||'Unnamed')+approvedBadge+'</div>'
       + '<div class="pmeta">'+_esc(meta+(dc?' — '+dc:''))+'</div>'
       + '<div class="pchips">'+projChipsHTML(p)+'</div>'
       + '</div>';
