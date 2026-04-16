@@ -1,16 +1,12 @@
 "use client";
 
-import { useState, useCallback } from "react";
 import { usePortfolioStore } from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
+import { useReviewerStore } from "@/stores/reviewer";
 import { VarianceChart } from "@/components/charts/VarianceChart";
 import { CapitalStackChart } from "@/components/charts/CapitalStackChart";
 import { CashflowChart } from "@/components/charts/CashflowChart";
 import { TornadoChart } from "@/components/charts/TornadoChart";
-import type { Finding } from "@/lib/api";
-
-type ReviewAction = "accept" | "flag" | "skip" | null;
-type ActionMap = Record<string, { action: ReviewAction; note: string }>;
 
 export function ProjectReviewView() {
   const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
@@ -18,26 +14,11 @@ export function ProjectReviewView() {
   const setSelected = useUiStore((s) => s.setSelectedProject);
   const project = reviewProjects[selectedIdx];
 
-  // Per-project action state (persisted in component for now; will be localStorage in Phase 4)
-  const [actions, setActions] = useState<Record<number, ActionMap>>({});
-
-  const getAction = useCallback(
-    (field: string) => actions[selectedIdx]?.[field] || { action: null, note: "" },
-    [actions, selectedIdx],
-  );
-
-  const setAction = useCallback(
-    (field: string, action: ReviewAction) => {
-      setActions((prev) => ({
-        ...prev,
-        [selectedIdx]: {
-          ...prev[selectedIdx],
-          [field]: { ...prev[selectedIdx]?.[field], action: prev[selectedIdx]?.[field]?.action === action ? null : action, note: prev[selectedIdx]?.[field]?.note || "" },
-        },
-      }));
-    },
-    [selectedIdx],
-  );
+  // Persisted reviewer actions (localStorage via Zustand persist)
+  const getAction = useReviewerStore((s) => s.getAction);
+  const setAction = useReviewerStore((s) => s.setAction);
+  const approveProject = useReviewerStore((s) => s.approveProject);
+  const isApproved = useReviewerStore((s) => s.isApproved);
 
   if (!project) {
     return (
@@ -48,15 +29,17 @@ export function ProjectReviewView() {
   }
 
   const findings = project.findings || [];
-  const accepted = findings.filter((f) => getAction(f.field).action === "accept").length;
-  const flagged = findings.filter((f) => getAction(f.field).action === "flag").length;
-  const skipped = findings.filter((f) => getAction(f.field).action === "skip").length;
+  const accepted = findings.filter((f) => getAction(selectedIdx, f.field).action === "accept").length;
+  const flagged = findings.filter((f) => getAction(selectedIdx, f.field).action === "flag").length;
+  const skipped = findings.filter((f) => getAction(selectedIdx, f.field).action === "skip").length;
   const unhandled = findings.length - accepted - flagged - skipped;
   const canApprove = unhandled === 0 && findings.length > 0;
+  const approved = isApproved(selectedIdx);
 
   const handleApprove = () => {
+    approveProject(selectedIdx, "Caroline Z.");
     // Auto-advance to next unreviewed project
-    const nextIdx = reviewProjects.findIndex((_, i) => i !== selectedIdx && !actions[i]);
+    const nextIdx = reviewProjects.findIndex((_, i) => i !== selectedIdx && !isApproved(i));
     if (nextIdx >= 0) setTimeout(() => setSelected(nextIdx), 300);
   };
 
@@ -101,12 +84,12 @@ export function ProjectReviewView() {
         <span className="font-semibold" style={{ color: "var(--muted)" }}>{skipped} Skipped</span>
         <span style={{ color: unhandled > 0 ? "var(--off)" : "var(--muted)" }}>{unhandled} Unhandled</span>
         <button
-          disabled={!canApprove}
+          disabled={!canApprove || approved}
           onClick={handleApprove}
           className="ml-auto px-4 py-1.5 rounded text-xs font-bold text-white transition disabled:opacity-40"
-          style={{ background: canApprove ? "var(--teal)" : "var(--muted)" }}
+          style={{ background: approved ? "var(--ok)" : canApprove ? "var(--teal)" : "var(--muted)" }}
         >
-          Approve Project
+          {approved ? "Approved" : "Approve Project"}
         </button>
       </div>
 
@@ -131,7 +114,7 @@ export function ProjectReviewView() {
             </thead>
             <tbody>
               {findings.map((f, fi) => {
-                const act = getAction(f.field);
+                const act = getAction(selectedIdx, f.field);
                 const statusCls = f.status === "OFF" ? "bg-[var(--off-bg)] text-[var(--off)]"
                   : f.status === "OUT" ? "bg-[var(--out-bg)] text-[var(--out)]"
                   : f.status === "REVIEW" ? "bg-[var(--rev-bg)] text-[var(--rev)]"
@@ -155,7 +138,7 @@ export function ProjectReviewView() {
                         {(["accept", "flag", "skip"] as const).map((a) => (
                           <button
                             key={a}
-                            onClick={() => setAction(f.field, a)}
+                            onClick={() => setAction(selectedIdx, f.field, a)}
                             className={`text-[10px] px-2 py-0.5 rounded border transition cursor-pointer ${
                               act.action === a
                                 ? a === "accept" ? "bg-[var(--ok-bg)] text-[var(--ok)] border-[var(--ok)]"

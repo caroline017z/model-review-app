@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { TopBar } from "./TopBar";
 import { AuditStrip } from "./AuditStrip";
 import { ProjectNavigator } from "./ProjectNavigator";
@@ -10,6 +11,27 @@ import { usePortfolioStore } from "@/stores/portfolio";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const mode = useUiStore((s) => s.mode);
   const portfolio = usePortfolioStore((s) => s.portfolio);
+  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
+  const selectedIdx = useUiStore((s) => s.selectedProjectIdx);
+  const setSelected = useUiStore((s) => s.setSelectedProject);
+
+  // Keyboard navigation: J/K or arrow keys to switch projects
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "ArrowDown" || e.key === "j") {
+        e.preventDefault();
+        setSelected(Math.min(selectedIdx + 1, reviewProjects.length - 1));
+      }
+      if (e.key === "ArrowUp" || e.key === "k") {
+        e.preventDefault();
+        setSelected(Math.max(selectedIdx - 1, 0));
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedIdx, reviewProjects.length, setSelected]);
 
   // Grid layout adapts per mode
   const gridClass =

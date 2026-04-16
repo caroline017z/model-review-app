@@ -2,6 +2,7 @@
 
 import { usePortfolioStore } from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
+import { useReviewerStore } from "@/stores/reviewer";
 
 export function ProjectNavigator() {
   const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
@@ -12,6 +13,7 @@ export function ProjectNavigator() {
   const setNavSearch = useUiStore((s) => s.setNavSearch);
   const navFilter = useUiStore((s) => s.navFilter);
   const setNavFilter = useUiStore((s) => s.setNavFilter);
+  const isApproved = useReviewerStore((s) => s.isApproved);
 
   const filters = ["all", "OFF", "OUT", "MISSING", "REVIEW"];
   const filterLabels: Record<string, string> = {
@@ -83,6 +85,11 @@ export function ProjectNavigator() {
                 </span>
               )}
               {p.name}
+              {isApproved(i) && (
+                <span className="ml-auto text-[9px] bg-[var(--teal)] text-white px-[6px] py-px rounded font-bold tracking-[0.05em]">
+                  APPROVED
+                </span>
+              )}
             </div>
             <div className="text-[10.5px] text-muted mt-px">{p.sub}</div>
             <div className="flex gap-1 mt-1 flex-wrap">
