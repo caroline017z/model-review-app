@@ -39,15 +39,7 @@ export function ReferencePanel() {
     return <p className="text-xs italic" style={{ color: "var(--muted)" }}>Select a project.</p>;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const refs = (project as any).references as {
-    bibleHeader?: string;
-    marketHeader?: string;
-    bible?: RefItem[];
-    market?: RefItem[];
-    opex?: RefItem[];
-    marketMatched?: boolean;
-  } | undefined;
+  const refs = project.references;
 
   return (
     <div>

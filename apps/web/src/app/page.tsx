@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/AppShell";
 import { usePortfolioStore } from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
+import { useReviewerStore } from "@/stores/reviewer";
 import { uploadModel, runReview } from "@/lib/api";
 import { ProjectReviewView } from "@/components/review/ProjectReviewView";
 import { PortfolioView } from "@/components/review/PortfolioView";
@@ -17,8 +18,10 @@ function UploadPanel() {
   const model1 = usePortfolioStore((s) => s.model1);
   const model2 = usePortfolioStore((s) => s.model2);
   const setReviewData = usePortfolioStore((s) => s.setReviewData);
+  const setModelScope = useReviewerStore((s) => s.setModelScope);
   const fileRef1 = useRef<HTMLInputElement>(null);
   const fileRef2 = useRef<HTMLInputElement>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const uploadMut = useMutation({ mutationFn: uploadModel });
 
@@ -26,20 +29,24 @@ function UploadPanel() {
     mutationFn: ({ modelId, label }: { modelId: string; label: string }) =>
       runReview(modelId, undefined, label),
     onSuccess: (data) => setReviewData(data),
+    onError: (err) => setReviewError(err instanceof Error ? err.message : "Review failed"),
   });
 
   const handleUpload = useCallback(
     async (file: File, slot: 1 | 2) => {
+      setReviewError(null);
       const data = await uploadMut.mutateAsync(file);
       const label = guessLabel(file.name);
       if (slot === 1) {
         setModel1(data, label);
+        // Scope reviewer actions to this model — clears old approvals if model changed
+        setModelScope(data.model_id);
         reviewMut.mutate({ modelId: data.model_id, label });
       } else {
         setModel2(data, label);
       }
     },
-    [setModel1, setModel2, uploadMut, reviewMut],
+    [setModel1, setModel2, setModelScope, uploadMut, reviewMut],
   );
 
   return (
@@ -56,16 +63,19 @@ function UploadPanel() {
       <div className="w-full space-y-4">
         <div
           onClick={() => fileRef1.current?.click()}
-          className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition"
+          className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition hover:border-[rgba(81,132,132,0.6)]"
           style={{ borderColor: "rgba(81,132,132,0.3)" }}
-          onMouseOver={(e) => (e.currentTarget.style.borderColor = "rgba(81,132,132,0.6)")}
-          onMouseOut={(e) => (e.currentTarget.style.borderColor = "rgba(81,132,132,0.3)")}
+          role="button"
+          aria-label="Upload Model 1"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && fileRef1.current?.click()}
         >
           <input
             ref={fileRef1}
             type="file"
             accept=".xlsm,.xlsx"
             className="hidden"
+            aria-label="Upload primary pricing model"
             onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 1)}
           />
           {model1 ? (
@@ -87,14 +97,19 @@ function UploadPanel() {
 
         <div
           onClick={() => fileRef2.current?.click()}
-          className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition"
+          className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition hover:border-[rgba(33,43,72,0.4)]"
           style={{ borderColor: "rgba(33,43,72,0.2)" }}
+          role="button"
+          aria-label="Upload Model 2"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && fileRef2.current?.click()}
         >
           <input
             ref={fileRef2}
             type="file"
             accept=".xlsm,.xlsx"
             className="hidden"
+            aria-label="Upload comparison pricing model"
             onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 2)}
           />
           {model2 ? (
@@ -110,9 +125,9 @@ function UploadPanel() {
       {(uploadMut.isPending || reviewMut.isPending) && (
         <p className="text-sm animate-pulse" style={{ color: "var(--teal)" }}>Processing model...</p>
       )}
-      {uploadMut.isError && (
+      {(uploadMut.isError || reviewError) && (
         <p className="text-sm" style={{ color: "var(--off)" }}>
-          Upload failed: {uploadMut.error?.message}
+          {uploadMut.isError ? `Upload failed: ${uploadMut.error?.message}` : `Review failed: ${reviewError}`}
         </p>
       )}
     </div>

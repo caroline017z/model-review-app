@@ -42,7 +42,9 @@ export function AuditStrip() {
       <Pill count={portfolio.review} label="REVIEW" variant="rev" />
       <div className="w-px h-[22px] bg-[var(--border)] mx-[6px]" />
       <Pill count={portfolio.count} label="Projects" />
-      <Pill count={0} label={`${portfolio.totalMw} MW`} />
+      <span className="inline-flex items-center gap-[5px] px-[9px] py-1 rounded text-[11px] font-semibold border border-[var(--border)] bg-surface text-[var(--text-2)]">
+        <span className="text-[12.5px] font-bold tabular-nums">{portfolio.totalMw.toFixed(1)}</span> MW
+      </span>
       <div className="ml-auto flex gap-[6px]">
         <Pill count={0} label="Reviewed" />
         <Pill count={portfolio.count} label="Pending" />

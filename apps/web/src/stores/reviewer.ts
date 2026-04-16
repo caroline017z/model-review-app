@@ -15,12 +15,15 @@ interface ProjectApproval {
 }
 
 interface ReviewerState {
+  // Current model ID scope — actions only apply when this matches
+  modelId: string | null;
   // Per-project, per-finding actions: { [projectIdx]: { [fieldName]: { action, note } } }
   actions: Record<number, Record<string, FindingState>>;
   // Per-project approval status
   approvals: Record<number, ProjectApproval>;
 
   // Actions
+  setModelScope: (modelId: string) => void;
   getAction: (projectIdx: number, field: string) => FindingState;
   setAction: (projectIdx: number, field: string, action: ReviewAction) => void;
   setNote: (projectIdx: number, field: string, note: string) => void;
@@ -35,8 +38,16 @@ const DEFAULT_STATE: FindingState = { action: null, note: "" };
 export const useReviewerStore = create<ReviewerState>()(
   persist(
     (set, get) => ({
+      modelId: null,
       actions: {},
       approvals: {},
+
+      setModelScope: (modelId) => {
+        // If model changed, clear all actions/approvals to prevent ghosting
+        if (get().modelId !== modelId) {
+          set({ modelId, actions: {}, approvals: {} });
+        }
+      },
 
       getAction: (projectIdx, field) =>
         get().actions[projectIdx]?.[field] || DEFAULT_STATE,

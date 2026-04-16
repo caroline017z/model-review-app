@@ -57,12 +57,23 @@ export interface ProjectPayload {
   irrPct: number;
   nppPerW: number;
   equityK: number;
+  leverageScale: number;
+  sponsorFraction: number;
   kpis: Record<string, string>;
   findings: Finding[];
   variance: { labels: string[]; x: number[]; txt: string[]; colors: string[] };
-  stack: { model: number[]; bible: number[] };
+  stack: { model: number[]; bible: number[]; illustrative?: boolean; assumptions?: Record<string, unknown> };
   cashflow: { opCF: number[]; taxBn: number[]; terminal: number[] };
   tornado: { labels: string[]; lo: number[]; hi: number[] };
+  wrappedEpcComponents: { label: string; value: number }[];
+  references: {
+    bibleHeader: string;
+    bible: { k: string; v: string; s?: string }[];
+    marketHeader: string;
+    market: { k: string; v: string; s?: string }[];
+    marketMatched: boolean;
+    opex: { k: string; v: string; s?: string }[];
+  };
   rateComp1: Record<string, unknown>;
   propertyTax: Record<string, unknown>;
 }
@@ -86,11 +97,20 @@ export interface PortfolioPayload {
   review: number;
   count: number;
   totalMw: number;
+  reviewed: number;
+  pending: number;
   modelName: string;
   bibleLabel: string;
   loadedDate: string;
   reviewer: string;
   heatmap: { projects: string[]; fields: string[]; z: number[][] };
+  constants: {
+    irrPctPerCent: number;
+    calibrationSponsorFraction: number;
+    haircutImpactPerPct: number;
+    opexNpvFactor: number;
+    opexTermYears: number;
+  };
 }
 
 // --- API Functions ---

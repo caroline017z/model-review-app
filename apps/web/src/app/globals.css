@@ -71,3 +71,43 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(5, 13, 37, 0.15); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(5, 13, 37, 0.25); }
+
+/* Focus rings — WCAG 2.4.7 compliance */
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions on interactive elements */
+button, [role="button"], input, select, textarea {
+  transition: all 150ms ease-out;
+}
+
+/* Responsive: collapse chart grid on smaller screens */
+@media (max-width: 1024px) {
+  .grid-cols-2 { grid-template-columns: 1fr !important; }
+}
+
+/* Responsive: collapse to single column on mobile */
+@media (max-width: 768px) {
+  aside { display: none !important; }
+  main { padding: 12px !important; }
+}
+
+/* Table scope hints for screen readers */
+th { font-weight: 600; }
+
+/* Loading skeleton animation */
+.animate-skeleton {
+  background: linear-gradient(90deg, var(--inset) 25%, var(--raised) 50%, var(--inset) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

@@ -15,6 +15,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const selectedIdx = useUiStore((s) => s.selectedProjectIdx);
   const setSelected = useUiStore((s) => s.setSelectedProject);
 
+  // Clamp selectedIdx when reviewProjects shrinks (e.g., after re-upload)
+  useEffect(() => {
+    if (reviewProjects.length > 0 && selectedIdx >= reviewProjects.length) {
+      setSelected(Math.max(0, reviewProjects.length - 1));
+    }
+  }, [reviewProjects.length, selectedIdx, setSelected]);
+
   // Keyboard navigation: J/K or arrow keys to switch projects
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

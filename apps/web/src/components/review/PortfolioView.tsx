@@ -87,8 +87,8 @@ export function PortfolioView() {
                         {p.verdict}
                       </span>
                     </td>
-                    <td className={`text-center px-2 py-2 tabular-nums font-semibold ${p.equityK < 0 ? "text-[var(--off)]" : ""}`}>
-                      {fmtMoney(p.equityK)}
+                    <td className={`text-center px-2 py-2 tabular-nums font-semibold ${(p.equityK || 0) < 0 ? "text-[var(--off)]" : ""}`}>
+                      {fmtMoney(p.equityK || 0)}
                     </td>
                     <td className="text-center px-2 py-2">
                       {nFail + nFlag > 0 ? (
