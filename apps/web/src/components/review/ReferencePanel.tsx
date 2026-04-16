@@ -81,17 +81,19 @@ function rateComp1Items(rc: Record<string, unknown> | undefined): RefItem[] {
     k: "Rate Source",
     v: rc.isCustom ? "Custom (Rate Curves)" : "Generic (Project Inputs)",
   });
+  // GH Haircut vs Bible
+  const haircutVal = String(rc.ghHaircutDisplay ?? "—");
+  const bibleVal = String(rc.bibleDiscountDisplay ?? "—");
+  const match = rc.discountMatch as string | null;
   items.push({
-    k: "GH Haircut %",
-    v: String(rc.ghHaircutDisplay ?? "—"),
+    k: "GH Discount (from RC1 name)",
+    v: haircutVal,
+    s: match === "OK" ? `Bible: ${bibleVal} ✓` : match === "OFF" ? `Bible: ${bibleVal} ✗` : bibleVal !== "—" ? `Bible: ${bibleVal}` : "",
   });
   items.push({
     k: "Customer Discount %",
     v: String(rc.custDiscountDisplay ?? "—"),
   });
-  if (rc.escalator && rc.escalator !== "—") {
-    items.push({ k: "Escalator", v: String(rc.escalator) });
-  }
 
   return items;
 }

@@ -38,8 +38,6 @@ BIBLE_BENCHMARKS = {
         "Energy Yield (kWh/MWp)":{"row": 14,  "min": 1.200, "max": 2.000, "unit": "kWh/MWp"},
     },
     "Revenue": {
-        "PPA Rate ($/kWh)":      {"row": 157, "min": 0.03,  "max": 0.20,  "unit": "$/kWh"},
-        "Escalator (%)":         {"row": 158, "min": 0.005, "max": 0.035, "unit": "%"},
         "Rate Term (yrs)":       {"row": 160, "min": 15,    "max": 40,    "unit": "years"},
         "Revenue Lag (months)":  {"row": 143, "min": 0,     "max": 3,     "unit": "months"},
     },

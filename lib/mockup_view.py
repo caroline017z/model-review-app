@@ -773,7 +773,7 @@ def _build_sensitivity(proj: dict) -> dict:
         annual_mwh = dc_mw * DEFAULT_YIELD_KWH_PER_WP * 1000
         # +10% rate → ΔRevenue/yr × 25-yr × NPV dampener.
         delta_annual = 0.10 * ppa * annual_mwh * 1000
-        _add("PPA Rate $/kWh", delta_annual * OPEX_TERM_YEARS * OPEX_NPV_FACTOR)
+        _add("Energy Rate $/kWh", delta_annual * OPEX_TERM_YEARS * OPEX_NPV_FACTOR)
 
     lntp = _num(data.get(ROW_LNTP))
     if lntp:
@@ -801,7 +801,7 @@ def _build_sensitivity(proj: dict) -> dict:
     }
 
 
-def _build_rate_comp1(proj: dict) -> dict:
+def _build_rate_comp1(proj: dict, market: dict | None = None) -> dict:
     """Extract Rate Component 1 details for display.
 
     In community solar models, there's no single PPA rate — revenue comes from
@@ -814,6 +814,9 @@ def _build_rate_comp1(proj: dict) -> dict:
 
     The "discount" at RC1 offset+7 is the CUSTOMER discount, not the GH haircut.
     The GH haircut is only indicated in the RC1 name.
+
+    If a market lookup is provided, compares the GH haircut against the bible's
+    expected rate discount for that market.
     """
     import re as _rc_re
 
@@ -846,17 +849,30 @@ def _build_rate_comp1(proj: dict) -> dict:
         if m:
             gh_haircut_pct = float(m.group(1))
 
+    # Compare GH haircut against bible market-specific rate discount
+    bible_discount = None
+    bible_discount_display = "—"
+    discount_match = None
+    if market and isinstance(market.get(161), (int, float)):
+        bible_discount = float(market[161]) * 100  # stored as fraction → %
+        bible_discount_display = f"{bible_discount:.1f}%"
+        if gh_haircut_pct is not None:
+            diff = abs(gh_haircut_pct - bible_discount)
+            discount_match = "OK" if diff < 1.0 else "OFF"
+
     return {
         "name": name or "—",
         "isCustom": is_custom,
         "rate": round(rate, 6) if rate is not None else None,
         "rateDisplay": f"${rate:.4f}/kWh" if rate is not None else "—",
         "rateSource": "Rate Curves" if is_custom else "Project Inputs",
-        "escalator": str(esc) if esc is not None else "—",
         "custDiscount": round(cust_discount, 4) if cust_discount is not None else None,
         "custDiscountDisplay": f"{cust_discount*100:.1f}%" if cust_discount is not None else "—",
         "ghHaircut": gh_haircut_pct,
         "ghHaircutDisplay": f"-{gh_haircut_pct:.1f}%" if gh_haircut_pct is not None else "—",
+        "bibleDiscount": bible_discount,
+        "bibleDiscountDisplay": bible_discount_display,
+        "discountMatch": discount_match,
         "equityOn": equity_on,
     }
 
@@ -997,7 +1013,7 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
         "tornado": _build_sensitivity(proj),
         "wrappedEpcComponents": _build_wrapped_epc(audit),
         "references": _build_references(proj, audit),
-        "rateComp1": _build_rate_comp1(proj),
+        "rateComp1": _build_rate_comp1(proj, market=market),
         "fullMapping": _build_full_mapping(audit),
         "propertyTax": _build_property_tax(data),
     }
