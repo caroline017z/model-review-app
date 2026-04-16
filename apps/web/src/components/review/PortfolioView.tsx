@@ -3,6 +3,7 @@
 import { usePortfolioStore } from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
 import { HeatmapChart } from "@/components/charts/HeatmapChart";
+import { fmtEquity } from "@/lib/format";
 
 export function PortfolioView() {
   const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
@@ -104,6 +105,27 @@ export function PortfolioView() {
                 );
               })}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-[var(--border-strong)] font-bold text-xs" style={{ background: "var(--raised)" }}>
+                <td className="px-2 py-2"></td>
+                <td className="px-4 py-2">Portfolio Total</td>
+                <td className="px-2 py-2"></td>
+                <td className="px-2 py-2"></td>
+                <td className="text-center px-2 py-2 tabular-nums">
+                  {ranked.reduce((s, { p }) => s + parseFloat(String(p.kpis?.dc || 0)), 0).toFixed(1)}
+                </td>
+                <td className="text-center px-2 py-2">
+                  {ranked.filter(({ p }) => p.verdict !== "CLEAN").length} issues
+                </td>
+                <td className="text-center px-2 py-2 tabular-nums">
+                  {fmtEquity(ranked.reduce((s, { p }) => s + (p.equityK || 0), 0))}
+                </td>
+                <td className="text-center px-2 py-2">
+                  {ranked.reduce((s, { p }) => s + (p.findings?.filter(f => f.status === "OFF").length || 0) + (p.findings?.filter(f => f.status === "OUT").length || 0), 0)}
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>

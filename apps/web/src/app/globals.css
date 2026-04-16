@@ -63,8 +63,15 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.5;
 }
+
+/* Tighter line-height for tables — data density */
+table { line-height: 1.3; }
+
+/* Tabular numbers everywhere numeric data appears */
+.tabular-nums, td, th { font-feature-settings: "tnum"; }
 
 /* Scrollbar styling for the professional look */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

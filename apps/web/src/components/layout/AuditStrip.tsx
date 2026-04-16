@@ -1,6 +1,7 @@
 "use client";
 
 import { usePortfolioStore } from "@/stores/portfolio";
+import { useReviewerStore } from "@/stores/reviewer";
 
 interface PillProps {
   count: number;
@@ -29,7 +30,12 @@ function Pill({ count, label, variant = "default" }: PillProps) {
 
 export function AuditStrip() {
   const portfolio = usePortfolioStore((s) => s.portfolio);
+  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
+  const approvals = useReviewerStore((s) => s.approvals);
   if (!portfolio) return null;
+
+  const nApproved = reviewProjects.filter((_, i) => approvals[i]?.approved).length;
+  const nPending = portfolio.count - nApproved;
 
   return (
     <div className="bg-surface border-b border-[var(--border)] px-[18px] py-2 flex gap-[6px] items-center">
@@ -46,8 +52,8 @@ export function AuditStrip() {
         <span className="text-[12.5px] font-bold tabular-nums">{portfolio.totalMw.toFixed(1)}</span> MW
       </span>
       <div className="ml-auto flex gap-[6px]">
-        <Pill count={0} label="Reviewed" />
-        <Pill count={portfolio.count} label="Pending" />
+        <Pill count={nApproved} label="Reviewed" />
+        <Pill count={nPending} label="Pending" />
       </div>
     </div>
   );

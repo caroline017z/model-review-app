@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { usePortfolioStore } from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
 import { useReviewerStore } from "@/stores/reviewer";
@@ -7,6 +8,7 @@ import { VarianceChart } from "@/components/charts/VarianceChart";
 import { CapitalStackChart } from "@/components/charts/CapitalStackChart";
 import { CashflowChart } from "@/components/charts/CashflowChart";
 import { TornadoChart } from "@/components/charts/TornadoChart";
+import { fmtNpp, fmtIrr, fmtEquity, fmtImpact } from "@/lib/format";
 
 export function ProjectReviewView() {
   const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
@@ -16,9 +18,12 @@ export function ProjectReviewView() {
 
   // Persisted reviewer actions (localStorage via Zustand persist)
   const getAction = useReviewerStore((s) => s.getAction);
-  const setAction = useReviewerStore((s) => s.setAction);
+  const setActionStore = useReviewerStore((s) => s.setAction);
+  const setNoteStore = useReviewerStore((s) => s.setNote);
   const approveProject = useReviewerStore((s) => s.approveProject);
   const isApproved = useReviewerStore((s) => s.isApproved);
+  const [sortBy, setSortBy] = useState<"field" | "status" | "impact">("impact");
+  const [sortAsc, setSortAsc] = useState(false);
 
   if (!project) {
     return (
@@ -61,9 +66,9 @@ export function ProjectReviewView() {
           </span>
         </div>
         <div className="flex gap-6 mt-3 text-sm">
-          <div><span className="text-xs uppercase text-white/50">IRR</span><p className="font-bold">{project.irrPct.toFixed(2)}%</p></div>
-          <div><span className="text-xs uppercase text-white/50">NPP</span><p className="font-bold">${project.nppPerW.toFixed(2)}/W</p></div>
-          <div><span className="text-xs uppercase text-white/50">Equity</span><p className="font-bold">${project.equityK}k</p></div>
+          <div><span className="text-xs uppercase text-white/50">IRR Impact</span><p className="font-bold text-lg">{fmtIrr(project.irrPct)}</p></div>
+          <div><span className="text-xs uppercase text-white/50">NPP Delta</span><p className="font-bold text-lg">{fmtNpp(project.nppPerW)}</p></div>
+          <div><span className="text-xs uppercase text-white/50">Equity Impact</span><p className={`font-bold text-lg ${project.equityK < 0 ? "text-red-300" : ""}`}>{fmtEquity(project.equityK)}</p></div>
         </div>
       </div>
 
@@ -95,25 +100,49 @@ export function ProjectReviewView() {
 
       {/* Findings table */}
       <div className="rounded border border-[var(--border)] overflow-hidden" style={{ background: "var(--surface)" }}>
-        <div className="px-4 py-2 border-b border-[var(--border)] text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--muted)" }}>
-          Findings &middot; {findings.length}
+        <div className="px-4 py-2 border-b border-[var(--border)] flex items-center justify-between">
+          <span className="text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--muted)" }}>
+            Findings &middot; {findings.length}
+          </span>
+          {unhandled > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: "var(--off-bg)", color: "var(--off)" }}>
+              {unhandled} unhandled
+            </span>
+          )}
         </div>
         {findings.length === 0 ? (
           <p className="text-center py-6 text-xs italic" style={{ color: "var(--muted)" }}>No findings — this project is clean.</p>
         ) : (
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[var(--border)]" style={{ background: "var(--raised)" }}>
-                <th className="text-left px-4 py-2 font-semibold">Field</th>
-                <th className="text-center px-2 py-2 font-semibold">Status</th>
+              <tr className="border-b border-[var(--border)] sticky top-0 z-10" style={{ background: "var(--raised)" }}>
+                <th className="text-left px-4 py-2 font-semibold cursor-pointer select-none" onClick={() => { setSortBy("field"); setSortAsc(sortBy === "field" ? !sortAsc : true); }}>
+                  Field {sortBy === "field" ? (sortAsc ? "↑" : "↓") : ""}
+                </th>
+                <th className="text-center px-2 py-2 font-semibold cursor-pointer select-none" onClick={() => { setSortBy("status"); setSortAsc(sortBy === "status" ? !sortAsc : true); }}>
+                  Status {sortBy === "status" ? (sortAsc ? "↑" : "↓") : ""}
+                </th>
                 <th className="text-center px-2 py-2 font-semibold">Bible</th>
                 <th className="text-center px-2 py-2 font-semibold">Model</th>
-                <th className="text-center px-2 py-2 font-semibold">Impact</th>
+                <th className="text-center px-2 py-2 font-semibold cursor-pointer select-none" onClick={() => { setSortBy("impact"); setSortAsc(sortBy === "impact" ? !sortAsc : false); }}>
+                  Impact {sortBy === "impact" ? (sortAsc ? "↑" : "↓") : ""}
+                </th>
                 <th className="text-center px-2 py-2 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {findings.map((f, fi) => {
+              {[...findings].sort((a, b) => {
+                const statusOrder: Record<string, number> = { OFF: 0, OUT: 1, MISSING: 2, REVIEW: 3 };
+                if (sortBy === "impact") {
+                  const diff = Math.abs(b.impact || 0) - Math.abs(a.impact || 0);
+                  return sortAsc ? -diff : diff;
+                }
+                if (sortBy === "status") {
+                  const diff = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
+                  return sortAsc ? diff : -diff;
+                }
+                return sortAsc ? a.field.localeCompare(b.field) : b.field.localeCompare(a.field);
+              }).map((f, fi) => {
                 const act = getAction(selectedIdx, f.field);
                 const statusCls = f.status === "OFF" ? "bg-[var(--off-bg)] text-[var(--off)]"
                   : f.status === "OUT" ? "bg-[var(--out-bg)] text-[var(--out)]"
@@ -132,13 +161,13 @@ export function ProjectReviewView() {
                     <td className="text-center px-2 py-2"><span className={`text-[10px] px-[6px] py-px rounded font-bold ${statusCls}`}>{f.status === "OFF" ? "FAIL" : f.status === "OUT" ? "FLAG" : f.status}</span></td>
                     <td className="text-center px-2 py-2 tabular-nums">{f.bible}</td>
                     <td className="text-center px-2 py-2 tabular-nums">{f.model}</td>
-                    <td className="text-center px-2 py-2 tabular-nums">{f.impact != null ? `$${(f.impact / 1000).toFixed(0)}k` : "—"}</td>
+                    <td className={`text-center px-2 py-2 tabular-nums font-semibold ${f.impact != null && f.impact < 0 ? "text-[var(--off)]" : ""}`}>{fmtImpact(f.impact)}</td>
                     <td className="text-center px-2 py-2">
                       <div className="flex gap-1 justify-center">
                         {(["accept", "flag", "skip"] as const).map((a) => (
                           <button
                             key={a}
-                            onClick={() => setAction(selectedIdx, f.field, a)}
+                            onClick={() => setActionStore(selectedIdx, f.field, a)}
                             className={`text-[10px] px-2 py-0.5 rounded border transition cursor-pointer ${
                               act.action === a
                                 ? a === "accept" ? "bg-[var(--ok-bg)] text-[var(--ok)] border-[var(--ok)]"
