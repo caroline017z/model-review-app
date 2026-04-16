@@ -889,20 +889,21 @@ def list_candidate_projects(m1_projects: dict) -> list[dict]:
             "toggled_on": bool(proj.get("toggle", False)),
         })
 
-    # Default-suggested = row 7 toggle is On. Everything else goes behind
-    # expanders in the sidebar (see app.py). Off-toggled projects that share
-    # a developer with an On project are flagged with `dev_sibling=True` so
-    # the sidebar can group them separately ("same-developer siblings").
+    # Default-suggested = row-7 toggle=On OR same developer as any On project.
+    # Duplicate-named columns both count if both carry the same developer.
+    # Off-toggled projects whose developer matches an active one are flagged
+    # `dev_sibling=True` so the sidebar can distinguish them visually, but
+    # they're still included in `suggested` (default-checked).
     active_devs = {
         (c["developer"] or "").lower()
         for c in raw if c["toggled_on"] and (c["developer"] or "").strip()
     }
     for c in raw:
-        c["suggested"] = bool(c["toggled_on"])
         dev_l = (c["developer"] or "").lower()
         c["dev_sibling"] = bool(
             not c["toggled_on"] and dev_l and dev_l in active_devs
         )
+        c["suggested"] = bool(c["toggled_on"] or c["dev_sibling"])
     return raw
 
 

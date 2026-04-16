@@ -467,12 +467,13 @@ def main():
             n_active = sum(1 for c in candidates if c["toggled_on"])
             n_sibling = sum(1 for c in candidates if c.get("dev_sibling"))
             n_other = len(candidates) - n_active - n_sibling
+            parts = [f"{n_active} toggled=On"]
+            if n_sibling:
+                parts.append(f"+ {n_sibling} same-developer")
+            if n_other:
+                parts.append(f"({n_other} other available)")
             _status.update(
-                label=(
-                    f"Review ready — {n_active} active (toggle=On)"
-                    + (f" · {n_sibling} same-developer siblings" if n_sibling else "")
-                    + (f" · {n_other} other available" if n_other else "")
-                ),
+                label="Review ready — " + " ".join(parts),
                 state="complete",
                 expanded=False,
             )
@@ -482,14 +483,11 @@ def main():
     # default unchecked so the reviewer can opt them in.
     included_ids: set[str] = set()
     if candidates:
-        # Three buckets:
-        #   1. Suggested (toggle=On)           — default CHECKED
-        #   2. Same-developer siblings         — default UNCHECKED, prominent
-        #   3. Other (off + different dev)     — default UNCHECKED, collapsed
+        # Suggested = row-7 toggle=On OR same developer as an On project.
+        # Both default-checked; off-siblings get a small visual cue so the
+        # reviewer knows they were pulled in via the developer-match rule.
         suggested = [c for c in candidates if c.get("suggested")]
-        siblings  = [c for c in candidates if c.get("dev_sibling")]
-        others    = [c for c in candidates
-                     if not c.get("suggested") and not c.get("dev_sibling")]
+        others    = [c for c in candidates if not c.get("suggested")]
 
         def _grouped(items):
             buckets: dict[str, list[dict]] = {}
@@ -500,13 +498,17 @@ def main():
         def _item_label(c):
             meta = " · ".join([x for x in [c["state"], c["utility"], c["program"]] if x])
             dc_str = f"{c['dc']:.2f} MW" if c["dc"] else ""
-            off_tag = "" if c["toggled_on"] else "  ·  *toggle=Off*"
+            cue = ""
+            if not c["toggled_on"] and c.get("dev_sibling"):
+                cue = "  ·  *same-dev (toggle=Off)*"
+            elif not c["toggled_on"]:
+                cue = "  ·  *toggle=Off*"
             tail = " — ".join([x for x in [meta, dc_str] if x])
-            return f"**{c['name']}**" + off_tag + (f"  \n{tail}" if tail else "")
+            return f"**{c['name']}**" + cue + (f"  \n{tail}" if tail else "")
 
-        def _render_group(items, default_checked, heading_prefix=""):
+        def _render_group(items, default_checked):
             for dev, grp in _grouped(items):
-                st.markdown(f"{heading_prefix}**{dev}**")
+                st.markdown(f"**{dev}**")
                 for c in grp:
                     sig = f"inc::{model_key}::{c['id']}::{c['name']}"
                     checked = st.checkbox(_item_label(c), value=default_checked, key=sig)
@@ -516,10 +518,15 @@ def main():
         with st.sidebar:
             st.markdown("---")
             st.markdown("### Projects in review")
+            n_on = sum(1 for c in suggested if c["toggled_on"])
+            n_sib = sum(1 for c in suggested if c.get("dev_sibling"))
             sug_mw = sum(c["dc"] for c in suggested)
+            pieces = [f"{n_on} toggled=On"]
+            if n_sib:
+                pieces.append(f"+ {n_sib} same-developer")
             st.caption(
-                f"{len(suggested)} toggled=On · {sug_mw:.1f} MWdc  \n"
-                f"({len(siblings)} same-developer siblings · {len(others)} other available)"
+                f"{' '.join(pieces)} · {sug_mw:.1f} MWdc  \n"
+                f"({len(others)} other available)"
             )
             model_key = getattr(model_file, "name", None) or m1_label or "model"
 
@@ -528,19 +535,8 @@ def main():
             else:
                 st.warning(
                     "No projects with row-7 toggle = On. "
-                    "Check your pricing model or opt-in via the expanders below."
+                    "Check your pricing model or opt-in via the expander below."
                 )
-
-            if siblings:
-                with st.expander(
-                    f"+ Same-developer siblings ({len(siblings)})", expanded=False
-                ):
-                    st.caption(
-                        "Projects with the same Developer (row 10) as an On "
-                        "project but toggle=Off. Common for scenario-sensitivity "
-                        "clones (e.g. '-2% Yield' copies)."
-                    )
-                    _render_group(siblings, default_checked=False)
 
             if others:
                 with st.expander(
