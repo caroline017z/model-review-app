@@ -464,9 +464,15 @@ def main():
 
             _status.update(label="Identifying active projects…")
             candidates = list_candidate_projects(merged_projects)
-
+            n_active = sum(1 for c in candidates if c["toggled_on"])
+            n_sibling = sum(1 for c in candidates if c.get("dev_sibling"))
+            n_other = len(candidates) - n_active - n_sibling
             _status.update(
-                label=f"Review ready — suggesting {len(candidates)} active project(s)",
+                label=(
+                    f"Review ready — {n_active} active (toggle=On)"
+                    + (f" · {n_sibling} same-developer siblings" if n_sibling else "")
+                    + (f" · {n_other} other available" if n_other else "")
+                ),
                 state="complete",
                 expanded=False,
             )
@@ -476,10 +482,14 @@ def main():
     # default unchecked so the reviewer can opt them in.
     included_ids: set[str] = set()
     if candidates:
-        # Default-on = toggle=On OR (toggle=Off AND shares developer with an On project).
-        # Everything else is opt-in via the expander.
+        # Three buckets:
+        #   1. Suggested (toggle=On)           — default CHECKED
+        #   2. Same-developer siblings         — default UNCHECKED, prominent
+        #   3. Other (off + different dev)     — default UNCHECKED, collapsed
         suggested = [c for c in candidates if c.get("suggested")]
-        extras = [c for c in candidates if not c.get("suggested")]
+        siblings  = [c for c in candidates if c.get("dev_sibling")]
+        others    = [c for c in candidates
+                     if not c.get("suggested") and not c.get("dev_sibling")]
 
         def _grouped(items):
             buckets: dict[str, list[dict]] = {}
@@ -494,37 +504,49 @@ def main():
             tail = " — ".join([x for x in [meta, dc_str] if x])
             return f"**{c['name']}**" + off_tag + (f"  \n{tail}" if tail else "")
 
+        def _render_group(items, default_checked, heading_prefix=""):
+            for dev, grp in _grouped(items):
+                st.markdown(f"{heading_prefix}**{dev}**")
+                for c in grp:
+                    sig = f"inc::{model_key}::{c['id']}::{c['name']}"
+                    checked = st.checkbox(_item_label(c), value=default_checked, key=sig)
+                    if checked:
+                        included_ids.add(str(c["id"]))
+
         with st.sidebar:
             st.markdown("---")
             st.markdown("### Projects in review")
             sug_mw = sum(c["dc"] for c in suggested)
-            n_on = sum(1 for c in suggested if c["toggled_on"])
-            n_dev = len(suggested) - n_on
             st.caption(
-                f"{len(suggested)} suggested · {sug_mw:.1f} MWdc  \n"
-                f"({n_on} toggled=On"
-                + (f" + {n_dev} same-developer" if n_dev else "")
-                + f" · {len(extras)} other available)"
+                f"{len(suggested)} toggled=On · {sug_mw:.1f} MWdc  \n"
+                f"({len(siblings)} same-developer siblings · {len(others)} other available)"
             )
             model_key = getattr(model_file, "name", None) or m1_label or "model"
 
-            for dev, items in _grouped(suggested):
-                st.markdown(f"**{dev}**")
-                for c in items:
-                    sig = f"inc::{model_key}::{c['id']}::{c['name']}"
-                    checked = st.checkbox(_item_label(c), value=True, key=sig)
-                    if checked:
-                        included_ids.add(str(c["id"]))
+            if suggested:
+                _render_group(suggested, default_checked=True)
+            else:
+                st.warning(
+                    "No projects with row-7 toggle = On. "
+                    "Check your pricing model or opt-in via the expanders below."
+                )
 
-            if extras:
-                with st.expander(f"+ Add other projects ({len(extras)})", expanded=False):
-                    for dev, items in _grouped(extras):
-                        st.markdown(f"**{dev}**")
-                        for c in items:
-                            sig = f"inc::{model_key}::{c['id']}::{c['name']}"
-                            checked = st.checkbox(_item_label(c), value=False, key=sig)
-                            if checked:
-                                included_ids.add(str(c["id"]))
+            if siblings:
+                with st.expander(
+                    f"+ Same-developer siblings ({len(siblings)})", expanded=False
+                ):
+                    st.caption(
+                        "Projects with the same Developer (row 10) as an On "
+                        "project but toggle=Off. Common for scenario-sensitivity "
+                        "clones (e.g. '-2% Yield' copies)."
+                    )
+                    _render_group(siblings, default_checked=False)
+
+            if others:
+                with st.expander(
+                    f"+ Other projects ({len(others)})", expanded=False
+                ):
+                    _render_group(others, default_checked=False)
 
             n_included = len(included_ids)
             n_total_mw = sum(c["dc"] for c in candidates if str(c["id"]) in included_ids)

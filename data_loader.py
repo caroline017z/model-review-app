@@ -72,6 +72,7 @@ def _labels_match(canonical, actual):
 # Keeps matching tolerant to template drift without relaxing _labels_match.
 ROW_LABEL_ALIASES: dict[int, list[str]] = {
     4: ["Project Name", "Projects", "Project"],
+    7: ["Toggle (On/Off)", "Project Toggle (on/off)", "Project Toggle", "Toggle"],
     10: ["Developer", "Developer Name"],
     118: ["PV EPC Cost", "EPC Cost", "PV EPC"],
     119: ["PV LNTP Cost", "LNTP Cost", "PV LNTP"],

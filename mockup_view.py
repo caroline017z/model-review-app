@@ -825,17 +825,33 @@ def _iter_projects(m1_projects: dict):
         yield k, v
 
 
-def _looks_real(proj: dict) -> bool:
-    """A project is 'real' if it has a proper name AND a positive DC size.
+import re as _re  # local alias to avoid shadowing
 
-    Filters out empty placeholder columns in the model template that carry a
-    toggle or stub name but no actual data.
+
+# Template-placeholder detection. Real model templates ship with ~60 scratch
+# slots named "Project 15" / "Project 16" / … with developer literally set to
+# "[Developer]" and DC=7.0 — these should never surface, even toggle-off.
+_PLACEHOLDER_NAME_RE = _re.compile(r"^\s*project\s+\d+\s*$", _re.IGNORECASE)
+_PLACEHOLDER_DEV_TOKENS = {"[developer]", "developer", "tbd", "n/a", "—", "-"}
+
+
+def _looks_real(proj: dict) -> bool:
+    """A project is 'real' if it has a proper name, a positive DC size, AND
+    doesn't look like a template placeholder ("Project 15", "[Developer]"…).
     """
     name = str(proj.get("name") or "").strip()
     if not name or name.lower() in ("", "project", "sample"):
         return False
-    dc = _num(proj.get("data", {}).get(ROW_DC_MW)) or 0
-    return dc > 0
+    if _PLACEHOLDER_NAME_RE.match(name):
+        return False
+    data = proj.get("data", {}) or {}
+    dc = _num(data.get(ROW_DC_MW)) or 0
+    if dc <= 0:
+        return False
+    dev = str(data.get(ROW_DEVELOPER) or "").strip().lower()
+    if dev in _PLACEHOLDER_DEV_TOKENS:
+        return False
+    return True
 
 
 def list_candidate_projects(m1_projects: dict) -> list[dict]:
@@ -873,18 +889,20 @@ def list_candidate_projects(m1_projects: dict) -> list[dict]:
             "toggled_on": bool(proj.get("toggle", False)),
         })
 
-    # Second pass: mark `suggested` using the developer-sibling rule.
+    # Default-suggested = row 7 toggle is On. Everything else goes behind
+    # expanders in the sidebar (see app.py). Off-toggled projects that share
+    # a developer with an On project are flagged with `dev_sibling=True` so
+    # the sidebar can group them separately ("same-developer siblings").
     active_devs = {
         (c["developer"] or "").lower()
         for c in raw if c["toggled_on"] and (c["developer"] or "").strip()
     }
     for c in raw:
-        if c["toggled_on"]:
-            c["suggested"] = True
-        elif (c["developer"] or "").lower() in active_devs:
-            c["suggested"] = True
-        else:
-            c["suggested"] = False
+        c["suggested"] = bool(c["toggled_on"])
+        dev_l = (c["developer"] or "").lower()
+        c["dev_sibling"] = bool(
+            not c["toggled_on"] and dev_l and dev_l in active_devs
+        )
     return raw
 
 
