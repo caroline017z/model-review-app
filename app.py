@@ -780,8 +780,8 @@ def main():
                         f"({len(added)} added, {len(removed)} removed)",
                         icon="✅",
                     )
-                except Exception:
-                    pass
+                except (RuntimeError, AttributeError):
+                    pass  # st.toast unavailable in some Streamlit versions
 
             conf_mw = sum(c["dc"] for c in candidates if str(c["id"]) in confirmed_ids)
             tag = "↻ Unsaved changes" if dirty else "✓ In sync with review"

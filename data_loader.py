@@ -640,11 +640,11 @@ def load_pricing_model(file):
 
 
 def get_projects(model_result):
+    """Extract projects dict. Cache already returns a deepcopy (line 637),
+    so no additional copy needed here."""
     if isinstance(model_result, dict) and "projects" in model_result:
-        # Return a deep copy so in-place mutations downstream (legacy code
-        # paths or future code) can't corrupt the Streamlit cache.
-        return copy.deepcopy(model_result["projects"])
-    return copy.deepcopy(model_result) if model_result else model_result
+        return model_result["projects"]
+    return {}
 
 
 def get_ops_sandbox(model_result):

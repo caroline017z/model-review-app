@@ -25,6 +25,7 @@ Status legend:
 from utils import safe_float
 from bible_reference import (
     CS_AVERAGE, CS_STATE_OVERRIDES, MARKET_BIBLE, lookup_market, SSFA, TBD,
+    normalize_state,
 )
 from config import BIBLE_BENCHMARKS, PCT_ROWS, INPUT_ROW_UNITS
 from rows import ROW_STATE, ROW_UTILITY, ROW_PROGRAM_A, ROW_PROGRAM_B
@@ -34,15 +35,6 @@ from rows import ROW_STATE, ROW_UTILITY, ROW_PROGRAM_A, ROW_PROGRAM_B
 _DEFAULT_PCT_TOL    = 0.0      # exact match for percentages
 _DEFAULT_MONEY_TOL  = 0.0      # exact match for $ values
 _NUMERIC_EPSILON    = 1e-9
-
-
-def _normalize_state(state):
-    if not state:
-        return ""
-    s = str(state).strip().upper()
-    if s in ("MD", "DE"):
-        return "MD/DE"
-    return s
 
 
 def _exact_check(actual, expected, tol, unit="", row=None):
@@ -110,7 +102,7 @@ def audit_project(proj_data):
 
     proj_data: dict {row_number: cell_value} — typically projects[col]["data"].
     """
-    state = _normalize_state(proj_data.get(ROW_STATE))
+    state = normalize_state(proj_data.get(ROW_STATE))
     utility = proj_data.get(ROW_UTILITY)
     # Program lives in different rows depending on model — try a couple
     program = proj_data.get(ROW_PROGRAM_A) or proj_data.get(ROW_PROGRAM_B)

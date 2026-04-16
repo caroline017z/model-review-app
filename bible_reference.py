@@ -255,11 +255,32 @@ MARKET_BIBLE = {
     },
 }
 
-# State -> set of (utility, program) for fuzzy matching
-def _build_market_index():
-    idx = {}
+def normalize_state(state: str | None) -> str:
+    """Normalize state for market lookups. MD/DE → 'MD/DE'."""
+    if not state:
+        return ""
+    s = str(state).strip().upper()
+    return "MD/DE" if s in ("MD", "DE", "MD/DE") else s
+
+
+# Pre-built O(1) normalized index: (state, utility_lower, program_lower) → vals
+def _build_normalized_index() -> dict[tuple[str, str, str], dict]:
+    idx: dict[tuple[str, str, str], dict] = {}
     for (state, util, prog), vals in MARKET_BIBLE.items():
-        idx.setdefault(state, []).append((util, prog, vals))
+        ns = normalize_state(state)
+        key = (ns, util.lower(), prog.lower())
+        idx[key] = vals
+    return idx
+
+
+_NORMALIZED_INDEX = _build_normalized_index()
+
+# State → list of (utility, program, vals) for fuzzy fallback
+def _build_market_index():
+    idx: dict[str, list[tuple[str, str, dict]]] = {}
+    for (state, util, prog), vals in MARKET_BIBLE.items():
+        ns = normalize_state(state)
+        idx.setdefault(ns, []).append((util, prog, vals))
     return idx
 
 MARKET_INDEX = _build_market_index()
@@ -268,29 +289,31 @@ MARKET_INDEX = _build_market_index()
 def lookup_market(state, utility, program):
     """Return bible dict for (state, utility, program), or None if no match.
 
-    Tolerant matching: case-insensitive, strips whitespace, accepts MD/DE for MD.
-    Falls back to state-only single-market lookup if utility/program are blank.
+    O(1) exact lookup first, then fuzzy fallback on utility/program.
+    Tolerant: case-insensitive, strips whitespace, normalizes MD/DE.
     """
-    if not state:
+    s = normalize_state(state)
+    if not s:
         return None
-    s = str(state).strip().upper()
-    if s in ("MD", "DE", "MD/DE"):
-        s = "MD/DE"
     u = str(utility or "").strip()
     p = str(program or "").strip()
 
-    # Try exact key
-    for key in MARKET_BIBLE:
-        ks, ku, kp = key
-        if ks.upper() == s and ku.lower() == u.lower() and kp.lower() == p.lower():
-            return MARKET_BIBLE[key]
+    # O(1) exact normalized lookup
+    exact = _NORMALIZED_INDEX.get((s, u.lower(), p.lower()))
+    if exact is not None:
+        return exact
 
-    # Fuzzy: utility contains
+    # Fuzzy fallback: utility substring match
     candidates = MARKET_INDEX.get(s, [])
+    u_low = u.lower()
+    p_low = p.lower()
     for util_k, prog_k, vals in candidates:
-        if u and util_k.lower() in u.lower() or (u and u.lower() in util_k.lower()):
-            if not p or prog_k.lower() in p.lower() or p.lower() in prog_k.lower():
-                return vals
+        uk = util_k.lower()
+        pk = prog_k.lower()
+        util_match = not u or (uk in u_low) or (u_low in uk)
+        prog_match = not p or (pk in p_low) or (p_low in pk)
+        if util_match and prog_match:
+            return vals
 
     # State has only one market → return it
     if len(candidates) == 1:

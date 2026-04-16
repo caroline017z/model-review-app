@@ -106,12 +106,23 @@ def _num(v: Any) -> float | None:
         return None
 
 
+# Threshold for deciding if a value is stored as fraction (0.40) or whole % (40).
+# Values with abs <= this are treated as fractions and scaled ×100 for display.
+_PCT_THRESHOLD = 1.5
+
+
+def _pct_display(n: float | None) -> float | None:
+    """Normalize a percentage value for display: fraction → whole number."""
+    if n is None:
+        return None
+    return n * 100 if abs(n) <= _PCT_THRESHOLD else n
+
+
 def _pct(v: Any) -> str:
     n = _num(v)
     if n is None:
         return "—"
-    # Model stores percentages as decimals (0.4) or whole numbers (40)
-    display = n * 100 if abs(n) <= 1.5 else n
+    display = _pct_display(n)
     return f"{display:.0f}%"
 
 
@@ -497,14 +508,12 @@ def _build_kpis(proj: dict, findings: list[dict]) -> dict:
     # Appraisal IRR (row 31) is stored as a fraction (0.0725). Display as %.
     irr_display = None
     if appraisal_irr is not None:
-        val = appraisal_irr * 100 if abs(appraisal_irr) <= 1.5 else appraisal_irr
-        irr_display = f"{val:.2f}%"
+        irr_display = f"{_pct_display(appraisal_irr):.2f}%"
 
     # Levered Pre-Tax IRR (row 37)
     lev_irr_display = None
     if levered_pt_irr is not None:
-        val = levered_pt_irr * 100 if abs(levered_pt_irr) <= 1.5 else levered_pt_irr
-        lev_irr_display = f"{val:.2f}%"
+        lev_irr_display = f"{_pct_display(levered_pt_irr):.2f}%"
 
     # ITC: if the model doesn't expose ITC Rate as an input row (common —
     # tax assumptions sit on a different sheet), fall back to the bible
@@ -512,8 +521,7 @@ def _build_kpis(proj: dict, findings: list[dict]) -> dict:
     itc_sub = ""
     itc_display = None
     if itc is not None:
-        val = itc * 100 if abs(itc) <= 1.5 else itc
-        itc_display = f"{val:.0f}%"
+        itc_display = f"{_pct_display(itc):.0f}%"
     else:
         itc_display = f"{int(BIBLE_ITC_FRAC*100)}%"
         itc_sub = "bible default"
