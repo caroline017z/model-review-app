@@ -37,6 +37,21 @@ def generate_walk(req: WalkRequest):
     except Exception as e:
         raise HTTPException(500, f"Walk generation error: {e}")
 
+    # Log diagnostic info for debugging empty walks
+    if summary.get("n_matched", 0) == 0:
+        from lib.data_loader import get_projects
+        from lib.rows import ROW_PROJECT_NUMBER
+        from lib.utils import safe_float
+        m1p = get_projects(m1["result"]) or {}
+        m2p = get_projects(m2["result"]) or {}
+        m1_pnums = [safe_float(p.get("data", {}).get(ROW_PROJECT_NUMBER)) for p in m1p.values() if isinstance(p, dict)]
+        m2_pnums = [safe_float(p.get("data", {}).get(ROW_PROJECT_NUMBER)) for p in m2p.values() if isinstance(p, dict)]
+        import logging
+        logging.warning(
+            "Walk matched 0 projects. M1 has %d projects (proj#: %s), M2 has %d (proj#: %s)",
+            len(m1p), m1_pnums[:5], len(m2p), m2_pnums[:5],
+        )
+
     filename = f"Build_Walk_{req.m1_label}_vs_{req.m2_label}.xlsx".replace(" ", "_")
     return StreamingResponse(
         buf,

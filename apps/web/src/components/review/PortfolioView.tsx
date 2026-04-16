@@ -23,9 +23,10 @@ export function PortfolioView() {
     return <p className="text-center py-12 italic text-[11px]" style={{ color: "var(--muted)" }}>No projects loaded.</p>;
   }
 
+  // Sort by project number (row 2) for natural portfolio ordering
   const ranked = reviewProjects
     .map((p, i) => ({ p, i }))
-    .sort((a, b) => Math.abs(b.p.equityK || 0) - Math.abs(a.p.equityK || 0));
+    .sort((a, b) => (a.p.projNumber ?? 999) - (b.p.projNumber ?? 999));
 
   const fmtMoney = (k: number) => {
     const abs = Math.abs(k * 1000);
