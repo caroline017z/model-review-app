@@ -334,8 +334,9 @@ def lookup_market(state, utility, program):
         if util_match and prog_match:
             return vals
 
-    # State has only one market → return it
-    if len(candidates) == 1:
+    # State has only one market → return it ONLY if no specific program was requested
+    # (prevents cross-contamination: PA/ABP shouldn't return PA/PTC data)
+    if len(candidates) == 1 and not p:
         return candidates[0][2]
 
     return None

@@ -972,11 +972,10 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
     dc_mw = _num(data.get(ROW_DC_MW)) or 0
     # Look up market once so the capital stack's "bible upfront" is market-aware.
     # (lookup_market itself handles MD/DE normalization; no need to pre-normalize.)
-    market = lookup_market(
-        str(audit.get("state") or data.get(ROW_STATE) or "").strip(),
-        str(data.get(ROW_UTILITY) or "").strip(),
-        str(audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip(),
-    )
+    _state = str(audit.get("state") or data.get(ROW_STATE) or "").strip().upper()
+    _utility = str(data.get(ROW_UTILITY) or "").strip()
+    _program = str(audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip()
+    market = lookup_market(_state, _utility, _program)
     stack = _build_capital_stack(proj, market)
     # Feed sponsor fraction into the roll-up so IRR scales with actual leverage.
     model_total = sum(stack["model"]) or 1.0
