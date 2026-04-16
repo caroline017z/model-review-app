@@ -6,6 +6,10 @@ import { AppShell } from "@/components/layout/AppShell";
 import { usePortfolioStore } from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
 import { uploadModel, runReview } from "@/lib/api";
+import { ProjectReviewView } from "@/components/review/ProjectReviewView";
+import { PortfolioView } from "@/components/review/PortfolioView";
+import { BuildWalkView } from "@/components/review/BuildWalkView";
+import { ReferencePanel } from "@/components/review/ReferencePanel";
 
 function UploadPanel() {
   const setModel1 = usePortfolioStore((s) => s.setModel1);
@@ -117,129 +121,11 @@ function UploadPanel() {
 
 function ReviewContent() {
   const mode = useUiStore((s) => s.mode);
-  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
-  const selectedIdx = useUiStore((s) => s.selectedProjectIdx);
-  const project = reviewProjects[selectedIdx];
 
-  if (mode === "walk") {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center max-w-md bg-[var(--surface)] rounded-lg border border-[var(--border)] p-8">
-          <h2 className="text-lg font-bold mb-2" style={{ color: "var(--navy)" }}>Build Walk</h2>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Download the Walk Summary .xlsx using the button below.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (mode === "portfolio") {
-    return (
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--navy)" }}>Portfolio Summary</h2>
-        <p className="text-sm italic" style={{ color: "var(--muted)" }}>
-          Portfolio table and heatmap — Phase 3.
-        </p>
-      </div>
-    );
-  }
-
-  if (mode === "reference") {
-    return (
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold" style={{ color: "var(--navy)" }}>Reference</h2>
-        <p className="text-sm italic" style={{ color: "var(--muted)" }}>
-          Bible &amp; market reference — Phase 3.
-        </p>
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="italic" style={{ color: "var(--muted)" }}>Select a project from the navigator.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-lg p-4 text-white" style={{ background: "var(--navy)" }}>
-        <h2 className="text-lg font-bold">{project.name}</h2>
-        <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>{project.sub}</p>
-        <div className="flex gap-6 mt-3 text-sm">
-          <div>
-            <span className="text-xs uppercase" style={{ color: "rgba(255,255,255,0.5)" }}>IRR</span>
-            <p className="font-bold">{project.irrPct.toFixed(2)}%</p>
-          </div>
-          <div>
-            <span className="text-xs uppercase" style={{ color: "rgba(255,255,255,0.5)" }}>NPP</span>
-            <p className="font-bold">${project.nppPerW.toFixed(2)}/W</p>
-          </div>
-          <div>
-            <span className="text-xs uppercase" style={{ color: "rgba(255,255,255,0.5)" }}>Equity</span>
-            <p className="font-bold">${project.equityK}k</p>
-          </div>
-          <div className="ml-auto">
-            <span className={`px-3 py-1 rounded text-xs font-bold text-white ${
-              project.verdict === "CLEAN" ? "bg-[var(--ok)]"
-              : project.verdict === "REVIEW" ? "bg-[var(--rev)]"
-              : "bg-[var(--off)]"
-            }`}>
-              {project.verdict}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded border border-[var(--border)] overflow-hidden" style={{ background: "var(--surface)" }}>
-        <div className="px-4 py-2 border-b border-[var(--border)] text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--muted)" }}>
-          Findings &middot; {project.findings.length}
-        </div>
-        {project.findings.length === 0 ? (
-          <p className="text-center py-6 text-xs italic" style={{ color: "var(--muted)" }}>
-            No findings — this project is clean.
-          </p>
-        ) : (
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-[var(--border)]" style={{ background: "var(--raised)" }}>
-                <th className="text-left px-4 py-2 font-semibold">Field</th>
-                <th className="text-center px-2 py-2 font-semibold">Status</th>
-                <th className="text-center px-2 py-2 font-semibold">Bible</th>
-                <th className="text-center px-2 py-2 font-semibold">Model</th>
-                <th className="text-center px-2 py-2 font-semibold">Impact</th>
-              </tr>
-            </thead>
-            <tbody>
-              {project.findings.map((f, i) => (
-                <tr key={i} className="border-b border-[var(--border)]">
-                  <td className="px-4 py-2 font-semibold">{f.field}</td>
-                  <td className="text-center px-2 py-2">
-                    <span className={`text-[10px] px-[6px] py-px rounded font-bold ${
-                      f.status === "OFF" ? "bg-[var(--off-bg)] text-[var(--off)]"
-                      : f.status === "OUT" ? "bg-[var(--out-bg)] text-[var(--out)]"
-                      : f.status === "REVIEW" ? "bg-[var(--rev-bg)] text-[var(--rev)]"
-                      : "bg-[var(--miss-bg)] text-[var(--miss)]"
-                    }`}>
-                      {f.status === "OFF" ? "FAIL" : f.status === "OUT" ? "FLAG" : f.status}
-                    </span>
-                  </td>
-                  <td className="text-center px-2 py-2 tabular-nums">{f.bible}</td>
-                  <td className="text-center px-2 py-2 tabular-nums">{f.model}</td>
-                  <td className="text-center px-2 py-2 tabular-nums">
-                    {f.impact != null ? `$${(f.impact / 1000).toFixed(0)}k` : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  );
+  if (mode === "walk") return <BuildWalkView />;
+  if (mode === "portfolio") return <PortfolioView />;
+  if (mode === "reference") return <ReferencePanel />;
+  return <ProjectReviewView />;
 }
 
 export default function Home() {

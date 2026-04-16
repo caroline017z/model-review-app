@@ -3,6 +3,7 @@
 import { TopBar } from "./TopBar";
 import { AuditStrip } from "./AuditStrip";
 import { ProjectNavigator } from "./ProjectNavigator";
+import { ReferencePanel } from "@/components/review/ReferencePanel";
 import { useUiStore } from "@/stores/ui";
 import { usePortfolioStore } from "@/stores/portfolio";
 
@@ -33,11 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
         {(mode === "project" || mode === "portfolio") && (
           <aside className="bg-[var(--bg)] overflow-y-auto p-[14px] min-w-0 max-lg:hidden">
-            {/* Reference panel — will be built in Phase 3 */}
-            <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted mb-2">
-              Reference
-            </div>
-            <p className="text-xs text-muted italic">Bible &amp; market lookups will appear here.</p>
+            <ReferencePanel />
           </aside>
         )}
       </div>
