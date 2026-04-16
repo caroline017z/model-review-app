@@ -168,7 +168,7 @@ WRAPPED_EPC_LABEL_PATTERNS = [
     (r"^pv\s*contingency\s*cost$",                     "PV Contingency"),
     (r"^pv\s*lntp(\s*cost)?$",                         "PV LNTP Cost"),
     (r"^safe\s*harbor\s*costs?$",                      "Safe Harbor Costs"),
-    (r"^epc\s*size.based\s*adder",                     "EPC Size-Based Adders"),
+    (r"^epc\s*size[.-s]based\s*adder",                     "EPC Size-Based Adders"),
     (r"^epc\s*contingency|^contingency.*epc",          "EPC Contingency"),
 ]
 

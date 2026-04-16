@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 from typing import Any
 
 import openpyxl
@@ -462,8 +463,7 @@ def build_walk_xlsx(
         matched = [m for m in matched if m["proj_number"] in include_proj_numbers]
 
     # Filter out template placeholders ("Project 15", "Anchor", etc.)
-    import re as _walk_re
-    _PLACEHOLDER_RE = _walk_re.compile(r"^\s*project\s+\d+\s*$", _walk_re.IGNORECASE)
+    _PLACEHOLDER_RE = re.compile(r"^\s*project\s+\d+\s*$", re.IGNORECASE)
     matched = [m for m in matched if not _PLACEHOLDER_RE.match(m["name"])
                and m["name"].strip().lower() not in ("anchor", "sample", "")]
 
