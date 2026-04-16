@@ -29,10 +29,13 @@ def generate_walk(req: WalkRequest):
     if not m2:
         raise HTTPException(404, f"Model 2 ({req.m2_id}) not found or expired")
 
-    buf, summary = build_walk_xlsx(
-        m1["result"], m2["result"],
-        req.m1_label, req.m2_label,
-    )
+    try:
+        buf, summary = build_walk_xlsx(
+            m1["result"], m2["result"],
+            req.m1_label, req.m2_label,
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Walk generation error: {e}")
 
     filename = f"Build_Walk_{req.m1_label}_vs_{req.m2_label}.xlsx".replace(" ", "_")
     return StreamingResponse(

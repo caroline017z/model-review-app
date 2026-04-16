@@ -25,6 +25,8 @@ class CandidateProject(BaseModel):
     toggled_on: bool
     suggested: bool
     proj_number: int | None = None
+    col_letter: str = ""
+    dev_sibling: bool = False
 
 
 class UploadResponse(BaseModel):

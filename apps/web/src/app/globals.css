@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+:root {
+  /* 38DN Brand Palette */
+  --navy: #050D25;
+  --indigo: #212B48;
+  --teal: #518484;
+  --teal-deep: #3d6868;
+  --brand-green: #45A750;
+  --brand-blue: #1D6FA9;
+
+  /* Surfaces */
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --inset: #eef0f5;
+  --raised: #fafbfc;
+
+  /* Text */
+  --text: #050D25;
+  --text-2: #3a4357;
+  --muted: #7d8694;
+
+  /* Borders */
+  --border: rgba(5, 13, 37, 0.08);
+  --border-strong: rgba(5, 13, 37, 0.16);
+
+  /* Status */
+  --off: #b83230;
+  --off-bg: rgba(184, 50, 48, 0.06);
+  --out: #3d6868;
+  --out-bg: rgba(81, 132, 132, 0.10);
+  --miss: #7d8694;
+  --miss-bg: #eef0f5;
+  --rev: #1D6FA9;
+  --rev-bg: rgba(29, 111, 169, 0.08);
+  --ok: #3a7d44;
+  --ok-bg: rgba(58, 125, 68, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-navy: var(--navy);
+  --color-indigo: var(--indigo);
+  --color-teal: var(--teal);
+  --color-teal-deep: var(--teal-deep);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-green: var(--brand-green);
+  --color-surface: var(--surface);
+  --color-inset: var(--inset);
+  --color-raised: var(--raised);
+  --color-muted: var(--muted);
+  --color-off: var(--off);
+  --color-out: var(--out);
+  --color-miss: var(--miss);
+  --color-rev: var(--rev);
+  --color-ok: var(--ok);
+  --font-sans: 'Inter', 'Segoe UI', 'Century Gothic', system-ui, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-size: 13px;
+}
+
+/* Scrollbar styling for the professional look */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(5, 13, 37, 0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(5, 13, 37, 0.25); }

@@ -36,12 +36,15 @@ def run_review(req: ReviewRequest):
         suggested_ids = {c["id"] for c in candidates if c.get("suggested")}
         review_projects = filter_projects(projects, suggested_ids)
 
-    projects_list, portfolio = build_payload(
-        review_projects,
-        model_label=req.model_label,
-        reviewer=req.reviewer,
-        bible_label=req.bible_label,
-    )
+    try:
+        projects_list, portfolio = build_payload(
+            review_projects,
+            model_label=req.model_label,
+            reviewer=req.reviewer,
+            bible_label=req.bible_label,
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Audit pipeline error: {e}")
 
     return {
         "projects": projects_list,
