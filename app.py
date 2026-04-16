@@ -486,10 +486,11 @@ def main():
                 expanded=False,
             )
 
-    # Sidebar: let reviewer pick which project columns to review. Active
-    # (row 7 = On) ones default checked; inactive ones are listed below and
-    # default unchecked so the reviewer can opt them in.
-    included_ids: set[str] = set()
+    # Sidebar: let reviewer pick which project columns to review, with a
+    # two-phase commit — checkbox changes are 'pending' until the reviewer
+    # clicks Confirm. The mockup only re-renders against `confirmed_ids`, so
+    # mid-edit ticks don't thrash the Project Review panel.
+    pending_ids: set[str] = set()
     if candidates:
         # Suggested = row-7 toggle=On OR same developer as an On project.
         # Both default-checked; off-siblings get a small visual cue so the
@@ -521,7 +522,7 @@ def main():
                     sig = f"inc::{model_key}::{c['id']}::{c['name']}"
                     checked = st.checkbox(_item_label(c), value=default_checked, key=sig)
                     if checked:
-                        included_ids.add(str(c["id"]))
+                        pending_ids.add(str(c["id"]))
 
         with st.sidebar:
             st.markdown("---")
@@ -568,11 +569,49 @@ def main():
                 ):
                     _render_group(others, default_checked=False)
 
-            n_included = len(included_ids)
-            n_total_mw = sum(c["dc"] for c in candidates if str(c["id"]) in included_ids)
-            st.caption(f"→ Reviewing **{n_included}** project(s) · **{n_total_mw:.1f} MWdc**")
+            # Two-phase commit: initialize confirmed set from the pending set
+            # on first load so the default-suggested projects populate the
+            # review without requiring an extra click.
+            confirm_key = f"confirmed_ids::{model_key}"
+            if confirm_key not in st.session_state:
+                st.session_state[confirm_key] = set(pending_ids)
+            confirmed_ids: set[str] = set(st.session_state[confirm_key])
 
-    review_projects = filter_projects(merged_projects, included_ids) if candidates else {}
+            dirty = pending_ids != confirmed_ids
+            added = pending_ids - confirmed_ids
+            removed = confirmed_ids - pending_ids
+
+            pend_mw = sum(c["dc"] for c in candidates if str(c["id"]) in pending_ids)
+            st.markdown("---")
+            st.caption(
+                f"**Pending:** {len(pending_ids)} selected · {pend_mw:.1f} MWdc"
+                + (f"  \n*{len(added)} to add · {len(removed)} to remove*" if dirty else "")
+            )
+            btn_label = "✓ Confirm selection"
+            if dirty:
+                btn_label = f"✓ Confirm ({len(added)}+/{len(removed)}−)"
+            clicked = st.button(
+                btn_label,
+                key=f"confirm_btn::{model_key}",
+                type="primary",
+                use_container_width=True,
+                disabled=not dirty,
+                help="Apply pending checkbox changes to the Project Review panel.",
+            )
+            if clicked:
+                st.session_state[confirm_key] = set(pending_ids)
+                confirmed_ids = set(pending_ids)
+                dirty = False
+
+            conf_mw = sum(c["dc"] for c in candidates if str(c["id"]) in confirmed_ids)
+            tag = "↻ Unsaved changes" if dirty else "✓ In sync with review"
+            st.caption(
+                f"**In review:** {len(confirmed_ids)} project(s) · {conf_mw:.1f} MWdc  \n"
+                f"<span style=\"color:{'var(--out,#518484)' if dirty else 'var(--ok,#3a7d44)'};font-weight:600;\">{tag}</span>",
+                unsafe_allow_html=True,
+            )
+
+    review_projects = filter_projects(merged_projects, confirmed_ids) if candidates else {}
 
     mockup_html = render_mockup_html(
         review_projects,
