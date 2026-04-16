@@ -136,20 +136,20 @@ TBD  = "TBD"
 MARKET_BIBLE = {
     # ---------------- NY ----------------
     ("NY", "National Grid", "VDER (CS)"): {
-        216: 0.175, 217: 3, 161: 0.0, 162: 0.015, 240: 0.0,
+        216: 0.175, 161: 0.0, 162: 0.015, 240: 0.0,
         "rec_rate": 31.03, "rec_term": 25, "post_rec_rate": 0, "post_rec_term": 10,
         "incentive_detail": "MW Block ($0.05) + Prevailing Wage ($0.125)",
         "rate_curve": "3Q25 TTM", "rate_source": "NYGB",
         "cust_mix": SSFA, "cust_discount": SSFA, "cust_acq": SSFA,
     },
     ("NY", "NYSEG", "VDER (CS)"): {
-        216: 0.175, 217: 3, 161: 0.0, 162: 0.015, 240: 0.0,
+        216: 0.175, 161: 0.0, 162: 0.015, 240: 0.0,
         "rec_rate": 31.03, "rec_term": 25, "post_rec_rate": 0, "post_rec_term": 10,
         "rate_curve": "3Q25 TTM", "rate_source": "NYGB",
         "cust_mix": SSFA, "cust_discount": SSFA, "cust_acq": SSFA,
     },
     ("NY", "Other (Non-NG/NYSEG)", "VDER (CS)"): {
-        216: 0.175, 217: 3, 161: 0.0, 162: 0.015, 240: 0.0,
+        216: 0.175, 161: 0.0, 162: 0.015, 240: 0.0,
         "rec_rate": 31.03, "rec_term": 25, "post_rec_rate": 0, "post_rec_term": 10,
         "rate_curve": "3Q25 TTM", "rate_source": "NYGB",
         "cust_mix": SSFA, "cust_discount": SSFA, "cust_acq": SSFA,
@@ -157,51 +157,51 @@ MARKET_BIBLE = {
 
     # ---------------- MD / DE — Delmarva ----------------
     ("MD/DE", "Delmarva", "MD PILOT"): {
-        216: 0.0, 217: 0, 161: 0.10, 162: 0.01, 240: 0.0069,
+        216: 0.0, 161: 0.10, 162: 0.01, 240: 0.0069,
         "rec_rate": "Y1-5: 43/33/31/26/21; Y6-10: 18", "rec_term": 10,
         "post_rec_rate": 3, "post_rec_term": 30,
         "cust_mix": "50% Resi / 50% Comm",
         "cust_acq_blend": 0.092,
     },
     ("MD/DE", "Delmarva", "MD Permanent"): {
-        216: 0.0, 217: 0, 161: 0.20, 162: 0.01, 240: 0.0083,
+        216: 0.0, 161: 0.20, 162: 0.01, 240: 0.0083,
         "rec_rate": "Y1-5: 43/33/31/26/21; Y6-10: 18", "rec_term": 5,
         "post_rec_rate": 3, "post_rec_term": 30,
         "cust_mix": "30% Resi / 20% Comm / 50% LMI",
         "cust_acq_blend": 0.0739,
     },
     ("MD/DE", "Potomac Edison", "MD PILOT"): {
-        216: 0.0, 217: 0, 161: 0.10, 162: 0.01, 240: 0.00655,
+        216: 0.0, 161: 0.10, 162: 0.01, 240: 0.00655,
         "rec_rate": "Y1-5: 43/33/31/26/21; Y6-10: 18", "rec_term": 10,
         "post_rec_rate": 3, "post_rec_term": 30,
         "cust_acq_blend": 0.0655,
     },
     ("MD/DE", "Potomac Edison", "MD Permanent"): {
-        216: 0.0, 217: 0, 161: 0.15, 162: 0.01, 240: 0.0072,
+        216: 0.0, 161: 0.15, 162: 0.01, 240: 0.0072,
         "rec_rate": "Y1-5: 43/33/31/26/21; Y6-10: 18", "rec_term": 5,
         "post_rec_rate": 3, "post_rec_term": 30,
         "cust_acq_blend": 0.0735,
     },
     ("MD/DE", "BGE", "MD PILOT"): {
-        216: 0.0, 217: 0, 161: 0.08, 162: 0.01, 240: 0.00672,
+        216: 0.0, 161: 0.08, 162: 0.01, 240: 0.00672,
         "rec_rate": "Y1-5: 43/33/31/26/21; Y6-10: 18", "rec_term": 10,
         "post_rec_rate": 3, "post_rec_term": 30,
         "cust_acq_blend": 0.0666,
     },
     ("MD/DE", "BGE", "MD Permanent"): {
-        216: 0.0, 217: 0, 161: 0.13, 162: 0.01, 240: 0.00717,
+        216: 0.0, 161: 0.13, 162: 0.01, 240: 0.00717,
         "rec_rate": "Y1-5: 43/33/31/26/21; Y6-10: 18", "rec_term": 5,
         "post_rec_rate": 3, "post_rec_term": 30,
         "cust_acq_blend": 0.0701,
     },
     ("MD/DE", "PEPCO", "MD PILOT"): {
-        216: 0.0, 217: 0, 161: 0.08, 162: 0.01, 240: 0.00682,
+        216: 0.0, 161: 0.08, 162: 0.01, 240: 0.00682,
         "rec_rate": "Y1-5: 43/33/31/26/21; Y6-10: 18", "rec_term": 10,
         "post_rec_rate": 3, "post_rec_term": 30,
         "cust_acq_blend": 0.0666,
     },
     ("MD/DE", "PEPCO", "MD Permanent"): {
-        216: 0.0, 217: 0, 161: 0.19, 162: 0.01, 240: 0.00741,
+        216: 0.0, 161: 0.19, 162: 0.01, 240: 0.00741,
         "rec_rate": "Y1-5: 43/33/31/26/21; Y6-10: 18", "rec_term": 5,
         "post_rec_rate": 3, "post_rec_term": 30,
         "cust_acq_blend": 0.0713,
@@ -209,28 +209,28 @@ MARKET_BIBLE = {
 
     # ---------------- IL ----------------
     ("IL", "Ameren", "ABP"): {
-        216: 0.25, 217: 3, 161: 0.10, 162: 0.01, 240: 0.0049,
+        216: 0.25, 161: 0.10, 162: 0.01, 240: 0.0049,
         "rec_rate": "Project Dependent", "rec_term": 20,
         "post_rec_rate": 3, "post_rec_term": 20,
         "incentive_detail": "Smart Inverter Rebate",
         "cust_acq_blend": 0.0366,
     },
     ("IL", "Ameren", "Non-ABP / PTC"): {
-        216: 0.25, 217: 3, 161: 0.10, 162: 0.01, 240: 0.0049,
+        216: 0.25, 161: 0.10, 162: 0.01, 240: 0.0049,
         "rec_rate": 3, "rec_term": "Full project life",
         "post_rec_rate": 3, "post_rec_term": "Remaining life",
         "incentive_detail": "Smart Inverter Rebate",
         "cust_acq_blend": 0.0366,
     },
     ("IL", "ComEd", "ABP"): {
-        216: 0.25, 217: 3, 161: 0.10, 162: 0.01, 240: 0.00478,
+        216: 0.25, 161: 0.10, 162: 0.01, 240: 0.00478,
         "rec_rate": "Project Dependent", "rec_term": 20,
         "post_rec_rate": 3, "post_rec_term": 20,
         "incentive_detail": "Smart Inverter Rebate",
         "cust_acq_blend": 0.0334,
     },
     ("IL", "ComEd", "Non-ABP / PTC"): {
-        216: 0.25, 217: 3, 161: 0.10, 162: 0.01, 240: 0.00478,
+        216: 0.25, 161: 0.10, 162: 0.01, 240: 0.00478,
         "rec_rate": 18.5, "rec_term": 10,
         "post_rec_rate": 3, "post_rec_term": "Remaining life",
         "incentive_detail": "Smart Inverter Rebate; Karbone 10-yr strip",
@@ -239,7 +239,7 @@ MARKET_BIBLE = {
 
     # ---------------- PA ----------------
     ("PA", "ALL", "PTC"): {
-        216: 0.0, 217: 0, 161: 0.0, 162: 0.01, 240: 0.0,
+        216: 0.0, 161: 0.0, 162: 0.01, 240: 0.0,
         "rec_rate": 18.5, "rec_term": 10, "post_rec_rate": 3, "post_rec_term": 25,
         "rate_curve": "Trailing 12-month average", "rate_source": "GH (PTC)",
         "cust_acq_blend": 0,
@@ -247,7 +247,7 @@ MARKET_BIBLE = {
 
     # ---------------- MN ----------------
     ("MN", "Xcel", "LMI-Accessible CS"): {
-        216: 0.0, 217: 0, 161: 0.105, 162: 0.01, 240: 0.00749,
+        216: 0.0, 161: 0.105, 162: 0.01, 240: 0.00749,
         "rec_rate": 0, "rec_term": 0, "post_rec_rate": 0, "post_rec_term": 0,
         "rate_curve": "Trailing 12-month average", "rate_source": "GH",
         "cust_acq_blend": 0.0599,
