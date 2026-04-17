@@ -32,10 +32,41 @@ from lib.config import (
     PCT_ROWS, DPW_ROWS, INT_ROWS, TEXT_ROWS, DATE_ROWS,
 )
 from lib.data_loader import get_projects
-from lib.rows import ROW_PROJECT_NUMBER, ROW_DC_MW, ROW_NPP, ROW_FMV_IRR
+from lib.rows import ROW_PROJECT_NUMBER, ROW_DC_MW, ROW_NPP, ROW_LEVERED_PT_IRR
 from lib.utils import safe_float
 
 logger = logging.getLogger(__name__)
+
+
+def _equality_numeric(v: Any) -> float | None:
+    """Numeric form for equality comparison.
+
+    Differs from safe_float in that bools coerce to 0.0/1.0. Without this, a
+    toggle row that stores True in one model and 1 in the other would route
+    through the text branch and falsely flag as differing.
+    """
+    if isinstance(v, bool):
+        return float(v)
+    return safe_float(v)
+
+
+def _values_differ(v1: Any, v2: Any, *, is_text: bool = False, tol: float = 1e-6) -> bool:
+    """Equality check used across diff_inputs. Returns True if v1 != v2.
+
+    Handles None (matches None), bool/int parity (True == 1), text tolerance
+    (case/whitespace), and date equality.
+    """
+    if v1 is None and v2 is None:
+        return False
+    if is_text:
+        return str(v1 or "").strip() != str(v2 or "").strip()
+    f1 = _equality_numeric(v1)
+    f2 = _equality_numeric(v2)
+    if f1 is not None and f2 is not None:
+        return abs(f1 - f2) > tol
+    if f1 is None and f2 is None:
+        return str(v1 or "").strip() != str(v2 or "").strip()
+    return True
 
 # ---------------------------------------------------------------------------
 # Formatting constants (match reference Walk Summary files exactly)
@@ -278,9 +309,9 @@ def extract_metrics(
             "name": m["name"],
             "mwdc": safe_float(m1_data.get(ROW_DC_MW)) or 0,
             "m1_npp": safe_float(m1_data.get(ROW_NPP)),
-            "m1_irr": safe_float(m1_data.get(ROW_FMV_IRR)),
+            "m1_irr": safe_float(m1_data.get(ROW_LEVERED_PT_IRR)),
             "m2_npp": safe_float(m2_data.get(ROW_NPP)),
-            "m2_irr": safe_float(m2_data.get(ROW_FMV_IRR)),
+            "m2_irr": safe_float(m2_data.get(ROW_LEVERED_PT_IRR)),
         })
     return results
 
@@ -323,28 +354,23 @@ def diff_inputs(
 
         is_text = row_num in TEXT_ROWS or row_num in DATE_ROWS
         per_project: dict[int, tuple[Any, Any]] = {}
-        any_diff = False
+        n_diff = 0
 
         for m in matched:
             m1_val = m1_projects[m["m1_col"]]["data"].get(row_num)
             m2_val = m2_projects[m["m2_col"]]["data"].get(row_num)
 
-            if is_text:
-                s1 = str(m1_val or "").strip()
-                s2 = str(m2_val or "").strip()
-                if s1 != s2:
-                    any_diff = True
-            else:
-                f1 = safe_float(m1_val)
-                f2 = safe_float(m2_val)
-                if f1 is None and f2 is None:
+            if not is_text:
+                # Skip both-None numeric rows (no signal, not a diff)
+                if _equality_numeric(m1_val) is None and _equality_numeric(m2_val) is None:
                     continue
-                if f1 is None or f2 is None or abs(f1 - f2) > 1e-6:
-                    any_diff = True
+
+            if _values_differ(m1_val, m2_val, is_text=is_text):
+                n_diff += 1
 
             per_project[m["proj_number"]] = (m1_val, m2_val)
 
-        if any_diff and per_project:
+        if n_diff > 0 and per_project:
             unit = _m1_units_by_row.get(row_num) or INPUT_ROW_UNITS.get(row_num, "")
             diffs.append({
                 "row": row_num,
@@ -352,6 +378,8 @@ def diff_inputs(
                 "unit": unit,
                 "category": _categorize_row(row_num),
                 "values": per_project,
+                "n_diff": n_diff,
+                "n_total": len(per_project),
             })
         seen_labels.add(label.strip().lower())
 
@@ -387,7 +415,7 @@ def diff_inputs(
                         continue
 
             per_project = {}
-            any_diff = False
+            n_diff = 0
             for m in matched:
                 m1_inputs = m1_projects[m["m1_col"]]["data"].get("_all_inputs", {})
                 m2_inputs = m2_projects[m["m2_col"]]["data"].get("_all_inputs", {})
@@ -397,17 +425,12 @@ def diff_inputs(
                 if m1_val is None and m2_val is None:
                     continue
 
-                f1 = safe_float(m1_val)
-                f2 = safe_float(m2_val)
-                if f1 is not None and f2 is not None:
-                    if abs(f1 - f2) > 1e-6:
-                        any_diff = True
-                elif str(m1_val or "").strip() != str(m2_val or "").strip():
-                    any_diff = True
+                if _values_differ(m1_val, m2_val):
+                    n_diff += 1
 
                 per_project[m["proj_number"]] = (m1_val, m2_val)
 
-            if any_diff and per_project:
+            if n_diff > 0 and per_project:
                 unit = _m1_units_by_label.get(label, "")
                 diffs.append({
                     "row": 0,  # unknown canonical row
@@ -415,6 +438,8 @@ def diff_inputs(
                     "unit": unit,
                     "category": "Other",
                     "values": per_project,
+                    "n_diff": n_diff,
+                    "n_total": len(per_project),
                 })
 
     return diffs
@@ -456,16 +481,37 @@ def build_walk_xlsx(
     m1_projects = get_projects(m1_result) or {}
     m2_projects = get_projects(m2_result) or {}
 
-    matched = match_projects(m1_projects, m2_projects)
+    all_matched = match_projects(m1_projects, m2_projects)
 
     # Filter to only portfolio-selected projects when a filter is provided
     if include_proj_numbers is not None:
-        matched = [m for m in matched if m["proj_number"] in include_proj_numbers]
+        matched = [m for m in all_matched if m["proj_number"] in include_proj_numbers]
+    else:
+        matched = list(all_matched)
 
     # Filter out template placeholders ("Project 15", "Anchor", etc.)
     _PLACEHOLDER_RE = re.compile(r"^\s*project\s+\d+\s*$", re.IGNORECASE)
-    matched = [m for m in matched if not _PLACEHOLDER_RE.match(m["name"])
-               and m["name"].strip().lower() not in ("anchor", "sample", "")]
+
+    def _is_placeholder(name: str) -> bool:
+        return bool(_PLACEHOLDER_RE.match(name)) or name.strip().lower() in ("anchor", "sample", "")
+
+    matched = [m for m in matched if not _is_placeholder(m["name"])]
+
+    # Compute true orphans (real projects on either side that didn't pair).
+    # Use the unfiltered match set so a deselected-but-matched project is not
+    # mistaken for an orphan.
+    matched_m1_cols = {m["m1_col"] for m in all_matched}
+    matched_m2_cols = {m["m2_col"] for m in all_matched}
+    unmatched_m1 = [
+        (col, p) for col, p in m1_projects.items()
+        if isinstance(p, dict) and col not in matched_m1_cols
+        and p.get("name") and not _is_placeholder(str(p.get("name") or ""))
+    ]
+    unmatched_m2 = [
+        (col, p) for col, p in m2_projects.items()
+        if isinstance(p, dict) and col not in matched_m2_cols
+        and p.get("name") and not _is_placeholder(str(p.get("name") or ""))
+    ]
 
     if not matched:
         logger.warning("No projects matched between the two models by Project #.")
@@ -511,6 +557,7 @@ def build_walk_xlsx(
     ws.column_dimensions["D"].width = 2  # empty spacer
     for ci in range(5, last_col + 1):
         ws.column_dimensions[get_column_letter(ci)].width = 14
+    ws.column_dimensions["J"].width = 26  # Notes column (variance section only)
 
     # ===================================================================
     # TOP SECTION: NPP / IRR comparison table
@@ -614,10 +661,11 @@ def build_walk_xlsx(
             if is_last:
                 cell.border = THIN_BOTTOM
 
-            # Delta (only for non-base cases) — left+right border
+            # Delta (only for non-base cases) — left+right border.
+            # Δ direction is M1 - M2 per spec (base - case).
             if ci > 0:
                 npp_letter = get_column_letter(npp_c)
-                formula = f"={npp_letter}{r}-{base_npp_col_letter}{r}"
+                formula = f"={base_npp_col_letter}{r}-{npp_letter}{r}"
                 cell = ws.cell(row=r, column=delta_c, value=formula)
                 cell.number_format = FMT_DELTA
                 cell.alignment = CENTER
@@ -681,6 +729,9 @@ def build_walk_xlsx(
     cur_row = var_start + 1
     ws.cell(row=cur_row, column=3, value="Unit").font = Font(size=10, color="7d8694")
     ws.cell(row=cur_row, column=3).alignment = CENTER
+    notes_hdr = ws.cell(row=cur_row, column=10, value="Notes")
+    notes_hdr.font = Font(size=10, color="7d8694")
+    notes_hdr.alignment = LEFT
     cur_row += 1
 
     # Compute MW weights for portfolio averaging
@@ -705,10 +756,10 @@ def build_walk_xlsx(
             cell.font = NORMAL_FONT
             cell.alignment = LEFT
 
-            # Unit in col C (blue font)
+            # Unit in col C (grey italic, matching reference walk files)
             if v["unit"]:
                 cell = ws.cell(row=cur_row, column=3, value=v["unit"])
-                cell.font = BLUE_FONT
+                cell.font = Font(color="7d8694", size=10, italic=True)
                 cell.alignment = CENTER
 
             # MW-weighted portfolio average across matched projects
@@ -754,9 +805,9 @@ def build_walk_xlsx(
             c_e.alignment = CENTER_CONT
             c_e.border = THIN_BOX
 
-            # Delta in col G (=H{r}-E{r}) — boxed cell
+            # Delta in col G (=E{r}-H{r}) — boxed cell. Δ = M1 - M2.
             if not is_text_val:
-                delta_cell = ws.cell(row=cur_row, column=7, value=f"=H{cur_row}-E{cur_row}")
+                delta_cell = ws.cell(row=cur_row, column=7, value=f"=E{cur_row}-H{cur_row}")
                 delta_cell.number_format = FMT_DELTA
                 delta_cell.alignment = CENTER
                 delta_cell.border = THIN_BOX
@@ -777,6 +828,17 @@ def build_walk_xlsx(
                 elif is_text_val and str(m1_display or "") != str(m2_display or ""):
                     c_h.fill = YELLOW_FILL
 
+            # Notes column — fire on any project diff per spec
+            n_diff = v.get("n_diff", 0)
+            n_total = v.get("n_total", len(v.get("values", {})))
+            if n_diff:
+                notes_cell = ws.cell(
+                    row=cur_row, column=10,
+                    value=f"differs for {n_diff} of {n_total} projects",
+                )
+                notes_cell.font = Font(size=10, color="7d8694", italic=True)
+                notes_cell.alignment = LEFT
+
             cur_row += 1
 
     # If no projects matched, write an explanatory message
@@ -788,6 +850,37 @@ def build_walk_xlsx(
         )
         cell.font = Font(color="FF0000", bold=True, size=11)
 
+    # ===================================================================
+    # UNMATCHED SHEET (only when at least one orphan exists)
+    # ===================================================================
+    if unmatched_m1 or unmatched_m2:
+        un = wb.create_sheet("Unmatched")
+        un.sheet_view.showGridLines = False
+        for col_letter, width in zip("ABCDE", (8, 32, 14, 10, 60)):
+            un.column_dimensions[col_letter].width = width
+        headers = ["Side", "Project Name", "Project #", "MWdc", "Reason"]
+        for c, text in enumerate(headers, start=1):
+            cell = un.cell(row=1, column=c, value=text)
+            cell.font = WHITE_BOLD
+            cell.fill = NAVY_FILL
+            cell.alignment = CENTER
+        sections = [
+            (m1_label or "M1", unmatched_m1, "Present in M1 but no Project# match in M2"),
+            (m2_label or "M2", unmatched_m2, "Present in M2 but no Project# match in M1"),
+        ]
+        r = 2
+        for side, projects, reason in sections:
+            for _col, proj in projects:
+                data = proj.get("data", {}) or {}
+                un.cell(row=r, column=1, value=side).alignment = CENTER
+                un.cell(row=r, column=2, value=str(proj.get("name") or "").strip()).alignment = LEFT
+                un.cell(row=r, column=3, value=safe_float(data.get(ROW_PROJECT_NUMBER))).alignment = CENTER
+                mwdc_cell = un.cell(row=r, column=4, value=safe_float(data.get(ROW_DC_MW)))
+                mwdc_cell.number_format = FMT_MW
+                mwdc_cell.alignment = CENTER
+                un.cell(row=r, column=5, value=reason).alignment = LEFT
+                r += 1
+
     # Save to BytesIO
     buf = io.BytesIO()
     wb.save(buf)
@@ -798,6 +891,8 @@ def build_walk_xlsx(
     summary = {
         "n_matched": len(matched),
         "n_diffs": len(variances),
+        "n_unmatched_m1": len(unmatched_m1),
+        "n_unmatched_m2": len(unmatched_m2),
         "categories": cats_found,
         "m1_label": m1_label,
         "m2_label": m2_label,

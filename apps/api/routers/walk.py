@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import re
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -10,6 +12,16 @@ from apps.api.store import model_store
 from lib.walk_builder import build_walk_xlsx
 
 router = APIRouter()
+
+
+def _safe_filename_part(s: str) -> str:
+    """Strip filename-illegal chars and collapse whitespace.
+
+    Labels can carry `:` (macro-runner labels) or other reserved chars; the
+    download dialog will reject or mangle the name otherwise.
+    """
+    s = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", s or "")
+    return re.sub(r"\s+", "_", s).strip("_") or "model"
 
 
 class WalkRequest(BaseModel):
@@ -54,7 +66,7 @@ def generate_walk(req: WalkRequest):
             len(m1p), m1_pnums[:5], len(m2p), m2_pnums[:5],
         )
 
-    filename = f"Build_Walk_{req.m1_label}_vs_{req.m2_label}.xlsx".replace(" ", "_")
+    filename = f"Build_Walk_{_safe_filename_part(req.m1_label)}_vs_{_safe_filename_part(req.m2_label)}.xlsx"
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
