@@ -705,10 +705,10 @@ def build_walk_xlsx(
             cell.font = NORMAL_FONT
             cell.alignment = LEFT
 
-            # Unit in col C (blue font)
+            # Unit in col C (grey italic, matching reference walk files)
             if v["unit"]:
                 cell = ws.cell(row=cur_row, column=3, value=v["unit"])
-                cell.font = BLUE_FONT
+                cell.font = Font(color="7d8694", size=10, italic=True)
                 cell.alignment = CENTER
 
             # MW-weighted portfolio average across matched projects

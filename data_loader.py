@@ -455,16 +455,26 @@ def load_pricing_model(file):
                     all_inputs[label_str] = cell_val
         data["_all_inputs"] = all_inputs
 
-        # Read units from the column immediately after the label column.
-        # This gives us the model's own unit labels (e.g. "$/W", "%",
-        # "$/MW/yr") so downstream consumers don't have to rely solely on
-        # the hardcoded INPUT_ROW_UNITS dict.
+        # Read units from column E (col 5) which contains unit labels in
+        # most 38DN model templates (e.g. "$/W", "%", "$/MW/yr").
+        # Column E is fixed regardless of which column has the row labels.
+        UNIT_COL = 5  # Column E
         all_units: dict[str, str] = {}
         for r in range(1, 1001):
             label_val = ws.cell(row=r, column=label_col).value
-            unit_val = ws.cell(row=r, column=label_col + 1).value
-            if label_val and unit_val:
-                all_units[str(label_val).strip()] = str(unit_val).strip()
+            unit_val = ws.cell(row=r, column=UNIT_COL).value
+            if label_val and unit_val and isinstance(unit_val, str):
+                label_str = str(label_val).strip()
+                unit_str = str(unit_val).strip()
+                # Skip if label is just a number (DSCR schedule rows)
+                if not label_str or label_str.isdigit():
+                    continue
+                # Only store if it looks like a real unit
+                if unit_str and (unit_str.startswith("$") or unit_str.startswith("%")
+                                or unit_str.lower() in ("years", "months", "mwdc", "mwac",
+                                    "kwh/wdc", "kwh/mwp", "ratio", "toggle")
+                                or "/" in unit_str):
+                    all_units[label_str] = unit_str
         data["_all_units"] = all_units
 
         # Build a canonical-row-keyed unit dict by looking up the actual row
@@ -472,7 +482,7 @@ def load_pricing_model(file):
         units_by_row: dict[int, str] = {}
         for canonical_r, actual_r in row_map.items():
             if actual_r is not None:
-                unit_val = ws.cell(row=actual_r, column=label_col + 1).value
+                unit_val = ws.cell(row=actual_r, column=UNIT_COL).value
                 if unit_val:
                     units_by_row[canonical_r] = str(unit_val).strip()
         data["_units_by_row"] = units_by_row
