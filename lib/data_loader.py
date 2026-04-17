@@ -16,7 +16,7 @@ from lib.config import (
     RATE_COMP_STARTS, EQUITY_RATE_TOGGLE_START,
     DEBT_RATE_TOGGLE_START, APPRAISAL_RATE_TOGGLE_START,
 )
-from lib.utils import safe_float
+from lib.utils import canonicalize_name, safe_float
 
 
 # ---------------------------------------------------------------------------
@@ -657,21 +657,27 @@ def load_pricing_model(file):
 
         for col_idx, proj in projects.items():
             pname = proj["name"]
-            # Find matching project row in Rate Curves by name matching
+            # Find matching project row in Rate Curves by name matching.
+            # Must be exact/canonical — substring match (e.g. "Solar 1" in
+            # "Solar 10") would cross-assign rate curves between projects.
             proj_rc_data = {}
+            pname_canon = canonicalize_name(pname)
+            pname_head_canon = canonicalize_name(pname.split(" | ")[0])
             for rc_idx in range(1, 7):
                 proj_rows_map = rc_proj_rows.get(rc_idx, {})
-                # Try exact match first, then partial
                 matched_row = None
+                # Pass 1: exact canonical equality on full name.
                 for rc_pname, rc_row in proj_rows_map.items():
-                    if rc_pname in pname or pname in rc_pname:
+                    if canonicalize_name(rc_pname) == pname_canon:
                         matched_row = rc_row
                         break
-                    # Also try first part of multi-line name
-                    first_part = pname.split(" | ")[0].strip()
-                    if rc_pname == first_part or first_part in rc_pname:
-                        matched_row = rc_row
-                        break
+                # Pass 2: exact canonical equality on multi-line head
+                # ("IL Joel | 12/05/26" → "IL Joel").
+                if matched_row is None and pname_head_canon != pname_canon:
+                    for rc_pname, rc_row in proj_rows_map.items():
+                        if canonicalize_name(rc_pname) == pname_head_canon:
+                            matched_row = rc_row
+                            break
 
                 if matched_row:
                     monthly = {}

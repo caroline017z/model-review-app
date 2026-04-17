@@ -1,6 +1,7 @@
 """
 38DN Pricing Model Review — Shared Utilities
 """
+import re
 from datetime import datetime, date
 from lib.config import P, PLOTLY_BG, PLOTLY_GRID, PCT_ROWS, TEXT_ROWS, DATE_ROWS, DPW_ROWS, INT_ROWS
 
@@ -12,6 +13,19 @@ def safe_float(v):
         return float(v)
     except (ValueError, TypeError):
         return None
+
+
+_WS_RE = re.compile(r"\s+")
+
+
+def canonicalize_name(s) -> str:
+    """Canonical form for name/text equality: collapse whitespace, strip, casefold.
+
+    Used for cross-model project name matching, rate curve project lookup,
+    orphan reason detection — anywhere two strings should compare equal
+    modulo whitespace and case differences.
+    """
+    return _WS_RE.sub(" ", str(s or "")).strip().casefold()
 
 
 def fmt_neg(v, is_pct=False):

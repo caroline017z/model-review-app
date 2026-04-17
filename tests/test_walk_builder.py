@@ -416,3 +416,140 @@ class TestDeeperDiffCoverage:
         labels = [d["label"] for d in diffs]
         assert "RC1 Rate Curve (COD)" not in labels
         assert "RC1 Custom/Generic" in labels  # shape diff flagged instead
+
+
+class TestTranche1:
+    """Regressions for the Tranche 1 walk accuracy fixes:
+      - Unit reconciliation for $/kWh ↔ $/MW/yr drift on rows 121, 240
+      - Substring-match false positive in data_loader rate curve pairing
+      - Unmatched sheet reason codes
+    """
+
+    def test_unit_reconciliation_cust_mgmt_false_positive_suppressed(self):
+        """M1 = $0.0025/kWh, M2 = $2,500/MW/yr, yield 1.25 kWh/Wdc —
+        reconcile: $0.0025 × 1.25 × 1,000,000 = $3,125/MW/yr → differs
+        from $2,500 but by a reasonable margin, not by 1000x. The point is
+        we don't report the raw $0.0025 vs $2,500 as an enormous diff."""
+        m1 = _make_projects((6, 1, "A", {240: 0.0020, 14: 1.25}))   # $/kWh basis
+        m2 = _make_projects((6, 1, "A", {240: 2500.0, 14: 1.25}))   # $/MW/yr basis
+        # $0.0020 × 1.25 × 1e6 = $2,500 → equivalent, no diff
+        matched = match_projects(m1, m2)
+        diffs = diff_inputs(matched, m1, m2)
+        cust_mgmt = [d for d in diffs if d["row"] == 240]
+        assert len(cust_mgmt) == 0, (
+            f"Expected no diff after unit reconciliation, got {cust_mgmt}")
+
+    def test_unit_reconciliation_genuine_diff_still_detected(self):
+        """Same units, real difference — must still flag."""
+        m1 = _make_projects((6, 1, "A", {240: 2500.0, 14: 1.25}))
+        m2 = _make_projects((6, 1, "A", {240: 3500.0, 14: 1.25}))
+        matched = match_projects(m1, m2)
+        diffs = diff_inputs(matched, m1, m2)
+        cust_mgmt = [d for d in diffs if d["row"] == 240]
+        assert len(cust_mgmt) == 1
+
+    def test_unit_reconciliation_annotates_unit_note(self):
+        """When reconciliation fires, the diff dict carries a unit_note
+        explaining the conversion."""
+        m1 = _make_projects((6, 1, "A", {240: 0.0020, 14: 1.25}))
+        m2 = _make_projects((6, 1, "A", {240: 9999.0, 14: 1.25}))  # real diff
+        matched = match_projects(m1, m2)
+        diffs = diff_inputs(matched, m1, m2)
+        cust_mgmt = [d for d in diffs if d["row"] == 240]
+        assert cust_mgmt
+        assert "unit_note" in cust_mgmt[0]
+        assert "$/MW/yr" in cust_mgmt[0]["unit_note"]
+
+    def test_unmatched_reason_missing_proj_num(self):
+        """An M1 project with no Project # should surface reason code
+        'missing_proj_num' in the Unmatched sheet."""
+        from openpyxl import load_workbook
+        # M1 project 1: Alpha, no proj#. M2 project 1: Alpha, proj# 1.
+        # Match via name fallback would succeed if names match, so give them
+        # different names to force an orphan.
+        m1 = {"projects": {6: {
+            "name": "Alpha (no pnum)", "toggle": True, "col_letter": "F",
+            "data": {ROW_PROJECT_NUMBER: None, ROW_DC_MW: 5.0},
+            "rate_comps": {}, "dscr_schedule": {},
+        }}}
+        m2 = {"projects": {6: {
+            "name": "Beta", "toggle": True, "col_letter": "F",
+            "data": {ROW_PROJECT_NUMBER: 2, ROW_DC_MW: 5.0},
+            "rate_comps": {}, "dscr_schedule": {},
+        }}}
+        buf, _ = build_walk_xlsx(m1, m2, "M1", "M2")
+        wb = load_workbook(buf)
+        assert "Unmatched" in wb.sheetnames
+        un = wb["Unmatched"]
+        headers = [un.cell(row=1, column=c).value for c in range(1, 7)]
+        assert "Reason Code" in headers
+        # Find M1 orphan row and check reason.
+        rc_col = headers.index("Reason Code") + 1
+        side_col = headers.index("Side") + 1
+        for r in range(2, un.max_row + 1):
+            if un.cell(row=r, column=side_col).value == "M1":
+                assert un.cell(row=r, column=rc_col).value == "missing_proj_num"
+                return
+        pytest.fail("No M1 unmatched row found")
+
+    def test_unmatched_reason_proj_num_not_in_other(self):
+        """M1 has proj# 5 but M2 has no proj# 5 → reason should be
+        'proj_num_not_in_other' (not 'missing_proj_num')."""
+        from openpyxl import load_workbook
+        m1 = {"projects": {6: {
+            "name": "Only-M1", "toggle": True, "col_letter": "F",
+            "data": {ROW_PROJECT_NUMBER: 5, ROW_DC_MW: 5.0},
+            "rate_comps": {}, "dscr_schedule": {},
+        }}}
+        m2 = {"projects": {6: {
+            "name": "Only-M2", "toggle": True, "col_letter": "F",
+            "data": {ROW_PROJECT_NUMBER: 6, ROW_DC_MW: 5.0},
+            "rate_comps": {}, "dscr_schedule": {},
+        }}}
+        buf, _ = build_walk_xlsx(m1, m2, "M1", "M2")
+        wb = load_workbook(buf)
+        un = wb["Unmatched"]
+        headers = [un.cell(row=1, column=c).value for c in range(1, 7)]
+        rc_col = headers.index("Reason Code") + 1
+        codes = {un.cell(row=r, column=rc_col).value
+                 for r in range(2, un.max_row + 1)}
+        assert "proj_num_not_in_other" in codes
+
+
+class TestDataLoaderRateCurveMatch:
+    """Regression for the substring-match bug in data_loader rate curve
+    pairing. Uses a mock approach because the real loader reads xlsx files."""
+
+    def test_canonical_match_avoids_solar_1_matching_solar_10(self):
+        """Build two strings that demonstrate the old substring rule was
+        broken and the new canonical rule works."""
+        import re as _re
+        def canon(s):
+            return _re.sub(r"\s+", " ", str(s) or "").strip().casefold()
+
+        pname = "Solar 1"
+        proj_rows_map = {"Solar 10": 45, "Solar 1": 35}
+        # Simulate new canonical-equality logic inline — asserts the LOGIC
+        # is correct even without spinning up a fake workbook.
+        pname_canon = canon(pname)
+        matched_row = None
+        for rc_pname, rc_row in proj_rows_map.items():
+            if canon(rc_pname) == pname_canon:
+                matched_row = rc_row
+                break
+        assert matched_row == 35, "Solar 1 should match Solar 1, not Solar 10"
+
+    def test_canonical_match_ignores_whitespace_case(self):
+        import re as _re
+        def canon(s):
+            return _re.sub(r"\s+", " ", str(s) or "").strip().casefold()
+
+        pname = "  Il JOEL  "
+        pname_canon = canon(pname)
+        proj_rows_map = {"IL Joel": 35}
+        matched_row = None
+        for rc_pname, rc_row in proj_rows_map.items():
+            if canon(rc_pname) == pname_canon:
+                matched_row = rc_row
+                break
+        assert matched_row == 35

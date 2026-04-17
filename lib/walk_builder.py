@@ -33,7 +33,7 @@ from lib.config import (
 )
 from lib.data_loader import get_projects
 from lib.rows import ROW_PROJECT_NUMBER, ROW_DC_MW, ROW_NPP, ROW_LEVERED_PT_IRR
-from lib.utils import safe_float
+from lib.utils import canonicalize_name, safe_float
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,165 @@ def _values_differ(v1: Any, v2: Any, *, is_text: bool = False, tol: float = 1e-6
     if f1 is None and f2 is None:
         return str(v1 or "").strip() != str(v2 or "").strip()
     return True
+
+
+# Rows where models sometimes disagree on unit storage. Conversion factor
+# from "kWh basis" to the "displayed" basis uses project yield (row 14,
+# kWh/Wdc). Magnitude heuristic: if one side is < ~1 and other side is
+# >> 100, it's almost certainly a unit mismatch — canonicalize both to the
+# displayed basis before diff-comparing to avoid false positives.
+_UNIT_MISMATCH_ROWS: dict[int, dict] = {
+    121: {"label": "Cust Acquisition",
+          "to_displayed": lambda v, y: v * y,                 # $/kWh → $/W
+          "displayed_unit": "$/W"},
+    240: {"label": "Cust Mgmt",
+          "to_displayed": lambda v, y: v * y * 1_000_000,     # $/kWh → $/MW/yr
+          "displayed_unit": "$/MW/yr"},
+}
+
+
+def _reconcile_unit_sensitive(
+    row: int, v1: Any, v2: Any, m1_yield: float | None, m2_yield: float | None,
+) -> tuple[Any, Any, str | None]:
+    """For rows where $/kWh vs $/W|$/MW/yr storage drift is known to happen,
+    detect magnitude-based mismatch and canonicalize both sides to the
+    displayed unit. Returns (v1_new, v2_new, note). Note is populated when
+    a conversion was applied — walk renders it as a footnote on the row.
+    """
+    spec = _UNIT_MISMATCH_ROWS.get(row)
+    if spec is None:
+        return v1, v2, None
+    f1 = safe_float(v1)
+    f2 = safe_float(v2)
+    if f1 is None or f2 is None:
+        return v1, v2, None
+    # Mismatch signature: one side in kWh basis (< ~1), the other in
+    # displayed basis (> ~100). Symmetric check — convert the small side up.
+    small, large = (f1, f2) if f1 < f2 else (f2, f1)
+    if not (small < 1.0 and large > 100.0):
+        return v1, v2, None
+    if f1 == small:
+        y = m1_yield
+        if y is None or y <= 0:
+            return v1, v2, None
+        return spec["to_displayed"](f1, y), f2, (
+            f"M1 converted from $/kWh to {spec['displayed_unit']} (yield={y:.3f})"
+        )
+    else:
+        y = m2_yield
+        if y is None or y <= 0:
+            return v1, v2, None
+        return f1, spec["to_displayed"](f2, y), (
+            f"M2 converted from $/kWh to {spec['displayed_unit']} (yield={y:.3f})"
+        )
+
+# ---------------------------------------------------------------------------
+# Placeholder detection (template projects we don't treat as real portfolio)
+# ---------------------------------------------------------------------------
+
+_PLACEHOLDER_RE = re.compile(r"^\s*project\s+\d+\s*$", re.IGNORECASE)
+
+
+def _is_placeholder(name: str) -> bool:
+    return (
+        bool(_PLACEHOLDER_RE.match(name))
+        or name.strip().lower() in ("anchor", "sample", "")
+    )
+
+
+# ---------------------------------------------------------------------------
+# Project pairing & orphan helpers (used by build_walk_xlsx to populate the
+# Unmatched sheet with reason codes)
+# ---------------------------------------------------------------------------
+
+def _build_pnum_set(projects: dict) -> set[int]:
+    """Integer Project # index for fast 'does this # exist in that model' checks."""
+    out: set[int] = set()
+    for _c, p in projects.items():
+        if not isinstance(p, dict):
+            continue
+        pn = safe_float((p.get("data") or {}).get(ROW_PROJECT_NUMBER))
+        if pn is not None:
+            out.add(int(pn))
+    return out
+
+
+def _build_name_set(projects: dict) -> set[str]:
+    """Canonicalized project-name index for orphan reason resolution."""
+    out: set[str] = set()
+    for _c, p in projects.items():
+        if not isinstance(p, dict):
+            continue
+        n = canonicalize_name(p.get("name"))
+        if n:
+            out.add(n)
+    return out
+
+
+def _orphan_reason(proj: dict, other_pnums: set[int], other_names: set[str]) -> str:
+    """Classify why a project failed to pair. Reason codes:
+      missing_proj_num       — own proj_number is None/blank
+      proj_num_not_in_other  — has proj#, but no project in the other model has it
+      name_not_in_other      — proj# matches but name doesn't (unusual)
+      unknown                — pairing logic missed it for an unclassified reason
+    """
+    data = proj.get("data") or {}
+    pn = safe_float(data.get(ROW_PROJECT_NUMBER))
+    name_canon = canonicalize_name(proj.get("name"))
+    if pn is None:
+        return "missing_proj_num"
+    if int(pn) not in other_pnums:
+        return "proj_num_not_in_other"
+    if name_canon and name_canon not in other_names:
+        return "name_not_in_other"
+    return "unknown"
+
+
+# ---------------------------------------------------------------------------
+# Rate Curves COD lookup (used by Pass 1c of diff_inputs)
+# ---------------------------------------------------------------------------
+
+def _rate_at_cod(rc_monthly: dict, data: dict) -> float | None:
+    """Pick the Rate Curves rate at the project's COD period.
+
+    rc_monthly: {datetime: $/kWh} — monthly rates for one RC on one project.
+    data: project data dict (ROW_COD_YEAR=15, ROW_COD_QUARTER=587).
+
+    Strategy: exact (year, month-from-quarter) match → first date on or after
+    COD quarter start → last known rate if COD is past curve end.
+    """
+    if not rc_monthly:
+        return None
+    cod_year_raw = safe_float(data.get(15))
+    items = sorted(
+        ((d, v) for d, v in rc_monthly.items() if hasattr(d, "year")),
+        key=lambda kv: (kv[0].year, kv[0].month),
+    )
+    if not items:
+        return None
+    if cod_year_raw is None:
+        return safe_float(items[0][1])
+    cod_year = int(cod_year_raw)
+    q_raw = data.get(587)
+    q_month = 1
+    if q_raw is not None:
+        q_num = safe_float(q_raw)
+        if q_num is not None and 1 <= int(q_num) <= 4:
+            q_month = (int(q_num) - 1) * 3 + 1
+        else:
+            s = str(q_raw).upper()
+            for q, m in (("Q1", 1), ("Q2", 4), ("Q3", 7), ("Q4", 10)):
+                if q in s:
+                    q_month = m
+                    break
+    for d, v in items:
+        if d.year == cod_year and d.month == q_month:
+            return safe_float(v)
+    for d, v in items:
+        if (d.year, d.month) >= (cod_year, q_month):
+            return safe_float(v)
+    return safe_float(items[-1][1])
+
 
 # ---------------------------------------------------------------------------
 # Formatting constants (match reference Walk Summary files exactly)
@@ -320,32 +479,55 @@ def extract_metrics(
 # Input diff detection
 # ---------------------------------------------------------------------------
 
-def diff_inputs(
-    matched: list[dict],
-    m1_projects: dict,
-    m2_projects: dict,
+# Rate Component field groupings for Pass 1a.
+# SHAPE: always compared — describes what the component IS.
+# VALUE: compared only when the RC is on (equity_on != 0) in BOTH models.
+# TOGGLE: always compared — scope of the revenue stream.
+_RC_SHAPE_FIELDS = [
+    ("name",           "Name",                 "text"),
+    ("custom_generic", "Custom/Generic",       "text"),
+]
+_RC_VALUE_FIELDS = [
+    ("energy_rate",    "Energy Rate",          "$/kWh"),
+    ("escalator",      "Escalator",            "%"),
+    ("start_date",     "Start Date",           "date"),
+    ("term",           "Term",                 "yrs"),
+    ("discount",       "Customer Discount",    "%"),
+    ("ucb_fee",        "UCB Fee",              "%"),
+]
+_RC_TOGGLE_FIELDS = [
+    ("equity_on",      "Equity",               "toggle"),
+    ("debt_on",        "Debt",                 "toggle"),
+    ("appraisal_on",   "Appraisal",            "toggle"),
+]
+
+# Special (non-row-number) data keys that also represent walk-relevant inputs.
+_SPECIAL_KEYS: list[tuple[str, str, str, str]] = [
+    # (data_key, label, unit, category)
+    ("_debt_match_equity",      "Debt Rate: match equity",      "toggle", "Financing"),
+    ("_appraisal_match_equity", "Appraisal Rate: match equity", "toggle", "Financing"),
+    ("_front_back_toggle",      "Front/Back Debt toggle",       "toggle", "Financing"),
+    ("_debt_sizing_method",     "Debt Sizing Method",           "text",   "Financing"),
+]
+
+
+def _rc_on_both_sides(rc1: dict, rc2: dict) -> bool:
+    """RC value-field gate: both models must have equity_on truthy."""
+    def _on(v):
+        return bool(safe_float(v)) if not isinstance(v, bool) else v
+    return _on(rc1.get("equity_on")) and _on(rc2.get("equity_on"))
+
+
+def _diff_canonical_rows(
+    matched: list[dict], m1_projects: dict, m2_projects: dict,
+    seen_labels: set[str],
+    units_by_row: dict[int, str],
 ) -> list[dict]:
-    """Find ALL Project Inputs rows that differ between the two models.
+    """Pass 1: Canonical INPUT_ROW_LABELS rows with unit reconciliation.
 
-    Uses two passes:
-    1. Canonical rows (INPUT_ROW_LABELS) — compared by row number via row mapping
-    2. ALL column B labels (_all_inputs) — compared by label text, catching any
-       hardcoded input not in our canonical list
-
-    Returns list of {row, label, unit, category, values: {proj_number: (m1, m2)}}.
+    Mutates seen_labels so Pass 2 can skip labels already covered here.
     """
     diffs: list[dict] = []
-    seen_labels: set[str] = set()
-
-    # Model-sourced units (by canonical row and by label); prefer model over hardcoded.
-    _m1_units_by_row: dict[int, str] = {}
-    _m1_units_by_label: dict[str, str] = {}
-    if matched:
-        first_data = m1_projects[matched[0]["m1_col"]]["data"]
-        _m1_units_by_row = first_data.get("_units_by_row") or {}
-        _m1_units_by_label = first_data.get("_all_units") or {}
-
-    # --- Pass 1: Canonical rows (by mapped row number) ---
     for row_num, label in INPUT_ROW_LABELS.items():
         if row_num in _SKIP_ROWS:
             continue
@@ -355,23 +537,33 @@ def diff_inputs(
         is_text = row_num in TEXT_ROWS or row_num in DATE_ROWS
         per_project: dict[int, tuple[Any, Any]] = {}
         n_diff = 0
+        row_unit_note: str | None = None
 
         for m in matched:
             m1_val = m1_projects[m["m1_col"]]["data"].get(row_num)
             m2_val = m2_projects[m["m2_col"]]["data"].get(row_num)
 
+            if not is_text and row_num in _UNIT_MISMATCH_ROWS:
+                m1_y = safe_float(m1_projects[m["m1_col"]]["data"].get(14))
+                m2_y = safe_float(m2_projects[m["m2_col"]]["data"].get(14))
+                m1_val, m2_val, note = _reconcile_unit_sensitive(
+                    row_num, m1_val, m2_val, m1_y, m2_y,
+                )
+                if note and row_unit_note is None:
+                    row_unit_note = note
+
             if not is_text:
-                # Skip both-None numeric rows (no signal, not a diff)
                 if _equality_numeric(m1_val) is None and _equality_numeric(m2_val) is None:
                     continue
 
             if _values_differ(m1_val, m2_val, is_text=is_text):
                 n_diff += 1
-
             per_project[m["proj_number"]] = (m1_val, m2_val)
 
         if n_diff > 0 and per_project:
-            unit = _m1_units_by_row.get(row_num) or INPUT_ROW_UNITS.get(row_num, "")
+            unit = units_by_row.get(row_num) or INPUT_ROW_UNITS.get(row_num, "")
+            if row_unit_note and row_num in _UNIT_MISMATCH_ROWS:
+                unit = _UNIT_MISMATCH_ROWS[row_num]["displayed_unit"]
             diffs.append({
                 "row": row_num,
                 "label": label,
@@ -380,81 +572,21 @@ def diff_inputs(
                 "values": per_project,
                 "n_diff": n_diff,
                 "n_total": len(per_project),
+                **({"unit_note": row_unit_note} if row_unit_note else {}),
             })
         seen_labels.add(label.strip().lower())
+    return diffs
 
-    # Helper: pick the Rate Curves rate that matches a project's COD period.
-    # Mirrors _rate_at_cod() in mockup_view.py — duplicated here to keep
-    # walk_builder a leaf module (no UI deps).
-    def _rate_at_cod(rc_monthly: dict, data: dict) -> float | None:
-        if not rc_monthly:
-            return None
-        cod_year_raw = safe_float(data.get(15))
-        items = sorted(
-            ((d, v) for d, v in rc_monthly.items() if hasattr(d, "year")),
-            key=lambda kv: (kv[0].year, kv[0].month),
-        )
-        if not items:
-            return None
-        if cod_year_raw is None:
-            return safe_float(items[0][1])
-        cod_year = int(cod_year_raw)
-        q_raw = data.get(587)
-        q_month = 1
-        if q_raw is not None:
-            q_num = safe_float(q_raw)
-            if q_num is not None and 1 <= int(q_num) <= 4:
-                q_month = (int(q_num) - 1) * 3 + 1
-            else:
-                s = str(q_raw).upper()
-                for q, m in (("Q1", 1), ("Q2", 4), ("Q3", 7), ("Q4", 10)):
-                    if q in s:
-                        q_month = m
-                        break
-        for d, v in items:
-            if d.year == cod_year and d.month == q_month:
-                return safe_float(v)
-        for d, v in items:
-            if (d.year, d.month) >= (cod_year, q_month):
-                return safe_float(v)
-        return safe_float(items[-1][1])
 
-    # --- Pass 1a: Rate components 1-6 (per-component, per-field) ---
-    # INPUT_ROW_LABELS covers only RC1 and partial RC2 rate rows. Rate comp
-    # data lives on proj["rate_comps"][rc_idx] as a structured dict; iterate
-    # it directly so RC3-6 (community solar adders, REC streams, etc.) don't
-    # fall through silently.
-    #
-    # Per-component fields split into two classes:
-    #   SHAPE: always compared — describes what the component IS (name,
-    #       Custom/Generic). A change here is a scope change for the walk.
-    #   VALUE: compared only when the RC is on (equity_on != 0) in BOTH
-    #       models. Rationale: when a component is off, its rate cells are
-    #       typically stale — comparing them produces noise.
-    #   TOGGLE: always compared — scope of the revenue stream.
-    _RC_SHAPE_FIELDS = [
-        ("name",           "Name",                 "text"),
-        ("custom_generic", "Custom/Generic",       "text"),
-    ]
-    _RC_VALUE_FIELDS = [
-        ("energy_rate",    "Energy Rate",          "$/kWh"),
-        ("escalator",      "Escalator",            "%"),
-        ("start_date",     "Start Date",           "date"),
-        ("term",           "Term",                 "yrs"),
-        ("discount",       "Customer Discount",    "%"),
-        ("ucb_fee",        "UCB Fee",              "%"),
-    ]
-    _RC_TOGGLE_FIELDS = [
-        ("equity_on",      "Equity",               "toggle"),
-        ("debt_on",        "Debt",                 "toggle"),
-        ("appraisal_on",   "Appraisal",            "toggle"),
-    ]
+def _diff_rate_comps(
+    matched: list[dict], m1_projects: dict, m2_projects: dict,
+) -> list[dict]:
+    """Pass 1a: per-component / per-field rate-component diffs for RC1-6.
 
-    def _rc_on_both_sides(rc1: dict, rc2: dict) -> bool:
-        def _on(v):
-            return bool(safe_float(v)) if not isinstance(v, bool) else v
-        return _on(rc1.get("equity_on")) and _on(rc2.get("equity_on"))
-
+    INPUT_ROW_LABELS covers only RC1 + partial RC2. Walks rate_comps directly
+    so RC3-6 (community solar adders, REC streams) don't fall through.
+    """
+    diffs: list[dict] = []
     for rc_idx in range(1, 7):
         for field, label_suffix, unit in _RC_SHAPE_FIELDS + _RC_VALUE_FIELDS + _RC_TOGGLE_FIELDS:
             is_value = (field, label_suffix, unit) in _RC_VALUE_FIELDS
@@ -464,8 +596,6 @@ def diff_inputs(
             for m in matched:
                 rc1 = (m1_projects[m["m1_col"]].get("rate_comps") or {}).get(rc_idx) or {}
                 rc2 = (m2_projects[m["m2_col"]].get("rate_comps") or {}).get(rc_idx) or {}
-                # Value-field gate: if the component is off in either model,
-                # suppress the value diff (but keep toggle + shape diffs).
                 if is_value and not _rc_on_both_sides(rc1, rc2):
                     continue
                 m1_val = rc1.get(field)
@@ -485,14 +615,21 @@ def diff_inputs(
                     "n_diff": n_diff,
                     "n_total": len(per_project),
                 })
+    return diffs
 
-    # --- Pass 1c: Rate Curves — COD-period rate per Custom RC ---
-    # When both sides have custom_generic == "custom" for a given RC, the
-    # revenue driver is the Rate Curves tab. Compare the $/kWh rate at each
-    # project's COD period. A difference here is invisible to all other
-    # passes because Project Inputs energy_rate is blank for Custom RCs.
+
+def _diff_rate_curves_cod(
+    matched: list[dict], m1_projects: dict, m2_projects: dict,
+) -> list[dict]:
+    """Pass 1c: Rate Curves COD-period rate for Custom-Custom RC pairs.
+
+    When both sides have Custom RC, Project Inputs energy_rate is blank —
+    the revenue driver lives on the Rate Curves tab. Compare the $/kWh at
+    each project's COD period to surface per-curve drift.
+    """
+    diffs: list[dict] = []
     for rc_idx in range(1, 7):
-        per_project = {}
+        per_project: dict[int, tuple[Any, Any]] = {}
         n_diff = 0
         for m in matched:
             m1p = m1_projects[m["m1_col"]]
@@ -502,7 +639,7 @@ def diff_inputs(
             m1_custom = str(rc1.get("custom_generic") or "").strip().lower() == "custom"
             m2_custom = str(rc2.get("custom_generic") or "").strip().lower() == "custom"
             if not (m1_custom and m2_custom):
-                continue  # shape-mismatch already flagged by Pass 1a
+                continue
             m1_curve = m1p.get(f"_rate_curves_rc{rc_idx}") or {}
             m2_curve = m2p.get(f"_rate_curves_rc{rc_idx}") or {}
             m1_rate = _rate_at_cod(m1_curve, m1p.get("data") or {})
@@ -522,18 +659,18 @@ def diff_inputs(
                 "n_diff": n_diff,
                 "n_total": len(per_project),
             })
+    return diffs
 
-    # --- Pass 1b: Special-key diffs (match toggles + DSCR schedule) ---
-    # These live on proj["data"] under non-row-number keys and aren't covered
-    # by INPUT_ROW_LABELS. They're scope-critical — a "debt match equity"
-    # toggle flip changes the revenue profile materially.
-    _SPECIAL_KEYS: list[tuple[str, str, str, str]] = [
-        # (data_key, label, unit, category)
-        ("_debt_match_equity",      "Debt Rate: match equity",      "toggle", "Financing"),
-        ("_appraisal_match_equity", "Appraisal Rate: match equity", "toggle", "Financing"),
-        ("_front_back_toggle",      "Front/Back Debt toggle",       "toggle", "Financing"),
-        ("_debt_sizing_method",     "Debt Sizing Method",           "text",   "Financing"),
-    ]
+
+def _diff_special_keys(
+    matched: list[dict], m1_projects: dict, m2_projects: dict,
+) -> list[dict]:
+    """Pass 1b: match toggles, debt sizing method, and DSCR schedule Y1-10.
+
+    These live under non-row-number data keys and on proj["dscr_schedule"]
+    — invisible to INPUT_ROW_LABELS iteration.
+    """
+    diffs: list[dict] = []
     for key, label, unit, category in _SPECIAL_KEYS:
         per_project: dict[int, tuple[Any, Any]] = {}
         n_diff = 0
@@ -551,9 +688,7 @@ def diff_inputs(
                 "values": per_project, "n_diff": n_diff, "n_total": len(per_project),
             })
 
-    # DSCR schedule — compare year-by-year (cap at year 10, the practical
-    # horizon for PPA debt sizing). dscr_schedule is {yr: dscr} on each
-    # project; empty dicts mean the model doesn't override DSCR.
+    # DSCR years 1-10 — practical debt-sizing horizon.
     for year in range(1, 11):
         per_project = {}
         n_diff = 0
@@ -573,72 +708,422 @@ def diff_inputs(
                 "category": "Financing",
                 "values": per_project, "n_diff": n_diff, "n_total": len(per_project),
             })
-
-    # --- Pass 2: ALL inputs by column B label (catches non-canonical rows) ---
-    if matched:
-        # Collect all unique labels across both models
-        first_m = matched[0]
-        m1_all = m1_projects[first_m["m1_col"]]["data"].get("_all_inputs", {})
-        m2_all = m2_projects[first_m["m2_col"]]["data"].get("_all_inputs", {})
-        all_labels = set(m1_all.keys()) | set(m2_all.keys())
-
-        for label in sorted(all_labels):
-            if not label or not label.strip():
-                continue  # skip unlabeled rows
-            if label.strip().lower() in seen_labels:
-                continue  # already compared in Pass 1
-            if label.strip().lower() in _WALK_EXCLUDE_LABELS:
-                continue  # excluded from walk
-            # Property tax: skip Y2-Y5, and only include Y1 if custom toggle is on
-            label_lower = label.strip().lower()
-            if "property tax" in label_lower:
-                # Skip Y2+ entirely
-                if any(x in label_lower for x in ["year 2", "year 3", "year 4", "year 5",
-                        "yr 2", "yr 3", "yr 4", "yr 5", "y2", "y3", "y4", "y5"]):
-                    continue
-                # For Y1/toggle/escalator: check if custom toggle is on in either model
-                if "toggle" not in label_lower:
-                    m1_toggle = m1_all.get("Custom Property Tax Schedule Toggle (On/Off)") or m1_all.get("Custom PropTax Toggle")
-                    m2_toggle = m2_all.get("Custom Property Tax Schedule Toggle (On/Off)") or m2_all.get("Custom PropTax Toggle")
-                    toggle_on = any(str(t).strip().lower() in ("1", "on", "true", "yes") or (safe_float(t) or 0) != 0
-                                    for t in [m1_toggle, m2_toggle] if t is not None)
-                    if not toggle_on:
-                        continue
-
-            per_project = {}
-            n_diff = 0
-            for m in matched:
-                m1_inputs = m1_projects[m["m1_col"]]["data"].get("_all_inputs", {})
-                m2_inputs = m2_projects[m["m2_col"]]["data"].get("_all_inputs", {})
-                m1_val = m1_inputs.get(label)
-                m2_val = m2_inputs.get(label)
-
-                if m1_val is None and m2_val is None:
-                    continue
-
-                if _values_differ(m1_val, m2_val):
-                    n_diff += 1
-
-                per_project[m["proj_number"]] = (m1_val, m2_val)
-
-            if n_diff > 0 and per_project:
-                unit = _m1_units_by_label.get(label, "")
-                diffs.append({
-                    "row": 0,  # unknown canonical row
-                    "label": label,
-                    "unit": unit,
-                    "category": "Other",
-                    "values": per_project,
-                    "n_diff": n_diff,
-                    "n_total": len(per_project),
-                })
-
     return diffs
+
+
+def _proptax_label_excluded(label_lower: str, m1_all: dict, m2_all: dict) -> bool:
+    """Property Tax label gate for Pass 2: drop Y2-Y5 entirely; include
+    Y1/escalator only when the Custom PropTax toggle is on in either model.
+    """
+    if "property tax" not in label_lower:
+        return False
+    # Skip Y2+ entirely.
+    if any(x in label_lower for x in ["year 2", "year 3", "year 4", "year 5",
+                                       "yr 2", "yr 3", "yr 4", "yr 5",
+                                       "y2", "y3", "y4", "y5"]):
+        return True
+    if "toggle" in label_lower:
+        return False
+    m1_toggle = m1_all.get("Custom Property Tax Schedule Toggle (On/Off)") or m1_all.get("Custom PropTax Toggle")
+    m2_toggle = m2_all.get("Custom Property Tax Schedule Toggle (On/Off)") or m2_all.get("Custom PropTax Toggle")
+    toggle_on = any(
+        str(t).strip().lower() in ("1", "on", "true", "yes") or (safe_float(t) or 0) != 0
+        for t in [m1_toggle, m2_toggle] if t is not None
+    )
+    return not toggle_on
+
+
+def _diff_all_inputs_labels(
+    matched: list[dict], m1_projects: dict, m2_projects: dict,
+    seen_labels: set[str],
+    units_by_label: dict[str, str],
+) -> list[dict]:
+    """Pass 2: label-based scan of _all_inputs — catches non-canonical rows
+    that Pass 1 missed (template additions, developer-added lines, etc.).
+    """
+    if not matched:
+        return []
+    first_m = matched[0]
+    m1_all = m1_projects[first_m["m1_col"]]["data"].get("_all_inputs", {})
+    m2_all = m2_projects[first_m["m2_col"]]["data"].get("_all_inputs", {})
+    all_labels = set(m1_all.keys()) | set(m2_all.keys())
+
+    diffs: list[dict] = []
+    for label in sorted(all_labels):
+        if not label or not label.strip():
+            continue
+        label_lower = label.strip().lower()
+        if label_lower in seen_labels:
+            continue
+        if label_lower in _WALK_EXCLUDE_LABELS:
+            continue
+        if _proptax_label_excluded(label_lower, m1_all, m2_all):
+            continue
+
+        per_project: dict[int, tuple[Any, Any]] = {}
+        n_diff = 0
+        for m in matched:
+            m1_inputs = m1_projects[m["m1_col"]]["data"].get("_all_inputs", {})
+            m2_inputs = m2_projects[m["m2_col"]]["data"].get("_all_inputs", {})
+            m1_val = m1_inputs.get(label)
+            m2_val = m2_inputs.get(label)
+            if m1_val is None and m2_val is None:
+                continue
+            if _values_differ(m1_val, m2_val):
+                n_diff += 1
+            per_project[m["proj_number"]] = (m1_val, m2_val)
+
+        if n_diff > 0 and per_project:
+            diffs.append({
+                "row": 0,
+                "label": label,
+                "unit": units_by_label.get(label, ""),
+                "category": "Other",
+                "values": per_project,
+                "n_diff": n_diff,
+                "n_total": len(per_project),
+            })
+    return diffs
+
+
+def diff_inputs(
+    matched: list[dict],
+    m1_projects: dict,
+    m2_projects: dict,
+) -> list[dict]:
+    """Find all per-project differences across the two models.
+
+    Five passes:
+      1  canonical rows (INPUT_ROW_LABELS) with unit reconciliation
+      1a rate components 1-6 (shape / value / toggle fields)
+      1c rate curves COD-period rate (Custom-Custom pairs only)
+      1b match toggles, debt sizing method, DSCR schedule years 1-10
+      2  _all_inputs label scan for non-canonical rows
+
+    Returns list of {row, label, unit, category, values, n_diff, n_total}.
+    """
+    units_by_row: dict[int, str] = {}
+    units_by_label: dict[str, str] = {}
+    if matched:
+        first_data = m1_projects[matched[0]["m1_col"]]["data"]
+        units_by_row = first_data.get("_units_by_row") or {}
+        units_by_label = first_data.get("_all_units") or {}
+
+    seen_labels: set[str] = set()
+    return [
+        *_diff_canonical_rows(matched, m1_projects, m2_projects, seen_labels, units_by_row),
+        *_diff_rate_comps(matched, m1_projects, m2_projects),
+        *_diff_rate_curves_cod(matched, m1_projects, m2_projects),
+        *_diff_special_keys(matched, m1_projects, m2_projects),
+        *_diff_all_inputs_labels(matched, m1_projects, m2_projects, seen_labels, units_by_label),
+    ]
 
 
 # ---------------------------------------------------------------------------
 # Number format selection
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Walk sheet layout constants (shared by anchor + variance section writers)
+# ---------------------------------------------------------------------------
+
+# Column layout: B=proj name, C=MWdc, D=spacer.
+# Cases start at col E (5). Each case = 3 cols: NPP, IRR, ∆ Base.
+# E(5)=NPP1, F(6)=IRR1, G(7)=delta, H(8)=NPP2, I(9)=IRR2, J(10)=Notes (variance only).
+_DELTA_COL = 7
+_WALK_LAST_COL = 9
+
+
+def _case_cols(case_idx: int) -> tuple[int, int, int]:
+    """Return (npp_col, irr_col, delta_col) for a case (0-indexed)."""
+    return (5, 6, _DELTA_COL) if case_idx == 0 else (8, 9, _DELTA_COL)
+
+
+# ---------------------------------------------------------------------------
+# Sheet writers — each populates one region. build_walk_xlsx orchestrates.
+# ---------------------------------------------------------------------------
+
+def _write_anchor_section(
+    ws, metrics: list[dict], case_labels: list[str], n_cases: int = 2,
+) -> int:
+    """Write the top NPP/IRR table (header rows 3-6, data rows 7+, summary
+    row). Returns the summary row number (caller uses it to anchor the
+    variance section that follows).
+    """
+    # Column widths
+    ws.column_dimensions["A"].width = 2
+    ws.column_dimensions["B"].width = 30
+    ws.column_dimensions["C"].width = 10
+    ws.column_dimensions["D"].width = 2
+    for ci in range(5, _WALK_LAST_COL + 1):
+        ws.column_dimensions[get_column_letter(ci)].width = 14
+    ws.column_dimensions["J"].width = 26  # Notes column (variance-only)
+
+    # Row 3: case numbers with double-bottom borders across the band.
+    ws.merge_cells("E3:F3")
+    ws.cell(row=3, column=5, value=1).font = NORMAL_FONT
+    ws.cell(row=3, column=5).alignment = CENTER
+    for c in range(5, 7):
+        ws.cell(row=3, column=c).border = DOUBLE_BOTTOM
+    ws.cell(row=3, column=7).border = DOUBLE_BOTTOM
+    ws.merge_cells("H3:I3")
+    ws.cell(row=3, column=8, value=2).font = NORMAL_FONT
+    ws.cell(row=3, column=8).alignment = CENTER
+    for c in range(7, 10):
+        ws.cell(row=3, column=c).border = DOUBLE_BOTTOM
+
+    # Row 5: case labels
+    ws.merge_cells("E5:F5")
+    c = ws.cell(row=5, column=5, value=case_labels[0])
+    c.font = BOLD_FONT; c.alignment = CENTER_WRAP; c.border = THIN_BOTTOM
+    ws.cell(row=5, column=6).border = THIN_BOTTOM
+    ws.cell(row=5, column=7).border = THIN_BOTTOM
+    ws.merge_cells("H5:I5")
+    c = ws.cell(row=5, column=8, value=case_labels[1])
+    c.font = BOLD_FONT; c.alignment = CENTER_WRAP; c.border = THIN_BOTTOM
+    ws.cell(row=5, column=9).border = THIN_BOTTOM
+
+    # Row 6: fixed headers + per-case NPP/IRR headers + delta
+    for col, text in [(2, "Project Name"), (3, "MWdc")]:
+        cell = ws.cell(row=6, column=col, value=text)
+        cell.font = BOLD_FONT if col == 2 else NORMAL_FONT
+        cell.fill = GREY_FILL
+        cell.border = THIN_BOTTOM
+        cell.alignment = LEFT if col == 2 else CENTER
+    for npp_c, irr_c, lbl_npp, lbl_irr in [(5, 6, "NPP ($/W)", "IRR (%)"),
+                                           (8, 9, "NPP ($/W)", "IRR (%)")]:
+        cell = ws.cell(row=6, column=npp_c, value=lbl_npp)
+        cell.font = NORMAL_FONT; cell.fill = GREY_FILL
+        cell.border = HDR_NPP; cell.alignment = CENTER
+        cell = ws.cell(row=6, column=irr_c, value=lbl_irr)
+        cell.font = NORMAL_FONT; cell.fill = GREY_FILL
+        cell.border = THIN_BOTTOM; cell.alignment = CENTER
+    cell = ws.cell(row=6, column=_DELTA_COL, value="\u2206 Base")
+    cell.font = BLUE_FONT; cell.fill = GREY_FILL
+    cell.border = HDR_DELTA; cell.alignment = CENTER
+
+    # Data rows 7+
+    data_start = 7
+    base_npp_letter = get_column_letter(_case_cols(0)[0])
+    for pi, pm in enumerate(metrics):
+        r = data_start + pi
+        is_last = pi == len(metrics) - 1
+
+        cell = ws.cell(row=r, column=2, value=pm["name"])
+        cell.font = WHITE_BOLD; cell.fill = NAVY_FILL
+        if is_last:
+            cell.border = THIN_BOTTOM
+
+        cell = ws.cell(row=r, column=3, value=pm["mwdc"])
+        cell.number_format = FMT_MW; cell.alignment = CENTER
+        if is_last:
+            cell.border = THIN_BOTTOM
+
+        case_vals = [(pm["m1_npp"], pm["m1_irr"]), (pm["m2_npp"], pm["m2_irr"])]
+        for ci, (npp_val, irr_val) in enumerate(case_vals):
+            npp_c, irr_c, delta_c = _case_cols(ci)
+
+            cell = ws.cell(row=r, column=npp_c, value=npp_val)
+            cell.number_format = FMT_NPP; cell.alignment = CENTER
+            cell.border = THIN_BOTTOM_LEFT if is_last else THIN_LEFT
+
+            cell = ws.cell(row=r, column=irr_c, value=irr_val)
+            cell.number_format = FMT_IRR; cell.alignment = CENTER
+            if is_last:
+                cell.border = THIN_BOTTOM
+
+            # Delta (only for non-base cases). Δ direction = M1 - M2.
+            if ci > 0:
+                npp_letter = get_column_letter(npp_c)
+                cell = ws.cell(row=r, column=delta_c,
+                               value=f"={base_npp_letter}{r}-{npp_letter}{r}")
+                cell.number_format = FMT_DELTA; cell.alignment = CENTER
+                cell.border = THIN_BOTTOM_LEFT_RIGHT if is_last else THIN_LEFT_RIGHT
+
+    # Summary row: MW-weighted averages via SUMPRODUCT.
+    summary_r = data_start + len(metrics)
+    last_data_r = data_start + len(metrics) - 1
+    if metrics:
+        cell = ws.cell(row=summary_r, column=3,
+                       value=f"=SUM(C{data_start}:C{last_data_r})")
+        cell.number_format = FMT_MW; cell.alignment = CENTER
+        for ci in range(n_cases):
+            npp_c, irr_c, _ = _case_cols(ci)
+            npp_l = get_column_letter(npp_c)
+            irr_l = get_column_letter(irr_c)
+            mw_wgt_fmt = (
+                f"=SUMPRODUCT({{col}}{data_start}:{{col}}{last_data_r},"
+                f"$C${data_start}:$C${last_data_r})"
+                f"/SUM($C${data_start}:$C${last_data_r})"
+            )
+            cell = ws.cell(row=summary_r, column=npp_c,
+                           value=mw_wgt_fmt.format(col=npp_l))
+            cell.number_format = FMT_NPP; cell.alignment = CENTER
+            cell = ws.cell(row=summary_r, column=irr_c,
+                           value=mw_wgt_fmt.format(col=irr_l))
+            cell.number_format = FMT_IRR; cell.alignment = CENTER
+    return summary_r
+
+
+def _aggregate_variance_values(
+    v: dict, metrics: list[dict], total_mw: float,
+) -> tuple[Any, Any, bool]:
+    """For a single variance row, compute the display values across all
+    matched projects: MW-weighted average for numerics, first-project for
+    text. Returns (m1_display, m2_display, is_text_val).
+    """
+    m1_sum = m2_sum = 0.0
+    m1_count = m2_count = 0
+    is_text_val = False
+    first_m1 = first_m2 = None
+    for pnum, (m1v, m2v) in v["values"].items():
+        mw = next((pm["mwdc"] for pm in metrics if pm["proj_number"] == pnum), 1.0)
+        f1 = safe_float(m1v)
+        f2 = safe_float(m2v)
+        if f1 is not None:
+            m1_sum += f1 * mw
+            m1_count += 1
+        elif m1v is not None:
+            is_text_val = True
+            if first_m1 is None:
+                first_m1 = m1v
+        if f2 is not None:
+            m2_sum += f2 * mw
+            m2_count += 1
+        elif m2v is not None:
+            is_text_val = True
+            if first_m2 is None:
+                first_m2 = m2v
+
+    if is_text_val:
+        return first_m1, first_m2, True
+    m1_display = m1_sum / total_mw if m1_count else None
+    m2_display = m2_sum / total_mw if m2_count else None
+    return m1_display, m2_display, False
+
+
+def _write_variance_section(
+    ws, grouped: dict[str, list[dict]], metrics: list[dict], var_start: int,
+) -> int:
+    """Write the 'Project Inputs' variance drivers block starting at
+    var_start. Returns the row after the last written diff.
+    """
+    cell = ws.cell(row=var_start, column=2, value="Project Inputs")
+    cell.font = NORMAL_FONT; cell.border = DOUBLE_BOTTOM
+    for vc in range(3, _WALK_LAST_COL + 1):
+        ws.cell(row=var_start, column=vc).border = DOUBLE_BOTTOM
+
+    cur_row = var_start + 1
+    ws.cell(row=cur_row, column=3, value="Unit").font = Font(size=10, color="7d8694")
+    ws.cell(row=cur_row, column=3).alignment = CENTER
+    notes_hdr = ws.cell(row=cur_row, column=10, value="Notes")
+    notes_hdr.font = Font(size=10, color="7d8694")
+    notes_hdr.alignment = LEFT
+    cur_row += 1
+
+    total_mw = sum(pm["mwdc"] for pm in metrics) or 1.0
+
+    for cat_name in _CATEGORY_ORDER:
+        cat_vars = grouped.get(cat_name)
+        if not cat_vars:
+            continue
+        cell = ws.cell(row=cur_row, column=2, value=cat_name)
+        cell.font = BOLD_FONT; cell.border = DOUBLE_BOTTOM
+        cur_row += 1
+
+        for v in sorted(cat_vars, key=lambda x: x["label"].lower()):
+            nfmt = _num_format(v["row"])
+            cell = ws.cell(row=cur_row, column=2, value=v["label"])
+            cell.font = NORMAL_FONT; cell.alignment = LEFT
+
+            if v["unit"]:
+                cell = ws.cell(row=cur_row, column=3, value=v["unit"])
+                cell.font = Font(color="7d8694", size=10, italic=True)
+                cell.alignment = CENTER
+
+            m1_display, m2_display, is_text_val = _aggregate_variance_values(
+                v, metrics, total_mw,
+            )
+
+            c_e = ws.cell(row=cur_row, column=5, value=m1_display)
+            if not is_text_val and m1_display is not None:
+                c_e.number_format = nfmt
+            c_e.alignment = CENTER_CONT; c_e.border = THIN_BOX
+
+            if not is_text_val:
+                delta_cell = ws.cell(row=cur_row, column=7,
+                                     value=f"=E{cur_row}-H{cur_row}")
+                delta_cell.number_format = FMT_DELTA
+                delta_cell.alignment = CENTER; delta_cell.border = THIN_BOX
+
+            c_h = ws.cell(row=cur_row, column=8, value=m2_display)
+            if not is_text_val and m2_display is not None:
+                c_h.number_format = nfmt
+            c_h.alignment = CENTER_CONT; c_h.border = THIN_BOX
+
+            # Yellow highlight when M2 differs from M1
+            if m1_display != m2_display:
+                f1 = safe_float(m1_display)
+                f2 = safe_float(m2_display)
+                if f1 is not None and f2 is not None and abs(f1 - f2) > 1e-6:
+                    c_h.fill = YELLOW_FILL
+                elif is_text_val and str(m1_display or "") != str(m2_display or ""):
+                    c_h.fill = YELLOW_FILL
+
+            # Notes column — "differs for N of M projects"
+            n_diff = v.get("n_diff", 0)
+            n_total = v.get("n_total", len(v.get("values", {})))
+            if n_diff:
+                notes_cell = ws.cell(
+                    row=cur_row, column=10,
+                    value=f"differs for {n_diff} of {n_total} projects",
+                )
+                notes_cell.font = Font(size=10, color="7d8694", italic=True)
+                notes_cell.alignment = LEFT
+
+            cur_row += 1
+    return cur_row
+
+
+_REASON_DETAIL = {
+    "missing_proj_num":     "This model has no Project # assigned (row 2 blank).",
+    "proj_num_not_in_other":"Project # exists here but the counterpart model has no matching Project #.",
+    "name_not_in_other":    "Project # exists but the project name doesn't match the counterpart.",
+    "unknown":              "Unable to classify — inspect both rows manually.",
+}
+
+
+def _write_unmatched_sheet(
+    wb, unmatched_m1: list, unmatched_m2: list, m1_label: str, m2_label: str,
+) -> None:
+    """Create the Unmatched sheet listing orphan projects from each side
+    with reason codes. Called only when at least one orphan exists."""
+    un = wb.create_sheet("Unmatched")
+    un.sheet_view.showGridLines = False
+    for col_letter, width in zip("ABCDEF", (8, 32, 12, 10, 24, 44)):
+        un.column_dimensions[col_letter].width = width
+    headers = ["Side", "Project Name", "Project #", "MWdc", "Reason Code", "Detail"]
+    for c, text in enumerate(headers, start=1):
+        cell = un.cell(row=1, column=c, value=text)
+        cell.font = WHITE_BOLD; cell.fill = NAVY_FILL
+        cell.alignment = CENTER
+
+    r = 2
+    for side, projects in [(m1_label or "M1", unmatched_m1),
+                           (m2_label or "M2", unmatched_m2)]:
+        for _col, proj, reason in projects:
+            data = proj.get("data", {}) or {}
+            un.cell(row=r, column=1, value=side).alignment = CENTER
+            un.cell(row=r, column=2, value=str(proj.get("name") or "").strip()).alignment = LEFT
+            un.cell(row=r, column=3, value=safe_float(data.get(ROW_PROJECT_NUMBER))).alignment = CENTER
+            mwdc_cell = un.cell(row=r, column=4, value=safe_float(data.get(ROW_DC_MW)))
+            mwdc_cell.number_format = FMT_MW
+            mwdc_cell.alignment = CENTER
+            un.cell(row=r, column=5, value=reason).alignment = CENTER
+            un.cell(row=r, column=6,
+                    value=_REASON_DETAIL.get(reason, reason)).alignment = LEFT
+            r += 1
+
 
 def _num_format(row: int) -> str:
     if row in PCT_ROWS:
@@ -684,39 +1169,39 @@ def build_walk_xlsx(
     # Apply the include filters. Union semantics: a project passes if its
     # proj_number OR its name is in the allowed set. This is what the review
     # panel sends when some rows have a valid project# and others don't.
-    def _canon(n: str) -> str:
-        return re.sub(r"\s+", " ", (n or "")).strip().casefold()
-
-    canon_names = {_canon(n) for n in include_proj_names} if include_proj_names else set()
+    canon_names = {canonicalize_name(n) for n in include_proj_names} if include_proj_names else set()
     if include_proj_numbers is not None or include_proj_names is not None:
         matched = [
             m for m in all_matched
             if (include_proj_numbers and m["proj_number"] in include_proj_numbers)
-            or (canon_names and _canon(m["name"]) in canon_names)
+            or (canon_names and canonicalize_name(m["name"]) in canon_names)
         ]
     else:
         matched = list(all_matched)
 
-    # Filter out template placeholders ("Project 15", "Anchor", etc.)
-    _PLACEHOLDER_RE = re.compile(r"^\s*project\s+\d+\s*$", re.IGNORECASE)
-
-    def _is_placeholder(name: str) -> bool:
-        return bool(_PLACEHOLDER_RE.match(name)) or name.strip().lower() in ("anchor", "sample", "")
-
+    # Filter out template placeholders ("Project 15", "Anchor", etc.) via
+    # the module-level _is_placeholder helper.
     matched = [m for m in matched if not _is_placeholder(m["name"])]
 
-    # Compute true orphans (real projects on either side that didn't pair).
-    # Use the unfiltered match set so a deselected-but-matched project is not
-    # mistaken for an orphan.
+    # Compute true orphans with reason codes. Use the unfiltered match set
+    # so a deselected-but-matched project isn't mistaken for an orphan.
     matched_m1_cols = {m["m1_col"] for m in all_matched}
     matched_m2_cols = {m["m2_col"] for m in all_matched}
+
+    m1_pnums = _build_pnum_set(m1_projects)
+    m2_pnums = _build_pnum_set(m2_projects)
+    m1_names = _build_name_set(m1_projects)
+    m2_names = _build_name_set(m2_projects)
+
     unmatched_m1 = [
-        (col, p) for col, p in m1_projects.items()
+        (col, p, _orphan_reason(p, m2_pnums, m2_names))
+        for col, p in m1_projects.items()
         if isinstance(p, dict) and col not in matched_m1_cols
         and p.get("name") and not _is_placeholder(str(p.get("name") or ""))
     ]
     unmatched_m2 = [
-        (col, p) for col, p in m2_projects.items()
+        (col, p, _orphan_reason(p, m1_pnums, m1_names))
+        for col, p in m2_projects.items()
         if isinstance(p, dict) and col not in matched_m2_cols
         and p.get("name") and not _is_placeholder(str(p.get("name") or ""))
     ]
@@ -742,314 +1227,15 @@ def build_walk_xlsx(
     ws.sheet_view.showGridLines = False  # Clean look matching reference files
 
     case_labels = [m1_label, m2_label]
-    n_cases = 2
-
-    # Column layout: B=proj name, C=MWdc, D=units
-    # Cases start at col E (5). Each case = 3 cols: NPP, IRR, ∆ Base
-    # Case 1: E,F,G (5,6,7)  Case 2: H,I,J (8,9,10)
-    # Column layout: E(5)=NPP1, F(6)=IRR1, G(7)=delta, H(8)=NPP2, I(9)=IRR2
-    DELTA_COL = 7  # fixed between the two cases
-    def case_cols(case_idx: int) -> tuple[int, int, int]:
-        """Return (npp_col, irr_col, delta_col) for a case (0-indexed)."""
-        if case_idx == 0:
-            return 5, 6, DELTA_COL  # E, F, G
-        else:
-            return 8, 9, DELTA_COL  # H, I, G (delta shared)
-
-    last_col = 9  # E through I (with G as delta between)
-
-    # --- Column widths ---
-    ws.column_dimensions["A"].width = 2
-    ws.column_dimensions["B"].width = 30
-    ws.column_dimensions["C"].width = 10
-    ws.column_dimensions["D"].width = 2  # empty spacer
-    for ci in range(5, last_col + 1):
-        ws.column_dimensions[get_column_letter(ci)].width = 14
-    ws.column_dimensions["J"].width = 26  # Notes column (variance section only)
 
     # ===================================================================
     # TOP SECTION: NPP / IRR comparison table
     # ===================================================================
+    summary_r = _write_anchor_section(ws, metrics, case_labels)
 
-    # Row 3: Case numbers — Case 0 merges E:F, Case 1 merges H:I, G is delta
-    # Case 0
-    ws.merge_cells("E3:F3")
-    ws.cell(row=3, column=5, value=1).font = NORMAL_FONT
-    ws.cell(row=3, column=5).alignment = CENTER
-    for c in range(5, 7):
-        ws.cell(row=3, column=c).border = DOUBLE_BOTTOM
-    # Delta header in G
-    ws.cell(row=3, column=7).border = DOUBLE_BOTTOM
-    # Case 1
-    ws.merge_cells("H3:I3")
-    ws.cell(row=3, column=8, value=2).font = NORMAL_FONT
-    ws.cell(row=3, column=8).alignment = CENTER
-    for c in range(7, 10):
-        ws.cell(row=3, column=c).border = DOUBLE_BOTTOM
+    # Variance drivers block starts 3 rows below the anchor summary row.
+    _write_variance_section(ws, grouped, metrics, var_start=summary_r + 3)
 
-    # Row 5: Case labels — E:F for Case 1, H:I for Case 2
-    ws.merge_cells("E5:F5")
-    c = ws.cell(row=5, column=5, value=case_labels[0])
-    c.font = BOLD_FONT; c.alignment = CENTER_WRAP; c.border = THIN_BOTTOM
-    ws.cell(row=5, column=6).border = THIN_BOTTOM
-    ws.cell(row=5, column=7).border = THIN_BOTTOM  # delta col
-    ws.merge_cells("H5:I5")
-    c = ws.cell(row=5, column=8, value=case_labels[1])
-    c.font = BOLD_FONT; c.alignment = CENTER_WRAP; c.border = THIN_BOTTOM
-    ws.cell(row=5, column=9).border = THIN_BOTTOM
-
-    # Row 6: Column headers with grey fill
-    headers_fixed = [
-        (2, "Project Name", None),
-        (3, "MWdc", None),
-    ]
-    for col, text, font_override in headers_fixed:
-        cell = ws.cell(row=6, column=col, value=text)
-        cell.font = BOLD_FONT if col == 2 else NORMAL_FONT
-        cell.fill = GREY_FILL
-        cell.border = THIN_BOTTOM
-        cell.alignment = CENTER if col != 2 else LEFT
-
-    # Grey fill on spacer col D
-    # Column D intentionally empty (spacer)
-
-    # Row 6 headers: E=NPP, F=IRR, G=delta, H=NPP, I=IRR
-    for npp_c, irr_c, lbl_npp, lbl_irr in [(5, 6, "NPP ($/W)", "IRR (%)"), (8, 9, "NPP ($/W)", "IRR (%)")]:
-        cell = ws.cell(row=6, column=npp_c, value=lbl_npp)
-        cell.font = NORMAL_FONT; cell.fill = GREY_FILL; cell.border = HDR_NPP; cell.alignment = CENTER
-        cell = ws.cell(row=6, column=irr_c, value=lbl_irr)
-        cell.font = NORMAL_FONT; cell.fill = GREY_FILL; cell.border = THIN_BOTTOM; cell.alignment = CENTER
-    # Delta header at G
-    cell = ws.cell(row=6, column=DELTA_COL, value="\u2206 Base")
-    cell.font = BLUE_FONT
-    cell.fill = GREY_FILL
-    cell.border = HDR_DELTA
-    cell.alignment = CENTER
-
-    # Rows 7+: Per-project data with column separators matching reference
-    data_start = 7
-    for pi, pm in enumerate(metrics):
-        r = data_start + pi
-        is_last = pi == len(metrics) - 1
-
-        # Project name — navy fill, white bold
-        cell = ws.cell(row=r, column=2, value=pm["name"])
-        cell.font = WHITE_BOLD
-        cell.fill = NAVY_FILL
-        if is_last:
-            cell.border = THIN_BOTTOM
-
-        # MWdc
-        cell = ws.cell(row=r, column=3, value=pm["mwdc"])
-        cell.number_format = FMT_MW
-        cell.alignment = CENTER
-        if is_last:
-            cell.border = THIN_BOTTOM
-
-        # Per-case NPP, IRR, delta
-        case_vals = [
-            (pm["m1_npp"], pm["m1_irr"]),
-            (pm["m2_npp"], pm["m2_irr"]),
-        ]
-        base_npp_col_letter = get_column_letter(case_cols(0)[0])
-
-        for ci, (npp_val, irr_val) in enumerate(case_vals):
-            npp_c, irr_c, delta_c = case_cols(ci)
-
-            # NPP — left border separator
-            cell = ws.cell(row=r, column=npp_c, value=npp_val)
-            cell.number_format = FMT_NPP
-            cell.alignment = CENTER
-            cell.border = THIN_BOTTOM_LEFT if is_last else THIN_LEFT
-
-            # IRR
-            cell = ws.cell(row=r, column=irr_c, value=irr_val)
-            cell.number_format = FMT_IRR
-            cell.alignment = CENTER
-            if is_last:
-                cell.border = THIN_BOTTOM
-
-            # Delta (only for non-base cases) — left+right border.
-            # Δ direction is M1 - M2 per spec (base - case).
-            if ci > 0:
-                npp_letter = get_column_letter(npp_c)
-                formula = f"={base_npp_col_letter}{r}-{npp_letter}{r}"
-                cell = ws.cell(row=r, column=delta_c, value=formula)
-                cell.number_format = FMT_DELTA
-                cell.alignment = CENTER
-                cell.border = THIN_BOTTOM_LEFT_RIGHT if is_last else THIN_LEFT_RIGHT
-
-    # Summary row: MW-weighted averages
-    summary_r = data_start + len(metrics)
-    last_data_r = data_start + len(metrics) - 1
-    if metrics:
-        # Total MWdc
-        cell = ws.cell(
-            row=summary_r, column=3,
-            value=f"=SUM(C{data_start}:C{last_data_r})",
-        )
-        cell.number_format = FMT_MW
-        cell.alignment = CENTER
-
-        for ci in range(n_cases):
-            npp_c, irr_c, delta_c = case_cols(ci)
-            npp_l = get_column_letter(npp_c)
-            irr_l = get_column_letter(irr_c)
-
-            # MW-weighted NPP
-            cell = ws.cell(
-                row=summary_r, column=npp_c,
-                value=(
-                    f"=SUMPRODUCT({npp_l}{data_start}:{npp_l}{last_data_r},"
-                    f"$C${data_start}:$C${last_data_r})"
-                    f"/SUM($C${data_start}:$C${last_data_r})"
-                ),
-            )
-            cell.number_format = FMT_NPP
-            cell.alignment = CENTER
-
-            # MW-weighted IRR
-            cell = ws.cell(
-                row=summary_r, column=irr_c,
-                value=(
-                    f"=SUMPRODUCT({irr_l}{data_start}:{irr_l}{last_data_r},"
-                    f"$C${data_start}:$C${last_data_r})"
-                    f"/SUM($C${data_start}:$C${last_data_r})"
-                ),
-            )
-            cell.number_format = FMT_IRR
-            cell.alignment = CENTER
-
-    # ===================================================================
-    # BOTTOM SECTION: Variance drivers
-    # ===================================================================
-
-    var_start = summary_r + 3
-
-    # "Project Inputs" header
-    cell = ws.cell(row=var_start, column=2, value="Project Inputs")
-    cell.font = NORMAL_FONT
-    cell.border = DOUBLE_BOTTOM
-    for vc in range(3, last_col + 1):
-        ws.cell(row=var_start, column=vc).border = DOUBLE_BOTTOM
-
-    # Column headers for variance section
-    cur_row = var_start + 1
-    ws.cell(row=cur_row, column=3, value="Unit").font = Font(size=10, color="7d8694")
-    ws.cell(row=cur_row, column=3).alignment = CENTER
-    notes_hdr = ws.cell(row=cur_row, column=10, value="Notes")
-    notes_hdr.font = Font(size=10, color="7d8694")
-    notes_hdr.alignment = LEFT
-    cur_row += 1
-
-    # Compute MW weights for portfolio averaging
-    total_mw = sum(pm["mwdc"] for pm in metrics) or 1.0
-
-    for cat_name in _CATEGORY_ORDER:
-        cat_vars = grouped.get(cat_name)
-        if not cat_vars:
-            continue
-
-        # Category header
-        cell = ws.cell(row=cur_row, column=2, value=cat_name)
-        cell.font = BOLD_FONT
-        cell.border = DOUBLE_BOTTOM
-        cur_row += 1
-
-        for v in sorted(cat_vars, key=lambda x: x["label"].lower()):
-            nfmt = _num_format(v["row"])
-
-            # Label in col B
-            cell = ws.cell(row=cur_row, column=2, value=v["label"])
-            cell.font = NORMAL_FONT
-            cell.alignment = LEFT
-
-            # Unit in col C (grey italic, matching reference walk files)
-            if v["unit"]:
-                cell = ws.cell(row=cur_row, column=3, value=v["unit"])
-                cell.font = Font(color="7d8694", size=10, italic=True)
-                cell.alignment = CENTER
-
-            # MW-weighted portfolio average across matched projects
-            m1_sum = 0.0
-            m2_sum = 0.0
-            m1_count = 0
-            m2_count = 0
-            is_text_val = False
-            first_m1 = None
-            first_m2 = None
-            for pnum, (m1v, m2v) in v["values"].items():
-                mw = next((pm["mwdc"] for pm in metrics if pm["proj_number"] == pnum), 1.0)
-                f1 = safe_float(m1v)
-                f2 = safe_float(m2v)
-                if f1 is not None:
-                    m1_sum += f1 * mw
-                    m1_count += 1
-                elif m1v is not None:
-                    is_text_val = True
-                    if first_m1 is None:
-                        first_m1 = m1v
-                if f2 is not None:
-                    m2_sum += f2 * mw
-                    m2_count += 1
-                elif m2v is not None:
-                    is_text_val = True
-                    if first_m2 is None:
-                        first_m2 = m2v
-
-            if is_text_val:
-                # Text values: show first project's value
-                m1_display = first_m1
-                m2_display = first_m2
-            else:
-                # Numeric: MW-weighted average
-                m1_display = m1_sum / total_mw if m1_count else None
-                m2_display = m2_sum / total_mw if m2_count else None
-
-            # Case 1 value in col E — boxed cell
-            c_e = ws.cell(row=cur_row, column=5, value=m1_display)
-            if not is_text_val and m1_display is not None:
-                c_e.number_format = nfmt
-            c_e.alignment = CENTER_CONT
-            c_e.border = THIN_BOX
-
-            # Delta in col G (=E{r}-H{r}) — boxed cell. Δ = M1 - M2.
-            if not is_text_val:
-                delta_cell = ws.cell(row=cur_row, column=7, value=f"=E{cur_row}-H{cur_row}")
-                delta_cell.number_format = FMT_DELTA
-                delta_cell.alignment = CENTER
-                delta_cell.border = THIN_BOX
-
-            # Case 2 value in col H — boxed cell
-            c_h = ws.cell(row=cur_row, column=8, value=m2_display)
-            if not is_text_val and m2_display is not None:
-                c_h.number_format = nfmt
-            c_h.alignment = CENTER_CONT
-            c_h.border = THIN_BOX
-
-            # Yellow highlight on changed values
-            if m1_display != m2_display:
-                f1 = safe_float(m1_display)
-                f2 = safe_float(m2_display)
-                if f1 is not None and f2 is not None and abs(f1 - f2) > 1e-6:
-                    c_h.fill = YELLOW_FILL
-                elif is_text_val and str(m1_display or "") != str(m2_display or ""):
-                    c_h.fill = YELLOW_FILL
-
-            # Notes column — fire on any project diff per spec
-            n_diff = v.get("n_diff", 0)
-            n_total = v.get("n_total", len(v.get("values", {})))
-            if n_diff:
-                notes_cell = ws.cell(
-                    row=cur_row, column=10,
-                    value=f"differs for {n_diff} of {n_total} projects",
-                )
-                notes_cell.font = Font(size=10, color="7d8694", italic=True)
-                notes_cell.alignment = LEFT
-
-            cur_row += 1
-
-    # If no projects matched, write an explanatory message
     if _no_matches:
         cell = ws.cell(
             row=3, column=2,
@@ -1058,36 +1244,8 @@ def build_walk_xlsx(
         )
         cell.font = Font(color="FF0000", bold=True, size=11)
 
-    # ===================================================================
-    # UNMATCHED SHEET (only when at least one orphan exists)
-    # ===================================================================
     if unmatched_m1 or unmatched_m2:
-        un = wb.create_sheet("Unmatched")
-        un.sheet_view.showGridLines = False
-        for col_letter, width in zip("ABCDE", (8, 32, 14, 10, 60)):
-            un.column_dimensions[col_letter].width = width
-        headers = ["Side", "Project Name", "Project #", "MWdc", "Reason"]
-        for c, text in enumerate(headers, start=1):
-            cell = un.cell(row=1, column=c, value=text)
-            cell.font = WHITE_BOLD
-            cell.fill = NAVY_FILL
-            cell.alignment = CENTER
-        sections = [
-            (m1_label or "M1", unmatched_m1, "Present in M1 but no Project# match in M2"),
-            (m2_label or "M2", unmatched_m2, "Present in M2 but no Project# match in M1"),
-        ]
-        r = 2
-        for side, projects, reason in sections:
-            for _col, proj in projects:
-                data = proj.get("data", {}) or {}
-                un.cell(row=r, column=1, value=side).alignment = CENTER
-                un.cell(row=r, column=2, value=str(proj.get("name") or "").strip()).alignment = LEFT
-                un.cell(row=r, column=3, value=safe_float(data.get(ROW_PROJECT_NUMBER))).alignment = CENTER
-                mwdc_cell = un.cell(row=r, column=4, value=safe_float(data.get(ROW_DC_MW)))
-                mwdc_cell.number_format = FMT_MW
-                mwdc_cell.alignment = CENTER
-                un.cell(row=r, column=5, value=reason).alignment = LEFT
-                r += 1
+        _write_unmatched_sheet(wb, unmatched_m1, unmatched_m2, m1_label, m2_label)
 
     # Save to BytesIO
     buf = io.BytesIO()
