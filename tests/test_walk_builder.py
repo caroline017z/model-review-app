@@ -1,8 +1,8 @@
 """Tests for walk_builder.py — project matching, metrics, diff, and xlsx generation."""
 import io
 import pytest
-from rows import ROW_PROJECT_NUMBER, ROW_DC_MW, ROW_NPP, ROW_FMV_IRR
-from walk_builder import match_projects, extract_metrics, diff_inputs, _categorize_row, build_walk_xlsx
+from lib.rows import ROW_PROJECT_NUMBER, ROW_DC_MW, ROW_NPP, ROW_FMV_IRR
+from lib.walk_builder import match_projects, extract_metrics, diff_inputs, _categorize_row, build_walk_xlsx
 
 
 def _make_projects(*specs):
@@ -269,3 +269,150 @@ class TestPortedWalkSpec:
         assert _safe_filename_part('a/b\\c:d?e') == "abcde"
         assert _safe_filename_part("") == "model"
         assert _safe_filename_part("   ") == "model"
+
+
+class TestDeeperDiffCoverage:
+    """Regression tests for Pass 1a (rate comps), 1b (match toggles + DSCR),
+    and 1c (Rate Curves COD-period diff) added during the walk methodology
+    rework."""
+
+    def _rc_project(self, col, pnum, name, rate_comps, extra_data=None,
+                    rate_curves=None):
+        """Build a project with a populated rate_comps dict + optional
+        _rate_curves_rcN top-level keys."""
+        data = {ROW_PROJECT_NUMBER: pnum, ROW_DC_MW: 5.0, ROW_NPP: 0.10,
+                ROW_FMV_IRR: 0.18}
+        if extra_data:
+            data.update(extra_data)
+        proj = {
+            "name": name, "toggle": True, "col_letter": "F",
+            "data": data, "rate_comps": rate_comps, "dscr_schedule": {},
+        }
+        if rate_curves:
+            for rc_idx, curve in rate_curves.items():
+                proj[f"_rate_curves_rc{rc_idx}"] = curve
+        return {col: proj}
+
+    def test_rc3_rate_diff_detected(self):
+        """RC3 energy_rate differing — must surface as 'RC3 Energy Rate'."""
+        m1_proj = self._rc_project(6, 1, "Alpha", {
+            3: {"name": "REC", "custom_generic": "Generic", "energy_rate": 0.05,
+                "equity_on": 1, "debt_on": 0, "appraisal_on": 0},
+        })
+        m2_proj = self._rc_project(6, 1, "Alpha", {
+            3: {"name": "REC", "custom_generic": "Generic", "energy_rate": 0.07,
+                "equity_on": 1, "debt_on": 0, "appraisal_on": 0},
+        })
+        matched = match_projects(m1_proj, m2_proj)
+        diffs = diff_inputs(matched, m1_proj, m2_proj)
+        labels = [d["label"] for d in diffs]
+        assert "RC3 Energy Rate" in labels
+
+    def test_rc_value_suppressed_when_off_in_one_side(self):
+        """Per Decision B(i): when RC is off in either model, don't surface
+        the per-field rate diff — only the toggle diff."""
+        m1_proj = self._rc_project(6, 1, "Alpha", {
+            2: {"custom_generic": "Generic", "energy_rate": 0.05,
+                "equity_on": 1, "debt_on": 0, "appraisal_on": 0},
+        })
+        m2_proj = self._rc_project(6, 1, "Alpha", {
+            2: {"custom_generic": "Generic", "energy_rate": 0.09,
+                "equity_on": 0, "debt_on": 0, "appraisal_on": 0},  # off
+        })
+        matched = match_projects(m1_proj, m2_proj)
+        diffs = diff_inputs(matched, m1_proj, m2_proj)
+        labels = [d["label"] for d in diffs]
+        # Toggle diff flagged
+        assert "RC2 Equity" in labels
+        # Rate value diff suppressed
+        assert "RC2 Energy Rate" not in labels
+
+    def test_rc_value_shown_when_both_on(self):
+        """When RC is on in BOTH, value-field diffs DO surface."""
+        m1_proj = self._rc_project(6, 1, "Alpha", {
+            1: {"custom_generic": "Generic", "energy_rate": 0.05,
+                "equity_on": 1, "debt_on": 0, "appraisal_on": 0},
+        })
+        m2_proj = self._rc_project(6, 1, "Alpha", {
+            1: {"custom_generic": "Generic", "energy_rate": 0.07,
+                "equity_on": 1, "debt_on": 0, "appraisal_on": 0},
+        })
+        matched = match_projects(m1_proj, m2_proj)
+        diffs = diff_inputs(matched, m1_proj, m2_proj)
+        labels = [d["label"] for d in diffs]
+        assert "RC1 Energy Rate" in labels
+
+    def test_debt_match_equity_toggle_diff(self):
+        """_debt_match_equity differing → 'Debt Rate: match equity' row."""
+        m1 = _make_projects((6, 1, "A", {"_debt_match_equity": 1}))
+        m2 = _make_projects((6, 1, "A", {"_debt_match_equity": 0}))
+        matched = match_projects(m1, m2)
+        diffs = diff_inputs(matched, m1, m2)
+        labels = [d["label"] for d in diffs]
+        assert "Debt Rate: match equity" in labels
+
+    def test_dscr_schedule_year_diff(self):
+        """DSCR diff at year 3 → 'DSCR Y3' row."""
+        m1 = _make_projects((6, 1, "A", {}))
+        m1[6]["dscr_schedule"] = {1: 1.20, 2: 1.20, 3: 1.20}
+        m2 = _make_projects((6, 1, "A", {}))
+        m2[6]["dscr_schedule"] = {1: 1.20, 2: 1.20, 3: 1.35}
+        matched = match_projects(m1, m2)
+        diffs = diff_inputs(matched, m1, m2)
+        labels = [d["label"] for d in diffs]
+        assert "DSCR Y3" in labels
+        # Years 1,2 match — shouldn't appear
+        assert "DSCR Y1" not in labels
+        assert "DSCR Y2" not in labels
+
+    def test_rate_curve_cod_diff_for_custom_rcs(self):
+        """Both sides have Custom RC1 but the rate at COD differs."""
+        from datetime import datetime
+        curve_m1 = {datetime(2026, 1, 1): 0.1200, datetime(2027, 1, 1): 0.1250}
+        curve_m2 = {datetime(2026, 1, 1): 0.1050, datetime(2027, 1, 1): 0.1080}
+        m1 = self._rc_project(
+            6, 1, "Alpha",
+            rate_comps={1: {"custom_generic": "Custom", "energy_rate": None,
+                            "equity_on": 1, "debt_on": 0, "appraisal_on": 0}},
+            extra_data={15: 2026},  # COD year
+            rate_curves={1: curve_m1},
+        )
+        m2 = self._rc_project(
+            6, 1, "Alpha",
+            rate_comps={1: {"custom_generic": "Custom", "energy_rate": None,
+                            "equity_on": 1, "debt_on": 0, "appraisal_on": 0}},
+            extra_data={15: 2026},
+            rate_curves={1: curve_m2},
+        )
+        matched = match_projects(m1, m2)
+        diffs = diff_inputs(matched, m1, m2)
+        labels = [d["label"] for d in diffs]
+        assert "RC1 Rate Curve (COD)" in labels
+        # Verify the diff picked the COD-year rate, not some arbitrary month.
+        rate_diff = next(d for d in diffs if d["label"] == "RC1 Rate Curve (COD)")
+        m1_val, m2_val = rate_diff["values"][1]
+        assert m1_val == pytest.approx(0.1200)
+        assert m2_val == pytest.approx(0.1050)
+
+    def test_rate_curve_not_compared_when_one_side_generic(self):
+        """Shape mismatch (one Custom, one Generic) suppresses Rate Curves
+        diff — that shape change is already flagged by Pass 1a."""
+        from datetime import datetime
+        m1 = self._rc_project(
+            6, 1, "Alpha",
+            rate_comps={1: {"custom_generic": "Custom", "energy_rate": None,
+                            "equity_on": 1, "debt_on": 0, "appraisal_on": 0}},
+            extra_data={15: 2026},
+            rate_curves={1: {datetime(2026, 1, 1): 0.1200}},
+        )
+        m2 = self._rc_project(
+            6, 1, "Alpha",
+            rate_comps={1: {"custom_generic": "Generic", "energy_rate": 0.1050,
+                            "equity_on": 1, "debt_on": 0, "appraisal_on": 0}},
+            extra_data={15: 2026},
+        )
+        matched = match_projects(m1, m2)
+        diffs = diff_inputs(matched, m1, m2)
+        labels = [d["label"] for d in diffs]
+        assert "RC1 Rate Curve (COD)" not in labels
+        assert "RC1 Custom/Generic" in labels  # shape diff flagged instead

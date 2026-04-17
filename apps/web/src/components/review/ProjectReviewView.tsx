@@ -96,11 +96,11 @@ export function ProjectReviewView() {
         const k = project.kpis;
         const rc1 = project.rateComp1 as Record<string, unknown> | undefined;
         const rc1Name = String(rc1?.name || "—");
+        // ITC intentionally omitted — it's deal-specific, not a Bible benchmark.
         const kpis: [string, string][] = [
           ["MWdc", k.dc || "—"],
           ["EPC ($/W)", k.epc || "—"],
           ["NPP ($/W)", k.npp || "—"],
-          ["ITC", k.itc || "—"],
           ["Appraisal IRR", k.irr || "—"],
           ["Levered PT IRR", k.levIrr || "—"],
           ["Rate Curve", rc1Name !== "—" ? rc1Name : "—"],

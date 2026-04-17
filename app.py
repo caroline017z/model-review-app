@@ -839,7 +839,7 @@ def main():
     walk_summary: dict | None = None
     walk_bytes: bytes | None = None
     if walk_available:
-        from walk_builder import build_walk_xlsx
+        from lib.walk_builder import build_walk_xlsx
         _walk_buf, walk_summary = build_walk_xlsx(
             m1_result, m2_result, m1_label or "Model 1", m2_label or "Model 2",
         )

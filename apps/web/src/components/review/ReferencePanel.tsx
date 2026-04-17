@@ -77,7 +77,7 @@ function rateComp1Items(rc: Record<string, unknown> | undefined): RefItem[] {
 
   if (rc.name) items.push({ k: "RC1 Name", v: String(rc.name) });
   items.push({
-    k: "Energy Rate at COD",
+    k: "Rate Curve (at COD)",
     v: String(rc.rateDisplay ?? "—"),
     s: String(rc.rateSource ?? ""),
   });

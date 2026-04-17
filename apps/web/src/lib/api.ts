@@ -177,6 +177,7 @@ export async function downloadWalk(
   m1Label: string,
   m2Label: string,
   projectNumbers?: number[],
+  projectNames?: string[],
 ): Promise<Blob> {
   const res = await fetch(`${API_BASE}/api/walk`, {
     method: "POST",
@@ -187,6 +188,7 @@ export async function downloadWalk(
       m1_label: m1Label,
       m2_label: m2Label,
       project_numbers: projectNumbers ?? null,
+      project_names: projectNames ?? null,
     }),
   });
   if (!res.ok) throw new Error(`Walk failed: ${await res.text()}`);

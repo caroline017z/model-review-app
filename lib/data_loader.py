@@ -683,6 +683,15 @@ def load_pricing_model(file):
 
             rate_curves["projects"][pname] = proj_rc_data
 
+            # Push per-RC monthly-rate dicts onto the project top-level so the
+            # review panel (_build_rate_comp1) and walk_builder can read them
+            # without routing through the rate_curves["projects"] lookup.
+            # Keys: _rate_curves_rc1 .. _rate_curves_rc6 → {date: $/kWh}.
+            for _rc_idx in range(1, 7):
+                projects[col_idx][f"_rate_curves_rc{_rc_idx}"] = (
+                    proj_rc_data.get(_rc_idx, {})
+                )
+
     wb.close()
     # Deep-copy before returning so the Streamlit cache stores an immutable
     # snapshot. Downstream code (mockup_view, render_html, filter_projects)

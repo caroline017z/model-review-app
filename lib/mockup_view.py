@@ -522,16 +522,10 @@ def _build_kpis(proj: dict, findings: list[dict]) -> dict:
     if levered_pt_irr is not None:
         lev_irr_display = f"{_pct_display(levered_pt_irr):.2f}%"
 
-    # ITC: if the model doesn't expose ITC Rate as an input row (common —
-    # tax assumptions sit on a different sheet), fall back to the bible
-    # default with a small note rather than showing '—'.
+    # ITC Rate is deal-specific and not a Pricing Bible benchmark — if the
+    # model doesn't expose it, render '—' rather than substituting a default.
     itc_sub = ""
-    itc_display = None
-    if itc is not None:
-        itc_display = f"{_pct_display(itc):.0f}%"
-    else:
-        itc_display = f"{int(BIBLE_ITC_FRAC*100)}%"
-        itc_sub = "bible default"
+    itc_display = f"{_pct_display(itc):.0f}%" if itc is not None else "\u2014"
 
     # NPP sub-label shows the dollar total when present.
     npp_sub = ""
@@ -807,6 +801,60 @@ def _build_sensitivity(proj: dict) -> dict:
     }
 
 
+def _rate_at_cod(rc_data: dict, data: dict) -> float | None:
+    """Return the rate from rc_data that matches the project's COD period.
+
+    rc_data: {datetime: float} — monthly rates from the Rate Curves tab.
+    data: project data dict (holds ROW_COD_YEAR = 15 and optional
+        ROW_COD_QUARTER = 587).
+
+    Strategy:
+      1. Try exact match on (COD year, COD quarter's first month).
+      2. Fall back to the first curve date on or after the COD year's Jan 1.
+      3. Return None if neither resolves.
+    """
+    if not rc_data:
+        return None
+    cod_year_raw = _num(data.get(15))  # ROW_COD_YEAR
+    if cod_year_raw is None:
+        return _num(next(iter(rc_data.values()), None))
+    cod_year = int(cod_year_raw)
+
+    # COD Quarter → first month of the quarter. Row 587 holds a quarter
+    # label; accept int 1-4 or strings like "Q3" / "3Q" / "Q3 2026".
+    q_raw = data.get(587)
+    q_month = 1
+    if q_raw is not None:
+        q_num = _num(q_raw)
+        if q_num is not None and 1 <= int(q_num) <= 4:
+            q_month = (int(q_num) - 1) * 3 + 1
+        else:
+            s = str(q_raw).upper()
+            for q, m in (("Q1", 1), ("Q2", 4), ("Q3", 7), ("Q4", 10)):
+                if q in s:
+                    q_month = m
+                    break
+
+    # Build sortable list of (date, rate); earliest first.
+    sorted_items = sorted(
+        ((d, v) for d, v in rc_data.items() if hasattr(d, "year")),
+        key=lambda kv: (kv[0].year, kv[0].month),
+    )
+    if not sorted_items:
+        return _num(next(iter(rc_data.values()), None))
+
+    # Exact-year+month match.
+    for d, v in sorted_items:
+        if d.year == cod_year and d.month == q_month:
+            return _num(v)
+    # First date on or after COD quarter start.
+    for d, v in sorted_items:
+        if (d.year, d.month) >= (cod_year, q_month):
+            return _num(v)
+    # If COD is past the end of the curve, last known rate is the best guess.
+    return _num(sorted_items[-1][1])
+
+
 def _build_rate_comp1(proj: dict, market: dict | None = None) -> dict:
     """Extract Rate Component 1 details for display.
 
@@ -836,17 +884,14 @@ def _build_rate_comp1(proj: dict, market: dict | None = None) -> dict:
     equity_on = bool(rc1.get("equity_on"))
 
     # For Custom rate components, energy_rate is blank on Project Inputs.
-    # Pull from Rate Curves data if available (COD-matched column).
+    # Pull from Rate Curves data if available, aligned to the project's COD
+    # period (year + quarter → month). Fall back to the earliest curve date
+    # on or after the COD if no exact match exists.
     is_custom = custom_generic == "custom"
     if is_custom and rate is None:
-        # rate_curves attached by data_loader stores per-project monthly rates
-        # keyed by datetime. Pick the first available value as representative.
         rc_data = proj.get("_rate_curves_rc1") or {}
         if rc_data:
-            # Use the first month's rate as the COD rate
-            first_val = next(iter(rc_data.values()), None)
-            if first_val is not None:
-                rate = _num(first_val)
+            rate = _rate_at_cod(rc_data, proj.get("data") or {})
 
     # Extract GH haircut % from the name (e.g., "GH25 -22.5%" → 22.5)
     gh_haircut_pct = None

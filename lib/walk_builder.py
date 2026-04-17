@@ -383,6 +383,197 @@ def diff_inputs(
             })
         seen_labels.add(label.strip().lower())
 
+    # Helper: pick the Rate Curves rate that matches a project's COD period.
+    # Mirrors _rate_at_cod() in mockup_view.py — duplicated here to keep
+    # walk_builder a leaf module (no UI deps).
+    def _rate_at_cod(rc_monthly: dict, data: dict) -> float | None:
+        if not rc_monthly:
+            return None
+        cod_year_raw = safe_float(data.get(15))
+        items = sorted(
+            ((d, v) for d, v in rc_monthly.items() if hasattr(d, "year")),
+            key=lambda kv: (kv[0].year, kv[0].month),
+        )
+        if not items:
+            return None
+        if cod_year_raw is None:
+            return safe_float(items[0][1])
+        cod_year = int(cod_year_raw)
+        q_raw = data.get(587)
+        q_month = 1
+        if q_raw is not None:
+            q_num = safe_float(q_raw)
+            if q_num is not None and 1 <= int(q_num) <= 4:
+                q_month = (int(q_num) - 1) * 3 + 1
+            else:
+                s = str(q_raw).upper()
+                for q, m in (("Q1", 1), ("Q2", 4), ("Q3", 7), ("Q4", 10)):
+                    if q in s:
+                        q_month = m
+                        break
+        for d, v in items:
+            if d.year == cod_year and d.month == q_month:
+                return safe_float(v)
+        for d, v in items:
+            if (d.year, d.month) >= (cod_year, q_month):
+                return safe_float(v)
+        return safe_float(items[-1][1])
+
+    # --- Pass 1a: Rate components 1-6 (per-component, per-field) ---
+    # INPUT_ROW_LABELS covers only RC1 and partial RC2 rate rows. Rate comp
+    # data lives on proj["rate_comps"][rc_idx] as a structured dict; iterate
+    # it directly so RC3-6 (community solar adders, REC streams, etc.) don't
+    # fall through silently.
+    #
+    # Per-component fields split into two classes:
+    #   SHAPE: always compared — describes what the component IS (name,
+    #       Custom/Generic). A change here is a scope change for the walk.
+    #   VALUE: compared only when the RC is on (equity_on != 0) in BOTH
+    #       models. Rationale: when a component is off, its rate cells are
+    #       typically stale — comparing them produces noise.
+    #   TOGGLE: always compared — scope of the revenue stream.
+    _RC_SHAPE_FIELDS = [
+        ("name",           "Name",                 "text"),
+        ("custom_generic", "Custom/Generic",       "text"),
+    ]
+    _RC_VALUE_FIELDS = [
+        ("energy_rate",    "Energy Rate",          "$/kWh"),
+        ("escalator",      "Escalator",            "%"),
+        ("start_date",     "Start Date",           "date"),
+        ("term",           "Term",                 "yrs"),
+        ("discount",       "Customer Discount",    "%"),
+        ("ucb_fee",        "UCB Fee",              "%"),
+    ]
+    _RC_TOGGLE_FIELDS = [
+        ("equity_on",      "Equity",               "toggle"),
+        ("debt_on",        "Debt",                 "toggle"),
+        ("appraisal_on",   "Appraisal",            "toggle"),
+    ]
+
+    def _rc_on_both_sides(rc1: dict, rc2: dict) -> bool:
+        def _on(v):
+            return bool(safe_float(v)) if not isinstance(v, bool) else v
+        return _on(rc1.get("equity_on")) and _on(rc2.get("equity_on"))
+
+    for rc_idx in range(1, 7):
+        for field, label_suffix, unit in _RC_SHAPE_FIELDS + _RC_VALUE_FIELDS + _RC_TOGGLE_FIELDS:
+            is_value = (field, label_suffix, unit) in _RC_VALUE_FIELDS
+            is_text = unit in ("text", "date")
+            per_project: dict[int, tuple[Any, Any]] = {}
+            n_diff = 0
+            for m in matched:
+                rc1 = (m1_projects[m["m1_col"]].get("rate_comps") or {}).get(rc_idx) or {}
+                rc2 = (m2_projects[m["m2_col"]].get("rate_comps") or {}).get(rc_idx) or {}
+                # Value-field gate: if the component is off in either model,
+                # suppress the value diff (but keep toggle + shape diffs).
+                if is_value and not _rc_on_both_sides(rc1, rc2):
+                    continue
+                m1_val = rc1.get(field)
+                m2_val = rc2.get(field)
+                if m1_val is None and m2_val is None:
+                    continue
+                if _values_differ(m1_val, m2_val, is_text=is_text):
+                    n_diff += 1
+                per_project[m["proj_number"]] = (m1_val, m2_val)
+            if n_diff > 0 and per_project:
+                diffs.append({
+                    "row": 0,
+                    "label": f"RC{rc_idx} {label_suffix}",
+                    "unit": unit,
+                    "category": "Revenue",
+                    "values": per_project,
+                    "n_diff": n_diff,
+                    "n_total": len(per_project),
+                })
+
+    # --- Pass 1c: Rate Curves — COD-period rate per Custom RC ---
+    # When both sides have custom_generic == "custom" for a given RC, the
+    # revenue driver is the Rate Curves tab. Compare the $/kWh rate at each
+    # project's COD period. A difference here is invisible to all other
+    # passes because Project Inputs energy_rate is blank for Custom RCs.
+    for rc_idx in range(1, 7):
+        per_project = {}
+        n_diff = 0
+        for m in matched:
+            m1p = m1_projects[m["m1_col"]]
+            m2p = m2_projects[m["m2_col"]]
+            rc1 = (m1p.get("rate_comps") or {}).get(rc_idx) or {}
+            rc2 = (m2p.get("rate_comps") or {}).get(rc_idx) or {}
+            m1_custom = str(rc1.get("custom_generic") or "").strip().lower() == "custom"
+            m2_custom = str(rc2.get("custom_generic") or "").strip().lower() == "custom"
+            if not (m1_custom and m2_custom):
+                continue  # shape-mismatch already flagged by Pass 1a
+            m1_curve = m1p.get(f"_rate_curves_rc{rc_idx}") or {}
+            m2_curve = m2p.get(f"_rate_curves_rc{rc_idx}") or {}
+            m1_rate = _rate_at_cod(m1_curve, m1p.get("data") or {})
+            m2_rate = _rate_at_cod(m2_curve, m2p.get("data") or {})
+            if m1_rate is None and m2_rate is None:
+                continue
+            if _values_differ(m1_rate, m2_rate):
+                n_diff += 1
+            per_project[m["proj_number"]] = (m1_rate, m2_rate)
+        if n_diff > 0 and per_project:
+            diffs.append({
+                "row": 0,
+                "label": f"RC{rc_idx} Rate Curve (COD)",
+                "unit": "$/kWh",
+                "category": "Revenue",
+                "values": per_project,
+                "n_diff": n_diff,
+                "n_total": len(per_project),
+            })
+
+    # --- Pass 1b: Special-key diffs (match toggles + DSCR schedule) ---
+    # These live on proj["data"] under non-row-number keys and aren't covered
+    # by INPUT_ROW_LABELS. They're scope-critical — a "debt match equity"
+    # toggle flip changes the revenue profile materially.
+    _SPECIAL_KEYS: list[tuple[str, str, str, str]] = [
+        # (data_key, label, unit, category)
+        ("_debt_match_equity",      "Debt Rate: match equity",      "toggle", "Financing"),
+        ("_appraisal_match_equity", "Appraisal Rate: match equity", "toggle", "Financing"),
+        ("_front_back_toggle",      "Front/Back Debt toggle",       "toggle", "Financing"),
+        ("_debt_sizing_method",     "Debt Sizing Method",           "text",   "Financing"),
+    ]
+    for key, label, unit, category in _SPECIAL_KEYS:
+        per_project: dict[int, tuple[Any, Any]] = {}
+        n_diff = 0
+        for m in matched:
+            m1_val = m1_projects[m["m1_col"]]["data"].get(key)
+            m2_val = m2_projects[m["m2_col"]]["data"].get(key)
+            if m1_val is None and m2_val is None:
+                continue
+            if _values_differ(m1_val, m2_val, is_text=(unit == "text")):
+                n_diff += 1
+            per_project[m["proj_number"]] = (m1_val, m2_val)
+        if n_diff > 0 and per_project:
+            diffs.append({
+                "row": 0, "label": label, "unit": unit, "category": category,
+                "values": per_project, "n_diff": n_diff, "n_total": len(per_project),
+            })
+
+    # DSCR schedule — compare year-by-year (cap at year 10, the practical
+    # horizon for PPA debt sizing). dscr_schedule is {yr: dscr} on each
+    # project; empty dicts mean the model doesn't override DSCR.
+    for year in range(1, 11):
+        per_project = {}
+        n_diff = 0
+        for m in matched:
+            m1_sched = m1_projects[m["m1_col"]].get("dscr_schedule") or {}
+            m2_sched = m2_projects[m["m2_col"]].get("dscr_schedule") or {}
+            m1_val = m1_sched.get(year)
+            m2_val = m2_sched.get(year)
+            if m1_val is None and m2_val is None:
+                continue
+            if _values_differ(m1_val, m2_val):
+                n_diff += 1
+            per_project[m["proj_number"]] = (m1_val, m2_val)
+        if n_diff > 0 and per_project:
+            diffs.append({
+                "row": 0, "label": f"DSCR Y{year}", "unit": "x",
+                "category": "Financing",
+                "values": per_project, "n_diff": n_diff, "n_total": len(per_project),
+            })
+
     # --- Pass 2: ALL inputs by column B label (catches non-canonical rows) ---
     if matched:
         # Collect all unique labels across both models
@@ -469,12 +660,19 @@ def build_walk_xlsx(
     m1_label: str,
     m2_label: str,
     include_proj_numbers: set[int] | None = None,
+    include_proj_names: set[str] | None = None,
 ) -> tuple[io.BytesIO, dict]:
     """Build a formatted Walk Summary .xlsx comparing two models.
 
     Args:
-        include_proj_numbers: If provided, only include projects whose
-            proj_number is in this set (i.e. the confirmed portfolio selection).
+        include_proj_numbers: If provided, include projects whose proj_number
+            is in this set. Union'd with include_proj_names.
+        include_proj_names: If provided, include projects whose name (case /
+            whitespace tolerant) is in this set. Acts as a fallback when the
+            project review panel returns projects with null projNumber.
+
+    A project is kept if it matches EITHER the number set OR the name set.
+    When both filters are None, all matched projects are kept (no filter).
 
     Returns (BytesIO with xlsx data, summary dict for UI).
     """
@@ -483,9 +681,19 @@ def build_walk_xlsx(
 
     all_matched = match_projects(m1_projects, m2_projects)
 
-    # Filter to only portfolio-selected projects when a filter is provided
-    if include_proj_numbers is not None:
-        matched = [m for m in all_matched if m["proj_number"] in include_proj_numbers]
+    # Apply the include filters. Union semantics: a project passes if its
+    # proj_number OR its name is in the allowed set. This is what the review
+    # panel sends when some rows have a valid project# and others don't.
+    def _canon(n: str) -> str:
+        return re.sub(r"\s+", " ", (n or "")).strip().casefold()
+
+    canon_names = {_canon(n) for n in include_proj_names} if include_proj_names else set()
+    if include_proj_numbers is not None or include_proj_names is not None:
+        matched = [
+            m for m in all_matched
+            if (include_proj_numbers and m["proj_number"] in include_proj_numbers)
+            or (canon_names and _canon(m["name"]) in canon_names)
+        ]
     else:
         matched = list(all_matched)
 
