@@ -300,6 +300,24 @@ def audit_projects(projects):
     return results
 
 
+def verdict_from_summary(summary: dict) -> str:
+    """Classify an audit summary as CLEAN / REVIEW / REWORK REQUIRED.
+
+    Rules (match review-panel behavior exactly):
+      - 0 failures of any kind         → CLEAN
+      - 2+ OFF, or 1+ OFF with 2+ OUT  → REWORK REQUIRED
+      - otherwise (some issues)        → REVIEW
+    """
+    off = summary.get("OFF", 0)
+    out = summary.get("OUT", 0)
+    missing = summary.get("MISSING", 0)
+    if off == 0 and out == 0 and missing == 0:
+        return "CLEAN"
+    if off >= 2 or (off >= 1 and out >= 2):
+        return "REWORK REQUIRED"
+    return "REVIEW"
+
+
 # ---------------------------------------------------------------------------
 # Inline-highlight helpers (consumed by app.py / comparison rendering)
 # ---------------------------------------------------------------------------

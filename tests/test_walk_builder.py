@@ -851,6 +851,51 @@ class TestTranche3RateCurveConfidence:
         model_store.delete(id1)
         model_store.delete(id2)
 
+    def test_verdict_from_summary_thresholds(self):
+        """Spot-check the canonical classification rules."""
+        from lib.bible_audit import verdict_from_summary
+        assert verdict_from_summary({"OK": 5, "OFF": 0, "OUT": 0, "MISSING": 0}) == "CLEAN"
+        assert verdict_from_summary({"OK": 5, "OFF": 1, "OUT": 0, "MISSING": 0}) == "REVIEW"
+        assert verdict_from_summary({"OK": 5, "OFF": 0, "OUT": 3, "MISSING": 0}) == "REVIEW"
+        assert verdict_from_summary({"OK": 5, "OFF": 2, "OUT": 0, "MISSING": 0}) == "REWORK REQUIRED"
+        assert verdict_from_summary({"OK": 5, "OFF": 1, "OUT": 2, "MISSING": 0}) == "REWORK REQUIRED"
+
+    def test_extract_metrics_sets_m1_verdict(self):
+        """extract_metrics runs the M1-side audit and records the verdict."""
+        m1 = _make_projects((6, 1, "Alpha", {}))
+        m2 = _make_projects((6, 1, "Alpha", {}))
+        matched = match_projects(m1, m2)
+        metrics = extract_metrics(matched, m1, m2)
+        assert "m1_verdict" in metrics[0]
+        assert metrics[0]["m1_verdict"] in ("CLEAN", "REVIEW", "REWORK REQUIRED")
+
+    def test_anchor_writes_verdict_column(self):
+        """Verdict renders in column D with a colored fill."""
+        m1 = {"projects": _make_projects((6, 1, "Alpha", {}))}
+        m2 = {"projects": _make_projects((6, 1, "Alpha", {}))}
+        buf, _ = build_walk_xlsx(m1, m2, "M1", "M2")
+        import openpyxl
+        wb = openpyxl.load_workbook(buf)
+        ws = wb["Build Walk"]
+        # Header label at D6
+        assert ws.cell(row=6, column=4).value == "M1 Verdict"
+        # First data row (7) should have a verdict value in D7
+        v = ws.cell(row=7, column=4).value
+        assert v in ("CLEAN", "REVIEW", "REWORK REQUIRED")
+        # Fill is non-empty and matches the verdict palette
+        fill = ws.cell(row=7, column=4).fill
+        assert fill.patternType == "solid"
+        wb.close()
+
+    def test_summary_verdict_counts(self):
+        m1 = {"projects": _make_projects((6, 1, "A", {}), (7, 2, "B", {}))}
+        m2 = {"projects": _make_projects((6, 1, "A", {}), (7, 2, "B", {}))}
+        _, summary = build_walk_xlsx(m1, m2, "M1", "M2")
+        assert "verdict_counts" in summary
+        vc = summary["verdict_counts"]
+        total = vc.get("CLEAN", 0) + vc.get("REVIEW", 0) + vc.get("REWORK REQUIRED", 0)
+        assert total == 2
+
     def test_walk_notes_flags_extrapolated_count(self):
         """When a Custom-Custom RC pair has any project with non-exact
         rate-curve lookup, the Notes column mentions it."""

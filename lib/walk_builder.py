@@ -34,6 +34,7 @@ from lib.config import (
 )
 from lib.data_loader import get_projects
 from lib.rows import ROW_PROJECT_NUMBER, ROW_DC_MW, ROW_NPP, ROW_LEVERED_PT_IRR
+from lib.bible_audit import audit_project, verdict_from_summary
 from lib.impact import portfolio_impact
 from lib.utils import canonicalize_name, canonicalize_pnum, safe_float
 
@@ -240,6 +241,14 @@ def _rate_at_cod(rc_monthly: dict, data: dict) -> tuple[float | None, str | None
 NAVY_FILL = PatternFill("solid", fgColor="002060")
 GREY_FILL = PatternFill("solid", fgColor="F2F2F2")
 YELLOW_FILL = PatternFill("solid", fgColor="FFFFCC")
+
+# Verdict fills — match Excel's conditional-formatting palette so they read
+# the same way reviewers expect (green=good, yellow=caution, red=bad).
+_VERDICT_FILLS = {
+    "CLEAN":            PatternFill("solid", fgColor="C6EFCE"),   # light green
+    "REVIEW":           PatternFill("solid", fgColor="FFEB9C"),   # light yellow
+    "REWORK REQUIRED":  PatternFill("solid", fgColor="FFC7CE"),   # light red
+}
 
 WHITE_BOLD = Font(color="FFFFFF", bold=True, size=11)
 BLUE_FONT = Font(color="0000FF", size=11)
@@ -501,11 +510,23 @@ def extract_metrics(
     m1_projects: dict,
     m2_projects: dict,
 ) -> list[dict]:
-    """Extract NPP, IRR, MWdc per matched project per model."""
+    """Extract NPP, IRR, MWdc per matched project per model.
+
+    Also runs M1-side audit and records the verdict (CLEAN / REVIEW /
+    REWORK REQUIRED) so the Anchor section can surface review status
+    alongside NPP/IRR. M2 is the comparison base; its verdict would be
+    symmetric and adds no new signal.
+    """
     results = []
     for m in matched:
         m1_data = m1_projects[m["m1_col"]]["data"]
         m2_data = m2_projects[m["m2_col"]]["data"]
+        try:
+            audit = audit_project(m1_data)
+            m1_verdict = verdict_from_summary(audit.get("summary", {}))
+        except Exception as exc:
+            logger.warning("audit_project failed for %r: %s — defaulting to REVIEW", m.get("name"), exc)
+            m1_verdict = "REVIEW"
         results.append({
             "proj_number": m["proj_number"],
             "name": m["name"],
@@ -515,6 +536,7 @@ def extract_metrics(
             "m2_npp": safe_float(m2_data.get(ROW_NPP)),
             "m2_irr": safe_float(m2_data.get(ROW_LEVERED_PT_IRR)),
             "match_source": m.get("match_source", "proj_num"),
+            "m1_verdict": m1_verdict,
         })
     return results
 
@@ -911,7 +933,10 @@ def _write_anchor_section(
     ws.column_dimensions["A"].width = 2
     ws.column_dimensions["B"].width = 30
     ws.column_dimensions["C"].width = 10
-    ws.column_dimensions["D"].width = 2
+    # Column D used to be an empty spacer; it now holds the M1-side review
+    # verdict (CLEAN / REVIEW / REWORK REQUIRED) with color-coded fill.
+    # Widen enough to fit the longest label.
+    ws.column_dimensions["D"].width = 18
     for ci in range(5, _WALK_LAST_COL + 1):
         ws.column_dimensions[get_column_letter(ci)].width = 14
     ws.column_dimensions["J"].width = 26  # Notes column (variance-only)
@@ -941,7 +966,7 @@ def _write_anchor_section(
     ws.cell(row=5, column=9).border = THIN_BOTTOM
 
     # Row 6: fixed headers + per-case NPP/IRR headers + delta
-    for col, text in [(2, "Project Name"), (3, "MWdc")]:
+    for col, text in [(2, "Project Name"), (3, "MWdc"), (4, "M1 Verdict")]:
         cell = ws.cell(row=6, column=col, value=text)
         cell.font = BOLD_FONT if col == 2 else NORMAL_FONT
         cell.fill = GREY_FILL
@@ -984,6 +1009,17 @@ def _write_anchor_section(
         cell.number_format = FMT_MW; cell.alignment = CENTER
         if is_last:
             cell.border = THIN_BOTTOM
+
+        # Verdict cell — color-coded fill matches review-panel semantics.
+        verdict = pm.get("m1_verdict", "REVIEW")
+        v_cell = ws.cell(row=r, column=4, value=verdict)
+        v_cell.alignment = CENTER
+        v_cell.font = BOLD_FONT
+        fill = _VERDICT_FILLS.get(verdict)
+        if fill is not None:
+            v_cell.fill = fill
+        if is_last:
+            v_cell.border = THIN_BOTTOM
 
         case_vals = [(pm["m1_npp"], pm["m1_irr"]), (pm["m2_npp"], pm["m2_irr"])]
         for ci, (npp_val, irr_val) in enumerate(case_vals):
@@ -1364,12 +1400,17 @@ def build_walk_xlsx(
     for m in matched:
         key = m.get("match_source", "proj_num")
         matches_by_source[key] = matches_by_source.get(key, 0) + 1
+    verdict_counts: dict[str, int] = {"CLEAN": 0, "REVIEW": 0, "REWORK REQUIRED": 0}
+    for pm in metrics:
+        vk = pm.get("m1_verdict", "REVIEW")
+        verdict_counts[vk] = verdict_counts.get(vk, 0) + 1
     summary = {
         "n_matched": len(matched),
         "n_diffs": len(variances),
         "n_unmatched_m1": len(unmatched_m1),
         "n_unmatched_m2": len(unmatched_m2),
         "matches_by_source": matches_by_source,
+        "verdict_counts": verdict_counts,
         "categories": cats_found,
         "m1_label": m1_label,
         "m2_label": m2_label,

@@ -392,15 +392,7 @@ def _build_tol_note(info: dict) -> str:
     return f"Tol ±{tol}"
 
 
-def _verdict_from_summary(summary: dict[str, int]) -> str:
-    off = summary.get("OFF", 0)
-    out = summary.get("OUT", 0)
-    missing = summary.get("MISSING", 0)
-    if off == 0 and out == 0 and missing == 0:
-        return "CLEAN"
-    if off >= 2 or (off >= 1 and out >= 2):
-        return "REWORK REQUIRED"
-    return "REVIEW"
+from lib.bible_audit import verdict_from_summary
 
 
 def _derive_sub(proj: dict, audit: dict, label: str) -> str:
@@ -1040,7 +1032,7 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
         "state": audit.get("state") or str(data.get(ROW_STATE) or "").strip(),
         "utility": utility,
         "program": program,
-        "verdict": _verdict_from_summary(summary),
+        "verdict": verdict_from_summary(summary),
         "irrPct": rolled["irrPct"],
         "nppPerW": rolled["nppPerW"],
         "equityK": rolled["equityK"],
