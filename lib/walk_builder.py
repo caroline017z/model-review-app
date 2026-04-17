@@ -25,6 +25,7 @@ import openpyxl
 from openpyxl.styles import (
     Alignment, Border, Font, PatternFill, Side,
 )
+from openpyxl.comments import Comment
 from openpyxl.utils import get_column_letter
 
 from lib.config import (
@@ -34,7 +35,7 @@ from lib.config import (
 from lib.data_loader import get_projects
 from lib.rows import ROW_PROJECT_NUMBER, ROW_DC_MW, ROW_NPP, ROW_LEVERED_PT_IRR
 from lib.impact import portfolio_impact
-from lib.utils import canonicalize_name, safe_float
+from lib.utils import canonicalize_name, canonicalize_pnum, safe_float
 
 logger = logging.getLogger(__name__)
 
@@ -186,26 +187,30 @@ def _orphan_reason(proj: dict, other_pnums: set[int], other_names: set[str]) -> 
 # Rate Curves COD lookup (used by Pass 1c of diff_inputs)
 # ---------------------------------------------------------------------------
 
-def _rate_at_cod(rc_monthly: dict, data: dict) -> float | None:
+def _rate_at_cod(rc_monthly: dict, data: dict) -> tuple[float | None, str | None]:
     """Pick the Rate Curves rate at the project's COD period.
 
     rc_monthly: {datetime: $/kWh} — monthly rates for one RC on one project.
     data: project data dict (ROW_COD_YEAR=15, ROW_COD_QUARTER=587).
 
-    Strategy: exact (year, month-from-quarter) match → first date on or after
-    COD quarter start → last known rate if COD is past curve end.
+    Returns (rate, confidence). Confidence is one of:
+      exact               — exact (year, month-from-quarter) match
+      extrapolated_forward — first curve date on or after COD quarter start
+      clamped_end         — COD is past the curve's last date; returns last rate
+      None                — no rate available (empty rc_monthly or no dateable keys)
     """
     if not rc_monthly:
-        return None
+        return None, None
     cod_year_raw = safe_float(data.get(15))
     items = sorted(
         ((d, v) for d, v in rc_monthly.items() if hasattr(d, "year")),
         key=lambda kv: (kv[0].year, kv[0].month),
     )
     if not items:
-        return None
+        return None, None
     if cod_year_raw is None:
-        return safe_float(items[0][1])
+        # No COD year on the project — best effort, use the earliest curve date.
+        return safe_float(items[0][1]), "extrapolated_forward"
     cod_year = int(cod_year_raw)
     q_raw = data.get(587)
     q_month = 1
@@ -221,11 +226,11 @@ def _rate_at_cod(rc_monthly: dict, data: dict) -> float | None:
                     break
     for d, v in items:
         if d.year == cod_year and d.month == q_month:
-            return safe_float(v)
+            return safe_float(v), "exact"
     for d, v in items:
         if (d.year, d.month) >= (cod_year, q_month):
-            return safe_float(v)
-    return safe_float(items[-1][1])
+            return safe_float(v), "extrapolated_forward"
+    return safe_float(items[-1][1]), "clamped_end"
 
 
 # ---------------------------------------------------------------------------
@@ -339,79 +344,125 @@ def _categorize_row(row: int) -> str:
 # Project matching
 # ---------------------------------------------------------------------------
 
+def _build_pnum_index(projects: dict) -> dict[str, tuple[int, Any]]:
+    """Project # → (col, raw_pnum) index keyed on canonicalize_pnum output.
+
+    Handles int/float/string variance ("1" vs 1 vs 1.0 all key the same)
+    and string project numbers like "P-001". The raw pnum is preserved so
+    the returned match dict can report the original display value.
+    """
+    idx: dict[str, tuple[int, Any]] = {}
+    for col, proj in projects.items():
+        if not isinstance(proj, dict) or "data" not in proj:
+            continue
+        raw = proj["data"].get(ROW_PROJECT_NUMBER)
+        canon = canonicalize_pnum(raw)
+        if canon is not None:
+            idx[canon] = (col, raw)
+    return idx
+
+
+def _build_positional_pnum_index(projects: dict) -> dict[str, tuple[int, Any]]:
+    """Same as _build_pnum_index but falls back to column-position-inferred
+    project numbers when the row-2 value is blank. Typical models start
+    projects at column F (6), so col - 5 = inferred project #.
+    """
+    idx: dict[str, tuple[int, Any]] = {}
+    for col, proj in projects.items():
+        if not isinstance(proj, dict) or "data" not in proj:
+            continue
+        raw = proj["data"].get(ROW_PROJECT_NUMBER)
+        canon = canonicalize_pnum(raw)
+        if canon is not None:
+            idx[canon] = (col, raw)
+        elif proj.get("name"):
+            inferred = col - 5
+            if inferred >= 1:
+                idx[str(inferred)] = (col, inferred)
+    return idx
+
+
+def _build_name_match_index(projects: dict) -> dict[str, int]:
+    """Canonical-name → col index for name-based fallback matching."""
+    idx: dict[str, int] = {}
+    for col, proj in projects.items():
+        if not isinstance(proj, dict):
+            continue
+        canon = canonicalize_name(proj.get("name"))
+        if canon:
+            idx[canon] = col
+    return idx
+
+
+def _pnum_display(raw: Any) -> Any:
+    """Convert a raw Project # cell value into the form downstream uses:
+    int when the value is integer-valued numeric (the common case); the
+    original string otherwise (e.g. "P-001"). Preserves int-filter
+    compatibility with the frontend's include_proj_numbers request field.
+    """
+    fv = safe_float(raw)
+    if fv is not None and fv == int(fv):
+        return int(fv)
+    return raw
+
+
+def _make_matched(
+    proj_number: Any, name: str, m1_col: int, m2_col: int, match_source: str,
+) -> dict:
+    return {
+        "proj_number": _pnum_display(proj_number),
+        "name": name,
+        "m1_col": m1_col,
+        "m2_col": m2_col,
+        "match_source": match_source,
+    }
+
+
 def match_projects(
     m1_projects: dict, m2_projects: dict,
 ) -> list[dict]:
-    """Match projects between two models by Project # (row 2).
+    """Match projects between two models.
 
-    Falls back to name-based matching or column-position-inferred project
-    numbers when row 2 data is missing/unresolved.
+    Strategy (first match wins):
+      1. Canonical Project # (row 2) — handles int/float/string variance.
+      2. Positional fallback — infer proj# from column position (col - 5).
+         Used only when primary yields zero matches.
+      3. Name fallback — canonical-name equality. Used only when both
+         primary and positional yield zero matches.
 
-    Returns list of {proj_number, name, m1_col, m2_col} sorted by proj_number.
+    Returns list of matched dicts with keys: proj_number, name, m1_col,
+    m2_col, match_source (one of "proj_num" | "positional" | "name").
     """
-    def _build_index(projects: dict) -> dict[int, int]:
-        idx: dict[int, int] = {}
-        for col, proj in projects.items():
-            if not isinstance(proj, dict) or "data" not in proj:
-                continue
-            pnum = safe_float(proj["data"].get(ROW_PROJECT_NUMBER))
-            if pnum is not None:
-                idx[int(pnum)] = col
-        return idx
-
-    m1_idx = _build_index(m1_projects)
-    m2_idx = _build_index(m2_projects)
-
-    # Inner join on proj_number
+    m1_idx = _build_pnum_index(m1_projects)
+    m2_idx = _build_pnum_index(m2_projects)
     common = sorted(set(m1_idx.keys()) & set(m2_idx.keys()))
-    matched = []
-    for pnum in common:
-        m1_col = m1_idx[pnum]
-        m1_proj = m1_projects[m1_col]
-        matched.append({
-            "proj_number": pnum,
-            "name": str(m1_proj.get("name") or "Unnamed").strip(),
-            "m1_col": m1_col,
-            "m2_col": m2_idx[pnum],
-        })
-
+    matched = [
+        _make_matched(
+            proj_number=m1_idx[k][1],
+            name=str(m1_projects[m1_idx[k][0]].get("name") or "Unnamed").strip(),
+            m1_col=m1_idx[k][0],
+            m2_col=m2_idx[k][0],
+            match_source="proj_num",
+        )
+        for k in common
+    ]
     if matched:
         return matched
 
-    # ----- Fallback 1: infer project numbers from column position -----
-    # Typical models have projects starting at column F (6), so col - 5 = project #.
-    # Try this for projects whose data[ROW_PROJECT_NUMBER] is None.
-    def _build_index_positional(projects: dict) -> dict[int, int]:
-        idx: dict[int, int] = {}
-        for col, proj in projects.items():
-            if not isinstance(proj, dict) or "data" not in proj:
-                continue
-            pnum = safe_float(proj["data"].get(ROW_PROJECT_NUMBER))
-            if pnum is not None:
-                idx[int(pnum)] = col
-            elif proj.get("name"):
-                # Infer project number from column position (col F=6 -> #1)
-                inferred = col - 5
-                if inferred >= 1:
-                    idx[inferred] = col
-        return idx
-
-    m1_pos = _build_index_positional(m1_projects)
-    m2_pos = _build_index_positional(m2_projects)
-    already_matched = {m["proj_number"] for m in matched}
+    # Fallback 1: positional project # (col - 5)
+    m1_pos = _build_positional_pnum_index(m1_projects)
+    m2_pos = _build_positional_pnum_index(m2_projects)
     common_pos = sorted(set(m1_pos.keys()) & set(m2_pos.keys()))
-    for pnum in common_pos:
-        if pnum in already_matched:
-            continue
-        m1_col = m1_pos[pnum]
-        m1_proj = m1_projects[m1_col]
-        matched.append({
-            "proj_number": pnum,
-            "name": str(m1_proj.get("name") or "Unnamed").strip(),
-            "m1_col": m1_col,
-            "m2_col": m2_pos[pnum],
-        })
-
+    for k in common_pos:
+        m1_col, raw_pnum = m1_pos[k]
+        m2_col, _ = m2_pos[k]
+        matched.append(_make_matched(
+            proj_number=raw_pnum,
+            name=str(m1_projects[m1_col].get("name") or "Unnamed").strip(),
+            m1_col=m1_col,
+            m2_col=m2_col,
+            match_source="positional",
+        ))
     if matched:
         logger.info(
             "Project # matching yielded 0 results; positional fallback matched %d projects.",
@@ -419,29 +470,20 @@ def match_projects(
         )
         return matched
 
-    # ----- Fallback 2: match by project name (exact string match) -----
-    def _build_name_index(projects: dict) -> dict[str, int]:
-        idx: dict[str, int] = {}
-        for col, proj in projects.items():
-            if not isinstance(proj, dict):
-                continue
-            name = str(proj.get("name") or "").strip()
-            if name:
-                idx[name] = col
-        return idx
-
-    m1_names = _build_name_index(m1_projects)
-    m2_names = _build_name_index(m2_projects)
+    # Fallback 2: canonical name equality
+    m1_names = _build_name_match_index(m1_projects)
+    m2_names = _build_name_match_index(m2_projects)
     common_names = sorted(set(m1_names.keys()) & set(m2_names.keys()))
-    for i, name in enumerate(common_names, start=1):
-        m1_col = m1_names[name]
-        matched.append({
-            "proj_number": i,
-            "name": name,
-            "m1_col": m1_col,
-            "m2_col": m2_names[name],
-        })
-
+    for i, canon in enumerate(common_names, start=1):
+        m1_col = m1_names[canon]
+        name = str(m1_projects[m1_col].get("name") or "").strip()
+        matched.append(_make_matched(
+            proj_number=i,
+            name=name,
+            m1_col=m1_col,
+            m2_col=m2_names[canon],
+            match_source="name",
+        ))
     if matched:
         logger.info(
             "Project # matching yielded 0 results; name-based fallback matched %d projects.",
@@ -472,6 +514,7 @@ def extract_metrics(
             "m1_irr": safe_float(m1_data.get(ROW_LEVERED_PT_IRR)),
             "m2_npp": safe_float(m2_data.get(ROW_NPP)),
             "m2_irr": safe_float(m2_data.get(ROW_LEVERED_PT_IRR)),
+            "match_source": m.get("match_source", "proj_num"),
         })
     return results
 
@@ -634,6 +677,7 @@ def _diff_rate_curves_cod(
     for rc_idx in range(1, 7):
         per_project: dict[int, tuple[Any, Any]] = {}
         n_diff = 0
+        n_extrapolated = 0
         for m in matched:
             m1p = m1_projects[m["m1_col"]]
             m2p = m2_projects[m["m2_col"]]
@@ -645,12 +689,17 @@ def _diff_rate_curves_cod(
                 continue
             m1_curve = m1p.get(f"_rate_curves_rc{rc_idx}") or {}
             m2_curve = m2p.get(f"_rate_curves_rc{rc_idx}") or {}
-            m1_rate = _rate_at_cod(m1_curve, m1p.get("data") or {})
-            m2_rate = _rate_at_cod(m2_curve, m2p.get("data") or {})
+            m1_rate, m1_conf = _rate_at_cod(m1_curve, m1p.get("data") or {})
+            m2_rate, m2_conf = _rate_at_cod(m2_curve, m2p.get("data") or {})
             if m1_rate is None and m2_rate is None:
                 continue
             if _values_differ(m1_rate, m2_rate):
                 n_diff += 1
+            # Count this project as non-exact if EITHER side had to extrapolate;
+            # reviewers can then read the Notes column to know the rate may
+            # not reflect the true COD-period value.
+            if (m1_conf not in ("exact", None)) or (m2_conf not in ("exact", None)):
+                n_extrapolated += 1
             per_project[m["proj_number"]] = (m1_rate, m2_rate)
         if n_diff > 0 and per_project:
             diffs.append({
@@ -662,6 +711,7 @@ def _diff_rate_curves_cod(
                 "n_diff": n_diff,
                 "n_total": len(per_project),
                 "source": "rate_curve",
+                **({"extrapolated_count": n_extrapolated} if n_extrapolated else {}),
             })
     return diffs
 
@@ -920,6 +970,15 @@ def _write_anchor_section(
         cell.font = WHITE_BOLD; cell.fill = NAVY_FILL
         if is_last:
             cell.border = THIN_BOTTOM
+        # Non-standard pairing? attach a hover-comment so reviewers can
+        # audit how the pair was formed. Doesn't clutter the print view.
+        match_source = pm.get("match_source", "proj_num")
+        if match_source != "proj_num":
+            cell.comment = Comment(
+                f"Matched via {match_source} fallback — verify the pair "
+                f"is correct. Standard matching uses Project # (row 2).",
+                "walk_builder",
+            )
 
         cell = ws.cell(row=r, column=3, value=pm["mwdc"])
         cell.number_format = FMT_MW; cell.alignment = CENTER
@@ -1101,10 +1160,11 @@ def _write_variance_row(
     n_diff = v.get("n_diff", 0)
     n_total = v.get("n_total", len(v.get("values", {})))
     if n_diff:
-        notes_cell = ws.cell(
-            row=r, column=10,
-            value=f"differs for {n_diff} of {n_total} projects",
-        )
+        note_text = f"differs for {n_diff} of {n_total} projects"
+        extrapolated = v.get("extrapolated_count", 0)
+        if extrapolated:
+            note_text += f" · rate extrapolated: {extrapolated}"
+        notes_cell = ws.cell(row=r, column=10, value=note_text)
         notes_cell.font = Font(size=10, color="7d8694", italic=True)
         notes_cell.alignment = LEFT
 
@@ -1300,11 +1360,16 @@ def build_walk_xlsx(
 
     # Build summary dict for the UI panel
     cats_found = [c for c in _CATEGORY_ORDER if c in grouped]
+    matches_by_source: dict[str, int] = {"proj_num": 0, "positional": 0, "name": 0}
+    for m in matched:
+        key = m.get("match_source", "proj_num")
+        matches_by_source[key] = matches_by_source.get(key, 0) + 1
     summary = {
         "n_matched": len(matched),
         "n_diffs": len(variances),
         "n_unmatched_m1": len(unmatched_m1),
         "n_unmatched_m2": len(unmatched_m2),
+        "matches_by_source": matches_by_source,
         "categories": cats_found,
         "m1_label": m1_label,
         "m2_label": m2_label,

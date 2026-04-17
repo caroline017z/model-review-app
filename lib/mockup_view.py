@@ -801,27 +801,27 @@ def _build_sensitivity(proj: dict) -> dict:
     }
 
 
-def _rate_at_cod(rc_data: dict, data: dict) -> float | None:
-    """Return the rate from rc_data that matches the project's COD period.
+def _rate_at_cod(rc_data: dict, data: dict) -> tuple[float | None, str | None]:
+    """Return (rate, confidence) for the rate at the project's COD period.
 
     rc_data: {datetime: float} — monthly rates from the Rate Curves tab.
-    data: project data dict (holds ROW_COD_YEAR = 15 and optional
-        ROW_COD_QUARTER = 587).
+    data: project data dict (ROW_COD_YEAR = 15, ROW_COD_QUARTER = 587).
 
-    Strategy:
-      1. Try exact match on (COD year, COD quarter's first month).
-      2. Fall back to the first curve date on or after the COD year's Jan 1.
-      3. Return None if neither resolves.
+    Confidence: "exact" | "extrapolated_forward" | "clamped_end" | None.
+    Kept in sync with walk_builder._rate_at_cod; Tranche 6 will consolidate.
     """
     if not rc_data:
-        return None
-    cod_year_raw = _num(data.get(15))  # ROW_COD_YEAR
+        return None, None
+    cod_year_raw = _num(data.get(15))
+    sorted_items = sorted(
+        ((d, v) for d, v in rc_data.items() if hasattr(d, "year")),
+        key=lambda kv: (kv[0].year, kv[0].month),
+    )
+    if not sorted_items:
+        return None, None
     if cod_year_raw is None:
-        return _num(next(iter(rc_data.values()), None))
+        return _num(sorted_items[0][1]), "extrapolated_forward"
     cod_year = int(cod_year_raw)
-
-    # COD Quarter → first month of the quarter. Row 587 holds a quarter
-    # label; accept int 1-4 or strings like "Q3" / "3Q" / "Q3 2026".
     q_raw = data.get(587)
     q_month = 1
     if q_raw is not None:
@@ -835,24 +835,13 @@ def _rate_at_cod(rc_data: dict, data: dict) -> float | None:
                     q_month = m
                     break
 
-    # Build sortable list of (date, rate); earliest first.
-    sorted_items = sorted(
-        ((d, v) for d, v in rc_data.items() if hasattr(d, "year")),
-        key=lambda kv: (kv[0].year, kv[0].month),
-    )
-    if not sorted_items:
-        return _num(next(iter(rc_data.values()), None))
-
-    # Exact-year+month match.
     for d, v in sorted_items:
         if d.year == cod_year and d.month == q_month:
-            return _num(v)
-    # First date on or after COD quarter start.
+            return _num(v), "exact"
     for d, v in sorted_items:
         if (d.year, d.month) >= (cod_year, q_month):
-            return _num(v)
-    # If COD is past the end of the curve, last known rate is the best guess.
-    return _num(sorted_items[-1][1])
+            return _num(v), "extrapolated_forward"
+    return _num(sorted_items[-1][1]), "clamped_end"
 
 
 def _build_rate_comp1(proj: dict, market: dict | None = None) -> dict:
@@ -888,10 +877,11 @@ def _build_rate_comp1(proj: dict, market: dict | None = None) -> dict:
     # period (year + quarter → month). Fall back to the earliest curve date
     # on or after the COD if no exact match exists.
     is_custom = custom_generic == "custom"
+    rate_confidence = None
     if is_custom and rate is None:
         rc_data = proj.get("_rate_curves_rc1") or {}
         if rc_data:
-            rate = _rate_at_cod(rc_data, proj.get("data") or {})
+            rate, rate_confidence = _rate_at_cod(rc_data, proj.get("data") or {})
 
     # Extract GH haircut % from the name (e.g., "GH25 -22.5%" → 22.5)
     gh_haircut_pct = None
@@ -917,6 +907,7 @@ def _build_rate_comp1(proj: dict, market: dict | None = None) -> dict:
         "rate": round(rate, 6) if rate is not None else None,
         "rateDisplay": f"${rate:.4f}/kWh" if rate is not None else "—",
         "rateSource": "Rate Curves" if is_custom else "Project Inputs",
+        "rateConfidence": rate_confidence,
         "custDiscount": round(cust_discount, 4) if cust_discount is not None else None,
         "custDiscountDisplay": f"{cust_discount*100:.1f}%" if cust_discount is not None else "—",
         "ghHaircut": gh_haircut_pct,

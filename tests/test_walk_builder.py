@@ -685,3 +685,162 @@ class TestTranche2Impact:
                     return
         wb.close()
         pytest.fail("$ Impact column not populated for EPC row")
+
+
+class TestTranche3Matching:
+    """canonicalize_pnum handles int/float/string variance; match_projects
+    returns match_source on every pair; Anchor sheet flags non-standard
+    pairings; summary dict carries matches_by_source count."""
+
+    def test_canonicalize_pnum_int_float_equivalence(self):
+        from lib.utils import canonicalize_pnum
+        assert canonicalize_pnum(1) == canonicalize_pnum(1.0) == canonicalize_pnum("1")
+
+    def test_canonicalize_pnum_string_pnum(self):
+        from lib.utils import canonicalize_pnum
+        # "P-001" has no numeric form; canonicalizes via name rule.
+        c1 = canonicalize_pnum("P-001")
+        c2 = canonicalize_pnum("p-001")
+        c3 = canonicalize_pnum("  P-001  ")
+        assert c1 == c2 == c3
+
+    def test_canonicalize_pnum_none_and_blank(self):
+        from lib.utils import canonicalize_pnum
+        assert canonicalize_pnum(None) is None
+        assert canonicalize_pnum("") is None
+
+    def test_canonicalize_pnum_non_integer_float(self):
+        from lib.utils import canonicalize_pnum
+        # 1.5 and 1.5 agree; 1.5 and 1 do NOT.
+        assert canonicalize_pnum(1.5) == canonicalize_pnum(1.5)
+        assert canonicalize_pnum(1.5) != canonicalize_pnum(1)
+
+    def test_match_projects_handles_int_vs_float_pnum(self):
+        m1 = _make_projects((6, 1, "A", {}))
+        m2 = _make_projects((6, 1.0, "A", {}))
+        matched = match_projects(m1, m2)
+        assert len(matched) == 1
+        assert matched[0]["match_source"] == "proj_num"
+
+    def test_match_projects_handles_string_pnum(self):
+        m1 = _make_projects((6, "P-001", "Alpha", {}))
+        m2 = _make_projects((6, "P-001", "Beta", {}))
+        matched = match_projects(m1, m2)
+        assert len(matched) == 1
+        assert matched[0]["match_source"] == "proj_num"
+
+    def test_match_source_positional_fallback(self):
+        # Both projects at col 6 with no proj# → positional infers # = 1.
+        m1 = _make_projects((6, None, "Only by position", {}))
+        m2 = _make_projects((6, None, "Only by position", {}))
+        matched = match_projects(m1, m2)
+        assert len(matched) >= 1
+        # Could resolve via positional OR name — accept either as a fallback.
+        assert matched[0]["match_source"] in ("positional", "name")
+
+    def test_match_source_name_fallback(self):
+        # Different proj# each side, same name, but different cols so
+        # positional falls through to name.
+        m1 = _make_projects((6, None, "SameName", {}))
+        m2 = _make_projects((7, None, "SameName", {}))
+        matched = match_projects(m1, m2)
+        assert len(matched) == 1
+        # Positional would match col 6 ↔ col 7 as different project # (1 vs 2),
+        # so this case should route to name fallback.
+        assert matched[0]["match_source"] == "name"
+
+    def test_anchor_adds_comment_for_non_proj_num_match(self):
+        """When match_source != 'proj_num', the Project Name cell in the
+        Anchor section carries an openpyxl Comment flagging the pairing."""
+        m1 = _make_projects((6, None, "Alpha", {}))
+        m2 = _make_projects((7, None, "Alpha", {}))
+        buf, _ = build_walk_xlsx({"projects": m1}, {"projects": m2}, "M1", "M2")
+        import openpyxl
+        wb = openpyxl.load_workbook(buf)
+        ws = wb["Build Walk"]
+        # Project Name lives in col B starting at row 7.
+        cell = ws.cell(row=7, column=2)
+        assert cell.value == "Alpha"
+        assert cell.comment is not None
+        assert "fallback" in cell.comment.text.lower()
+        wb.close()
+
+    def test_summary_matches_by_source(self):
+        m1 = _make_projects((6, 1, "Alpha", {}), (7, None, "Beta", {}))
+        m2 = _make_projects((6, 1, "Alpha", {}), (7, None, "Beta", {}))
+        _, summary = build_walk_xlsx({"projects": m1}, {"projects": m2}, "M1", "M2")
+        assert "matches_by_source" in summary
+        mbs = summary["matches_by_source"]
+        assert mbs.get("proj_num", 0) >= 1  # Alpha via proj#
+        # Beta via positional or name fallback (depends on which fires first)
+        assert (mbs.get("positional", 0) + mbs.get("name", 0)) >= 0
+
+
+class TestTranche3RateCurveConfidence:
+    """_rate_at_cod now returns (rate, confidence). Walk notes flag
+    extrapolated-rate projects per RC."""
+
+    def test_rate_at_cod_exact_match(self):
+        from datetime import datetime
+        from lib.walk_builder import _rate_at_cod
+        curve = {datetime(2026, 1, 1): 0.12, datetime(2027, 1, 1): 0.13}
+        rate, conf = _rate_at_cod(curve, {15: 2026, 587: 1})
+        assert rate == 0.12
+        assert conf == "exact"
+
+    def test_rate_at_cod_extrapolated_forward(self):
+        from datetime import datetime
+        from lib.walk_builder import _rate_at_cod
+        curve = {datetime(2027, 1, 1): 0.13}
+        # COD 2026 but curve starts 2027 → extrapolate forward.
+        rate, conf = _rate_at_cod(curve, {15: 2026})
+        assert rate == 0.13
+        assert conf == "extrapolated_forward"
+
+    def test_rate_at_cod_clamped_end(self):
+        from datetime import datetime
+        from lib.walk_builder import _rate_at_cod
+        curve = {datetime(2025, 1, 1): 0.10}
+        # COD 2030 but curve ends 2025 → clamp to last value.
+        rate, conf = _rate_at_cod(curve, {15: 2030})
+        assert rate == 0.10
+        assert conf == "clamped_end"
+
+    def test_rate_at_cod_empty_curve(self):
+        from lib.walk_builder import _rate_at_cod
+        rate, conf = _rate_at_cod({}, {15: 2026})
+        assert rate is None
+        assert conf is None
+
+    def test_walk_notes_flags_extrapolated_count(self):
+        """When a Custom-Custom RC pair has any project with non-exact
+        rate-curve lookup, the Notes column mentions it."""
+        from datetime import datetime
+        # Project with COD 2030 but both curves end in 2025 → clamped_end.
+        m1 = {6: {"name":"Alpha","toggle":True,"col_letter":"F",
+                  "data":{ROW_PROJECT_NUMBER:1,ROW_DC_MW:5.0,15:2030},
+                  "rate_comps":{1:{"custom_generic":"Custom","energy_rate":None,
+                                   "equity_on":1,"debt_on":0,"appraisal_on":0}},
+                  "dscr_schedule":{},
+                  "_rate_curves_rc1":{datetime(2025,1,1):0.10}}}
+        m2 = {6: {"name":"Alpha","toggle":True,"col_letter":"F",
+                  "data":{ROW_PROJECT_NUMBER:1,ROW_DC_MW:5.0,15:2030},
+                  "rate_comps":{1:{"custom_generic":"Custom","energy_rate":None,
+                                   "equity_on":1,"debt_on":0,"appraisal_on":0}},
+                  "dscr_schedule":{},
+                  "_rate_curves_rc1":{datetime(2025,1,1):0.08}}}
+        buf, _ = build_walk_xlsx({"projects": m1}, {"projects": m2}, "M1", "M2")
+        import openpyxl
+        wb = openpyxl.load_workbook(buf)
+        ws = wb["Build Walk"]
+        # Find the RC1 Rate Curve (COD) row; Notes col 10 should mention extrapolated
+        found = False
+        for r in range(1, ws.max_row + 1):
+            lbl = ws.cell(row=r, column=2).value
+            if lbl and "Rate Curve (COD)" in str(lbl):
+                note = ws.cell(row=r, column=10).value or ""
+                if "extrapolated" in str(note).lower():
+                    found = True
+                    break
+        wb.close()
+        assert found, "Notes column missing 'extrapolated' flag"

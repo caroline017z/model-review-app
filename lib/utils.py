@@ -28,6 +28,23 @@ def canonicalize_name(s) -> str:
     return _WS_RE.sub(" ", str(s or "")).strip().casefold()
 
 
+def canonicalize_pnum(v) -> str | None:
+    """Canonical form of a Project Number for cross-model matching.
+
+    Collapses type/format variance so ``1``, ``1.0``, and ``"1"`` all key
+    the same way. Integer-valued numerics canonicalize to their int form;
+    non-integer numerics to ``repr(float)``; non-numeric strings fall back
+    to :func:`canonicalize_name` (e.g. "P-001" → "p-001"). Returns None
+    for None/blank values so callers can skip indexing.
+    """
+    if v is None or v == "":
+        return None
+    fv = safe_float(v)
+    if fv is not None:
+        return str(int(fv)) if fv == int(fv) else repr(fv)
+    return canonicalize_name(v)
+
+
 def fmt_neg(v, is_pct=False):
     """Format a number with red parentheses for negatives."""
     if v is None:
