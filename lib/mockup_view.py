@@ -796,47 +796,7 @@ def _build_sensitivity(proj: dict) -> dict:
     }
 
 
-def _rate_at_cod(rc_data: dict, data: dict) -> tuple[float | None, str | None]:
-    """Return (rate, confidence) for the rate at the project's COD period.
-
-    rc_data: {datetime: float} — monthly rates from the Rate Curves tab.
-    data: project data dict (ROW_COD_YEAR = 15, ROW_COD_QUARTER = 587).
-
-    Confidence: "exact" | "extrapolated_forward" | "clamped_end" | None.
-    Kept in sync with walk_builder._rate_at_cod; Tranche 6 will consolidate.
-    """
-    if not rc_data:
-        return None, None
-    cod_year_raw = _num(data.get(15))
-    sorted_items = sorted(
-        ((d, v) for d, v in rc_data.items() if hasattr(d, "year")),
-        key=lambda kv: (kv[0].year, kv[0].month),
-    )
-    if not sorted_items:
-        return None, None
-    if cod_year_raw is None:
-        return _num(sorted_items[0][1]), "extrapolated_forward"
-    cod_year = int(cod_year_raw)
-    q_raw = data.get(587)
-    q_month = 1
-    if q_raw is not None:
-        q_num = _num(q_raw)
-        if q_num is not None and 1 <= int(q_num) <= 4:
-            q_month = (int(q_num) - 1) * 3 + 1
-        else:
-            s = str(q_raw).upper()
-            for q, m in (("Q1", 1), ("Q2", 4), ("Q3", 7), ("Q4", 10)):
-                if q in s:
-                    q_month = m
-                    break
-
-    for d, v in sorted_items:
-        if d.year == cod_year and d.month == q_month:
-            return _num(v), "exact"
-    for d, v in sorted_items:
-        if (d.year, d.month) >= (cod_year, q_month):
-            return _num(v), "extrapolated_forward"
-    return _num(sorted_items[-1][1]), "clamped_end"
+from lib.rate_curve import rate_at_cod as _rate_at_cod  # noqa: E402 — re-export for inline call sites in this module
 
 
 def _build_rate_comp1(proj: dict, market: dict | None = None) -> dict:
