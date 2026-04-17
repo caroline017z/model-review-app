@@ -1,6 +1,6 @@
 """Unit tests for the label-based row resolver."""
 import pytest
-from data_loader import _labels_match, _normalize_label
+from lib.data_loader import _labels_match, _normalize_label
 from lib.data_loader import template_fingerprint, validate_model_result, _CRITICAL_CANONICAL_ROWS
 
 

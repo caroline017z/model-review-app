@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from mockup_view import render_html
+from lib.mockup_view import render_html
 
 
 def _extract_inline_js(html: str) -> str:

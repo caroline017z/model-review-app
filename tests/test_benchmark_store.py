@@ -2,8 +2,8 @@
 import json
 import copy
 import pytest
-from benchmark_store import load_overrides, save_overrides, delete_overrides, apply_overrides
-from config import BIBLE_BENCHMARKS
+from lib.benchmark_store import load_overrides, save_overrides, delete_overrides, apply_overrides
+from lib.config import BIBLE_BENCHMARKS
 
 
 class TestApplyOverrides:
@@ -45,18 +45,18 @@ class TestApplyOverrides:
 
 class TestLoadOverrides:
     def test_returns_empty_when_no_file(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("benchmark_store._OVERRIDES_PATH", tmp_path / "nonexistent.json")
+        monkeypatch.setattr("lib.benchmark_store._OVERRIDES_PATH", tmp_path / "nonexistent.json")
         assert load_overrides() == {}
 
     def test_returns_empty_on_invalid_json(self, tmp_path, monkeypatch):
         bad_file = tmp_path / "bad.json"
         bad_file.write_text("not valid json{{{")
-        monkeypatch.setattr("benchmark_store._OVERRIDES_PATH", bad_file)
+        monkeypatch.setattr("lib.benchmark_store._OVERRIDES_PATH", bad_file)
         assert load_overrides() == {}
 
     def test_round_trip(self, tmp_path, monkeypatch):
         file = tmp_path / "overrides.json"
-        monkeypatch.setattr("benchmark_store._OVERRIDES_PATH", file)
+        monkeypatch.setattr("lib.benchmark_store._OVERRIDES_PATH", file)
         data = {"CapEx|EPC Cost ($/W)": {"min": 1.40, "max": 1.90}}
         save_overrides(data)
         assert load_overrides() == data
@@ -64,6 +64,6 @@ class TestLoadOverrides:
     def test_delete_removes_file(self, tmp_path, monkeypatch):
         file = tmp_path / "overrides.json"
         file.write_text("{}")
-        monkeypatch.setattr("benchmark_store._OVERRIDES_PATH", file)
+        monkeypatch.setattr("lib.benchmark_store._OVERRIDES_PATH", file)
         delete_overrides()
         assert not file.exists()

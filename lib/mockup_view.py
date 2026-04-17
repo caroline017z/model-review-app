@@ -63,12 +63,15 @@ HEATMAP_ROW_AM_FEE = ROW_AM_FEE
 # via PORTFOLIO.constants.irrPctPerCent so the override recompute path stays
 # in sync.
 IRR_PCT_PER_CENT = 0.18
-# NPV dampener for multi-year OpEx deltas (rough 7% WACC, 25-yr).
-OPEX_NPV_FACTOR = 0.55
-OPEX_TERM_YEARS = 25
+# OpEx NPV dampener + horizon — shared with lib.impact via lib.financial_constants
+# so the walk and review panel can't drift on calibration.
+from lib.financial_constants import (
+    DEFAULT_YIELD_KWH_PER_WP,
+    OPEX_NPV_FACTOR,
+    OPEX_TERM_YEARS,
+)
 
 # Assumptions for derived chart data (when real model run isn't available).
-DEFAULT_YIELD_KWH_PER_WP = 1.55     # CS average
 DEFAULT_DEGRADATION = 0.005         # 0.5% / yr
 DEFAULT_OPEX_ESC = 0.02
 DEFAULT_OM_PREV = 4_750             # $/MW/yr
@@ -86,7 +89,7 @@ BIBLE_LNTP_PER_W = 0.10
 BIBLE_CL_PER_W = 0.06
 BIBLE_IX_PER_W = 0.05
 BIBLE_ITC_FRAC = 0.40
-BIBLE_ELIG_FRAC = 0.97
+from lib.financial_constants import BIBLE_ELIG_FRAC  # canonical home; kept here as re-export for legacy local refs
 # Terminal-value assumptions (year-25 → year-35 merchant tail).
 PANEL_USEFUL_LIFE_YEARS = 35
 MERCHANT_RATE_PER_MWH = 25.0        # Post-PPA merchant revenue — conservative

@@ -5,7 +5,7 @@ These were zero-coverage in Sprint 4; this module closes that gap.
 """
 import json
 import pytest
-from mockup_view import (
+from lib.mockup_view import (
     _build_capital_stack, _build_cashflow, _build_sensitivity,
     build_payload, render_html,
     BIBLE_EPC_PER_W, BIBLE_ITC_FRAC, BIBLE_ELIG_FRAC,

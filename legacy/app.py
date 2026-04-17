@@ -19,15 +19,15 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
-from mockup_view import (
+from lib.mockup_view import (
     render_html as render_mockup_html,
     list_candidate_projects,
     filter_projects,
 )
-from config import BIBLE_BENCHMARKS
-from styles import APP_CSS, SIDEBAR_CHECKBOX_CSS, run_button_css
-from data_loader import load_pricing_model, get_projects, load_mapper_output
-from benchmark_store import load_overrides, save_overrides, delete_overrides, apply_overrides
+from lib.config import BIBLE_BENCHMARKS
+from lib.styles import APP_CSS, SIDEBAR_CHECKBOX_CSS, run_button_css
+from lib.data_loader import load_pricing_model, get_projects, load_mapper_output
+from lib.benchmark_store import load_overrides, save_overrides, delete_overrides, apply_overrides
 
 # --- Optional Macro Runner integration ---
 # Set VP_MACRO_RUNNER_DIR to enable; leave unset to keep the UI hidden.

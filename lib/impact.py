@@ -17,19 +17,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from lib.financial_constants import (
+    BIBLE_ELIG_FRAC, DEFAULT_YIELD_KWH_PER_WP, OPEX_NPV_FACTOR, OPEX_TERM_YEARS,
+)
 from lib.rows import (
     ROW_EPC_WRAPPED, ROW_LNTP, ROW_IX, ROW_CLOSING,
     ROW_PPA_RATE, ROW_UPFRONT, ROW_ITC_PCT, ROW_ELIG_COSTS,
 )
 from lib.utils import safe_float
-
-
-# Constants mirror mockup_view._build_sensitivity. Kept in sync manually
-# until Tranche 6 consolidates impact math into this module.
-_DEFAULT_YIELD_KWH_PER_WP = 1.35      # fallback when row 14 is absent; matches mockup_view.DEFAULT_YIELD_KWH_PER_WP
-_OPEX_TERM_YEARS          = 25        # PPA/OpEx cash flow horizon
-_OPEX_NPV_FACTOR          = 0.60      # NPV dampener (~7.25% WACC, 25yr)
-_BIBLE_ELIG_FRAC          = 0.97      # fallback when row 602 is absent
 
 
 def _delta(m1: Any, m2: Any) -> float | None:
@@ -50,7 +45,7 @@ def _dc_w(data: dict) -> float | None:
 def _annual_mwh(data: dict) -> float | None:
     """Approx annual production in MWh for revenue-impact math."""
     mwdc = safe_float(data.get(11))
-    yld = safe_float(data.get(14)) or _DEFAULT_YIELD_KWH_PER_WP
+    yld = safe_float(data.get(14)) or DEFAULT_YIELD_KWH_PER_WP
     if mwdc and mwdc > 0 and yld > 0:
         return mwdc * yld * 1000
     return None
@@ -76,7 +71,7 @@ def _impact_om_per_mw_yr(m1: Any, m2: Any, data: dict) -> float | None:
     mwdc = safe_float(data.get(11))
     if d is None or mwdc is None:
         return None
-    return d * mwdc * _OPEX_TERM_YEARS * _OPEX_NPV_FACTOR
+    return d * mwdc * OPEX_TERM_YEARS * OPEX_NPV_FACTOR
 
 
 def _impact_ppa_rate(m1: Any, m2: Any, data: dict) -> float | None:
@@ -89,7 +84,7 @@ def _impact_ppa_rate(m1: Any, m2: Any, data: dict) -> float | None:
     if d is None or ann_mwh is None:
         return None
     # delta $/kWh × annual kWh × 25yr × NPV dampener
-    return d * ann_mwh * 1000 * _OPEX_TERM_YEARS * _OPEX_NPV_FACTOR
+    return d * ann_mwh * 1000 * OPEX_TERM_YEARS * OPEX_NPV_FACTOR
 
 
 def _impact_itc_pct(m1: Any, m2: Any, data: dict) -> float | None:
@@ -99,7 +94,7 @@ def _impact_itc_pct(m1: Any, m2: Any, data: dict) -> float | None:
     d = _delta(m1, m2)
     dc_w = _dc_w(data)
     epc = safe_float(data.get(ROW_EPC_WRAPPED))
-    elig = safe_float(data.get(ROW_ELIG_COSTS)) or _BIBLE_ELIG_FRAC
+    elig = safe_float(data.get(ROW_ELIG_COSTS)) or BIBLE_ELIG_FRAC
     if d is None or dc_w is None or epc is None:
         return None
     return d * elig * epc * dc_w

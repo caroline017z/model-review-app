@@ -3,7 +3,7 @@
 Guarantees that the sidebar's MW total, the payload's MW total, and the
 rendered HTML payload all stay in sync.
 """
-from mockup_view import list_candidate_projects, filter_projects, build_payload
+from lib.mockup_view import list_candidate_projects, filter_projects, build_payload
 
 
 def _synthetic(n_active=2, n_inactive=3, n_placeholder=10):

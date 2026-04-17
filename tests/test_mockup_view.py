@@ -1,7 +1,7 @@
 """Unit tests for the Python→HTML translation layer."""
 import json
 import pytest
-from mockup_view import (
+from lib.mockup_view import (
     _as_fraction, _compute_impact, _roll_up, _safe_json,
     render_html, build_payload,
     BIBLE_EPC_PER_W, BIBLE_ELIG_FRAC,

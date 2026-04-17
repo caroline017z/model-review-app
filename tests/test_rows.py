@@ -1,6 +1,6 @@
 """Tests for rows.py — row constant integrity."""
-import rows
-from config import INPUT_ROW_LABELS, OUTPUT_ROWS
+import lib.rows as rows
+from lib.config import INPUT_ROW_LABELS, OUTPUT_ROWS
 
 
 class TestRowConstantsNoDuplicates:
