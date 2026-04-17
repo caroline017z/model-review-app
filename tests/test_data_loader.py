@@ -1,6 +1,7 @@
 """Unit tests for the label-based row resolver."""
 import pytest
 from data_loader import _labels_match, _normalize_label
+from lib.data_loader import template_fingerprint, validate_model_result, _CRITICAL_CANONICAL_ROWS
 
 
 class TestLabelsMatch:
@@ -93,3 +94,72 @@ class TestLabelsMatchUnitAware:
         a = _normalize_label("PV O&M Preventive")
         # The substring check should catch this since they share enough chars
         assert _labels_match(c, a)
+
+
+class TestTemplateFingerprint:
+    def test_identical_maps_same_fingerprint(self):
+        row_map = {canon: canon for canon in _CRITICAL_CANONICAL_ROWS}
+        assert template_fingerprint(row_map) == template_fingerprint(dict(row_map))
+
+    def test_different_maps_different_fingerprint(self):
+        base = {canon: canon for canon in _CRITICAL_CANONICAL_ROWS}
+        shifted = dict(base)
+        # Simulate row 118 moving to row 119 in a template variant
+        shifted[118] = 119
+        assert template_fingerprint(base) != template_fingerprint(shifted)
+
+    def test_stable_length(self):
+        row_map = {canon: canon for canon in _CRITICAL_CANONICAL_ROWS}
+        fp = template_fingerprint(row_map)
+        assert isinstance(fp, str)
+        assert len(fp) == 8  # 8-char sha1 prefix
+
+
+class TestValidateModelResult:
+    def _make_result(self, projects: dict, row_map: dict) -> dict:
+        return {"projects": projects, "_row_map": row_map}
+
+    def test_empty_projects_fails(self):
+        result = self._make_result({}, {c: c for c in _CRITICAL_CANONICAL_ROWS})
+        v = validate_model_result(result)
+        assert v["ok"] is False
+        assert v["project_count"] == 0
+
+    def test_real_project_passes(self):
+        result = self._make_result(
+            {6: {"name": "Alpha", "data": {}}},
+            {c: c for c in _CRITICAL_CANONICAL_ROWS},
+        )
+        v = validate_model_result(result)
+        assert v["ok"] is True
+        assert v["project_count"] == 1
+
+    def test_too_many_critical_missing_fails(self):
+        row_map = {c: c for c in _CRITICAL_CANONICAL_ROWS}
+        # Knock out the first 5 criticals
+        for c in list(_CRITICAL_CANONICAL_ROWS)[:5]:
+            row_map[c] = None
+        result = self._make_result(
+            {6: {"name": "Alpha", "data": {}}}, row_map,
+        )
+        v = validate_model_result(result)
+        assert v["ok"] is False
+        assert len(v["critical_missing"]) >= 5
+
+    def test_blank_name_projects_excluded(self):
+        result = self._make_result(
+            {6: {"name": "  ", "data": {}}, 7: {"name": "", "data": {}}},
+            {c: c for c in _CRITICAL_CANONICAL_ROWS},
+        )
+        v = validate_model_result(result)
+        assert v["ok"] is False
+        assert v["project_count"] == 0
+
+    def test_fingerprint_in_result(self):
+        result = self._make_result(
+            {6: {"name": "Alpha", "data": {}}},
+            {c: c for c in _CRITICAL_CANONICAL_ROWS},
+        )
+        v = validate_model_result(result)
+        assert v["fingerprint"]
+        assert len(v["fingerprint"]) == 8

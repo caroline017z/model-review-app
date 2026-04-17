@@ -53,6 +53,24 @@ def generate_walk(req: WalkRequest):
     except Exception as e:
         raise HTTPException(500, f"Walk generation error: {e}")
 
+    # Template drift warning: if the two models have different fingerprints,
+    # at least one critical row is at a different position in one vs the
+    # other. The walk's row-by-row diff is still meaningful but may
+    # misattribute some rows. Surface in the summary header.
+    fp1 = m1["result"].get("fingerprint")
+    fp2 = m2["result"].get("fingerprint")
+    if fp1 and fp2 and fp1 != fp2:
+        summary["template_drift"] = {
+            "m1_fingerprint": fp1,
+            "m2_fingerprint": fp2,
+            "warning": (
+                "Template fingerprints differ — at least one critical row "
+                "resolved to a different position in M1 vs M2. Walk results "
+                "may compare mismatched rows. Inspect the Project Inputs "
+                "sheets side-by-side before trusting per-row diffs."
+            ),
+        }
+
     # Log diagnostic info for debugging empty walks
     if summary.get("n_matched", 0) == 0:
         from lib.data_loader import get_projects

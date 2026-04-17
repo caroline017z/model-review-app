@@ -812,6 +812,45 @@ class TestTranche3RateCurveConfidence:
         assert rate is None
         assert conf is None
 
+    def test_template_drift_warning_in_walk_route(self):
+        """/api/walk compares model fingerprints and adds a warning to
+        summary when they differ. Covered via the router directly rather
+        than a full HTTP request."""
+        from apps.api.routers.walk import generate_walk, WalkRequest
+        from apps.api.store import model_store
+        m1 = {"projects": _make_projects((6, 1, "A", {118: 1.65, ROW_DC_MW: 5.0})),
+              "fingerprint": "abc12345"}
+        m2 = {"projects": _make_projects((6, 1, "A", {118: 1.75, ROW_DC_MW: 5.0})),
+              "fingerprint": "def67890"}
+        id1 = model_store.put(m1, "m1.xlsx")
+        id2 = model_store.put(m2, "m2.xlsx")
+        req = WalkRequest(m1_id=id1, m2_id=id2, m1_label="A", m2_label="B")
+        resp = generate_walk(req)
+        import json
+        summary = json.loads(resp.headers["X-Walk-Summary"])
+        assert "template_drift" in summary
+        assert summary["template_drift"]["m1_fingerprint"] == "abc12345"
+        assert summary["template_drift"]["m2_fingerprint"] == "def67890"
+        model_store.delete(id1)
+        model_store.delete(id2)
+
+    def test_no_template_drift_warning_when_fingerprints_match(self):
+        from apps.api.routers.walk import generate_walk, WalkRequest
+        from apps.api.store import model_store
+        m1 = {"projects": _make_projects((6, 1, "A", {118: 1.65, ROW_DC_MW: 5.0})),
+              "fingerprint": "same1234"}
+        m2 = {"projects": _make_projects((6, 1, "A", {118: 1.75, ROW_DC_MW: 5.0})),
+              "fingerprint": "same1234"}
+        id1 = model_store.put(m1, "m1.xlsx")
+        id2 = model_store.put(m2, "m2.xlsx")
+        req = WalkRequest(m1_id=id1, m2_id=id2, m1_label="A", m2_label="B")
+        resp = generate_walk(req)
+        import json
+        summary = json.loads(resp.headers["X-Walk-Summary"])
+        assert "template_drift" not in summary
+        model_store.delete(id1)
+        model_store.delete(id2)
+
     def test_walk_notes_flags_extrapolated_count(self):
         """When a Custom-Custom RC pair has any project with non-exact
         rate-curve lookup, the Notes column mentions it."""

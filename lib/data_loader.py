@@ -252,6 +252,60 @@ def _scan_rate_components(ws, col):
 #: downstream consumers show stale / garbage data without them.
 _CRITICAL_CANONICAL_ROWS = (4, 7, 10, 11, 18, 22, 31, 33, 37, 38, 39, 118, 681)
 
+#: Upload validation fails when more critical rows than this go unresolved.
+#: Set generously — a healthy 38DN workbook resolves all 13; missing 1-2 is
+#: common for trimmed templates; >3 almost always means a wrong file type.
+_MAX_ALLOWED_CRITICAL_MISSING = 3
+
+
+def template_fingerprint(row_map: dict) -> str:
+    """Stable 8-char fingerprint of the template's critical-row layout.
+
+    Hashes the (canonical_row, actual_row) pairs for the 13 critical rows
+    only — non-critical row drift doesn't affect the fingerprint, because
+    diff_inputs has _all_inputs label-based Pass 2 as a fallback for those.
+    Two models with the same fingerprint have identical placements for
+    every critical row; different fingerprints → at least one critical row
+    moved → walks comparing them may mis-attribute values and should be
+    audited before trusting per-row diffs.
+    """
+    import hashlib
+    parts = [
+        f"{canon}:{row_map.get(canon)}"
+        for canon in _CRITICAL_CANONICAL_ROWS
+    ]
+    return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:8]
+
+
+def validate_model_result(result: dict) -> dict:
+    """Structural sanity check on a loaded pricing model.
+
+    Returns {ok, project_count, critical_missing, fingerprint}. Used by the
+    upload route to reject obviously broken workbooks (empty, wrong template,
+    or with too many critical rows unresolved) before they pollute the
+    review / walk pipelines.
+    """
+    projects = result.get("projects") or {}
+    real_projects = [
+        p for p in projects.values()
+        if isinstance(p, dict) and p.get("name") and str(p.get("name")).strip()
+    ]
+    row_map = result.get("_row_map") or {}
+    critical_missing = sorted(
+        canon for canon in _CRITICAL_CANONICAL_ROWS
+        if row_map.get(canon) is None
+    )
+    ok = (
+        len(real_projects) >= 1
+        and len(critical_missing) <= _MAX_ALLOWED_CRITICAL_MISSING
+    )
+    return {
+        "ok": ok,
+        "project_count": len(real_projects),
+        "critical_missing": critical_missing,
+        "fingerprint": template_fingerprint(row_map),
+    }
+
 
 def _build_row_mapping(ws, label_col, max_row=1000):
     """Build canonical_row -> actual_row mapping by scanning labels in the model.
@@ -699,13 +753,18 @@ def load_pricing_model(file):
                 )
 
     wb.close()
+    result = {
+        "projects": projects,
+        "ops_sandbox": ops_sandbox,
+        "rate_curves": rate_curves,
+        "_row_map": dict(row_map),  # preserved for template_fingerprint + validate_model_result
+        "fingerprint": template_fingerprint(row_map),
+    }
     # Deep-copy before returning so the Streamlit cache stores an immutable
     # snapshot. Downstream code (mockup_view, render_html, filter_projects)
     # sometimes iterates and mutates in-place; without the copy a second
     # render in the same session would see a corrupted dict.
-    return copy.deepcopy(
-        {"projects": projects, "ops_sandbox": ops_sandbox, "rate_curves": rate_curves}
-    )
+    return copy.deepcopy(result)
 
 
 def get_projects(model_result):

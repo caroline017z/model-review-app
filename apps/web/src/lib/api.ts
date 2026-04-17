@@ -50,6 +50,8 @@ export interface UploadResponse {
   filename: string;
   project_count: number;
   projects: CandidateProject[];
+  fingerprint: string;
+  critical_missing: number[];
 }
 
 export interface ReviewResponse {

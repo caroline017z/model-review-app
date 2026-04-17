@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from apps.api.store import model_store
-from lib.data_loader import load_pricing_model, get_projects
+from lib.data_loader import load_pricing_model, get_projects, validate_model_result
 from lib.mockup_view import list_candidate_projects
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,8 @@ class UploadResponse(BaseModel):
     filename: str
     project_count: int
     projects: list[CandidateProject]
+    fingerprint: str
+    critical_missing: list[int]
 
 
 class ModelInfo(BaseModel):
@@ -59,10 +61,26 @@ async def upload_model(file: UploadFile):
     try:
         result = load_pricing_model(buf)
     except KeyError as e:
+        # e.g. missing "Project Inputs" sheet — user-friendly 400
         raise HTTPException(400, str(e))
     except Exception as e:
         logger.exception("Failed to parse model: %s", e)
         raise HTTPException(400, f"Failed to parse model: {e}")
+
+    # Structural validation: reject workbooks with zero real projects or
+    # too many critical rows unresolved (usually signals wrong template).
+    validation = validate_model_result(result)
+    if not validation["ok"]:
+        reasons = []
+        if validation["project_count"] == 0:
+            reasons.append("no real projects found in Project Inputs sheet")
+        if len(validation["critical_missing"]) > 3:
+            reasons.append(
+                f"{len(validation['critical_missing'])} critical row mappings "
+                f"unresolved (rows {validation['critical_missing']}) — this "
+                f"usually means the workbook uses a different template"
+            )
+        raise HTTPException(400, "Model validation failed: " + "; ".join(reasons))
 
     model_id = model_store.put(result, file.filename)
     projects = get_projects(result) or {}
@@ -73,6 +91,8 @@ async def upload_model(file: UploadFile):
         filename=file.filename,
         project_count=len(candidates),
         projects=[CandidateProject(**{k: c.get(k) for k in CandidateProject.model_fields}) for c in candidates],
+        fingerprint=validation["fingerprint"],
+        critical_missing=validation["critical_missing"],
     )
 
 
