@@ -33,6 +33,7 @@ from lib.config import (
 )
 from lib.data_loader import get_projects
 from lib.rows import ROW_PROJECT_NUMBER, ROW_DC_MW, ROW_NPP, ROW_LEVERED_PT_IRR
+from lib.impact import portfolio_impact
 from lib.utils import canonicalize_name, safe_float
 
 logger = logging.getLogger(__name__)
@@ -572,6 +573,7 @@ def _diff_canonical_rows(
                 "values": per_project,
                 "n_diff": n_diff,
                 "n_total": len(per_project),
+                "source": "canonical",
                 **({"unit_note": row_unit_note} if row_unit_note else {}),
             })
         seen_labels.add(label.strip().lower())
@@ -614,6 +616,7 @@ def _diff_rate_comps(
                     "values": per_project,
                     "n_diff": n_diff,
                     "n_total": len(per_project),
+                    "source": "rate_comps",
                 })
     return diffs
 
@@ -658,6 +661,7 @@ def _diff_rate_curves_cod(
                 "values": per_project,
                 "n_diff": n_diff,
                 "n_total": len(per_project),
+                "source": "rate_curve",
             })
     return diffs
 
@@ -686,6 +690,7 @@ def _diff_special_keys(
             diffs.append({
                 "row": 0, "label": label, "unit": unit, "category": category,
                 "values": per_project, "n_diff": n_diff, "n_total": len(per_project),
+                "source": "special",
             })
 
     # DSCR years 1-10 — practical debt-sizing horizon.
@@ -707,6 +712,7 @@ def _diff_special_keys(
                 "row": 0, "label": f"DSCR Y{year}", "unit": "x",
                 "category": "Financing",
                 "values": per_project, "n_diff": n_diff, "n_total": len(per_project),
+                "source": "special",
             })
     return diffs
 
@@ -782,6 +788,7 @@ def _diff_all_inputs_labels(
                 "values": per_project,
                 "n_diff": n_diff,
                 "n_total": len(per_project),
+                "source": "label",
             })
     return diffs
 
@@ -1004,9 +1011,14 @@ def _aggregate_variance_values(
 
 def _write_variance_section(
     ws, grouped: dict[str, list[dict]], metrics: list[dict], var_start: int,
+    m1_data_by_pnum: dict | None = None,
 ) -> int:
     """Write the 'Project Inputs' variance drivers block starting at
     var_start. Returns the row after the last written diff.
+
+    m1_data_by_pnum: optional {proj_number: m1_data_dict} for $-impact
+        computation. Omit to suppress the Impact column (e.g., legacy
+        callers that don't pass project data through).
     """
     cell = ws.cell(row=var_start, column=2, value="Project Inputs")
     cell.font = NORMAL_FONT; cell.border = DOUBLE_BOTTOM
@@ -1019,6 +1031,14 @@ def _write_variance_section(
     notes_hdr = ws.cell(row=cur_row, column=10, value="Notes")
     notes_hdr.font = Font(size=10, color="7d8694")
     notes_hdr.alignment = LEFT
+    src_hdr = ws.cell(row=cur_row, column=11, value="Source")
+    src_hdr.font = Font(size=10, color="7d8694")
+    src_hdr.alignment = CENTER
+    imp_hdr = ws.cell(row=cur_row, column=12, value="$ Impact")
+    imp_hdr.font = Font(size=10, color="7d8694")
+    imp_hdr.alignment = CENTER
+    ws.column_dimensions["K"].width = 13
+    ws.column_dimensions["L"].width = 14
     cur_row += 1
 
     total_mw = sum(pm["mwdc"] for pm in metrics) or 1.0
@@ -1032,57 +1052,74 @@ def _write_variance_section(
         cur_row += 1
 
         for v in sorted(cat_vars, key=lambda x: x["label"].lower()):
-            nfmt = _num_format(v["row"])
-            cell = ws.cell(row=cur_row, column=2, value=v["label"])
-            cell.font = NORMAL_FONT; cell.alignment = LEFT
-
-            if v["unit"]:
-                cell = ws.cell(row=cur_row, column=3, value=v["unit"])
-                cell.font = Font(color="7d8694", size=10, italic=True)
-                cell.alignment = CENTER
-
-            m1_display, m2_display, is_text_val = _aggregate_variance_values(
-                v, metrics, total_mw,
-            )
-
-            c_e = ws.cell(row=cur_row, column=5, value=m1_display)
-            if not is_text_val and m1_display is not None:
-                c_e.number_format = nfmt
-            c_e.alignment = CENTER_CONT; c_e.border = THIN_BOX
-
-            if not is_text_val:
-                delta_cell = ws.cell(row=cur_row, column=7,
-                                     value=f"=E{cur_row}-H{cur_row}")
-                delta_cell.number_format = FMT_DELTA
-                delta_cell.alignment = CENTER; delta_cell.border = THIN_BOX
-
-            c_h = ws.cell(row=cur_row, column=8, value=m2_display)
-            if not is_text_val and m2_display is not None:
-                c_h.number_format = nfmt
-            c_h.alignment = CENTER_CONT; c_h.border = THIN_BOX
-
-            # Yellow highlight when M2 differs from M1
-            if m1_display != m2_display:
-                f1 = safe_float(m1_display)
-                f2 = safe_float(m2_display)
-                if f1 is not None and f2 is not None and abs(f1 - f2) > 1e-6:
-                    c_h.fill = YELLOW_FILL
-                elif is_text_val and str(m1_display or "") != str(m2_display or ""):
-                    c_h.fill = YELLOW_FILL
-
-            # Notes column — "differs for N of M projects"
-            n_diff = v.get("n_diff", 0)
-            n_total = v.get("n_total", len(v.get("values", {})))
-            if n_diff:
-                notes_cell = ws.cell(
-                    row=cur_row, column=10,
-                    value=f"differs for {n_diff} of {n_total} projects",
-                )
-                notes_cell.font = Font(size=10, color="7d8694", italic=True)
-                notes_cell.alignment = LEFT
-
+            _write_variance_row(ws, cur_row, v, metrics, total_mw, m1_data_by_pnum)
             cur_row += 1
     return cur_row
+
+
+def _write_variance_row(
+    ws, r: int, v: dict, metrics: list[dict], total_mw: float,
+    m1_data_by_pnum: dict | None,
+) -> None:
+    """Render a single variance row: label, unit, M1/Δ/M2 values, Notes,
+    Source, $ Impact. Extracted to keep _write_variance_section under the
+    complexity threshold as columns get added tranche-over-tranche."""
+    nfmt = _num_format(v["row"])
+    cell = ws.cell(row=r, column=2, value=v["label"])
+    cell.font = NORMAL_FONT; cell.alignment = LEFT
+
+    if v["unit"]:
+        cell = ws.cell(row=r, column=3, value=v["unit"])
+        cell.font = Font(color="7d8694", size=10, italic=True)
+        cell.alignment = CENTER
+
+    m1_display, m2_display, is_text_val = _aggregate_variance_values(v, metrics, total_mw)
+
+    c_e = ws.cell(row=r, column=5, value=m1_display)
+    if not is_text_val and m1_display is not None:
+        c_e.number_format = nfmt
+    c_e.alignment = CENTER_CONT; c_e.border = THIN_BOX
+
+    if not is_text_val:
+        delta_cell = ws.cell(row=r, column=7, value=f"=E{r}-H{r}")
+        delta_cell.number_format = FMT_DELTA
+        delta_cell.alignment = CENTER; delta_cell.border = THIN_BOX
+
+    c_h = ws.cell(row=r, column=8, value=m2_display)
+    if not is_text_val and m2_display is not None:
+        c_h.number_format = nfmt
+    c_h.alignment = CENTER_CONT; c_h.border = THIN_BOX
+
+    if m1_display != m2_display:
+        f1 = safe_float(m1_display)
+        f2 = safe_float(m2_display)
+        if f1 is not None and f2 is not None and abs(f1 - f2) > 1e-6:
+            c_h.fill = YELLOW_FILL
+        elif is_text_val and str(m1_display or "") != str(m2_display or ""):
+            c_h.fill = YELLOW_FILL
+
+    n_diff = v.get("n_diff", 0)
+    n_total = v.get("n_total", len(v.get("values", {})))
+    if n_diff:
+        notes_cell = ws.cell(
+            row=r, column=10,
+            value=f"differs for {n_diff} of {n_total} projects",
+        )
+        notes_cell.font = Font(size=10, color="7d8694", italic=True)
+        notes_cell.alignment = LEFT
+
+    src = v.get("source")
+    if src:
+        src_cell = ws.cell(row=r, column=11, value=src)
+        src_cell.font = Font(size=9, color="7d8694", italic=True)
+        src_cell.alignment = CENTER
+
+    if m1_data_by_pnum is not None:
+        impact_val = portfolio_impact(v.get("row", 0), v.get("values", {}), m1_data_by_pnum)
+        if impact_val is not None:
+            imp_cell = ws.cell(row=r, column=12, value=impact_val)
+            imp_cell.number_format = '$#,##0_);[Red]($#,##0);"-"'
+            imp_cell.alignment = CENTER
 
 
 _REASON_DETAIL = {
@@ -1233,8 +1270,17 @@ def build_walk_xlsx(
     # ===================================================================
     summary_r = _write_anchor_section(ws, metrics, case_labels)
 
+    # Build proj_number → M1 data dict for $impact computation.
+    m1_data_by_pnum = {
+        m["proj_number"]: m1_projects[m["m1_col"]].get("data", {})
+        for m in matched
+    }
+
     # Variance drivers block starts 3 rows below the anchor summary row.
-    _write_variance_section(ws, grouped, metrics, var_start=summary_r + 3)
+    _write_variance_section(
+        ws, grouped, metrics, var_start=summary_r + 3,
+        m1_data_by_pnum=m1_data_by_pnum,
+    )
 
     if _no_matches:
         cell = ws.cell(

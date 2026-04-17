@@ -553,3 +553,135 @@ class TestDataLoaderRateCurveMatch:
                 matched_row = rc_row
                 break
         assert matched_row == 35
+
+
+class TestTranche2Provenance:
+    """Every diff dict carries a 'source' tag. _write_variance_section
+    surfaces it in column K of the walk output."""
+
+    def test_canonical_diff_tagged_canonical(self):
+        m1 = _make_projects((6, 1, "A", {118: 1.65}))
+        m2 = _make_projects((6, 1, "A", {118: 1.75}))
+        matched = match_projects(m1, m2)
+        diffs = diff_inputs(matched, m1, m2)
+        epc = next(d for d in diffs if d["row"] == 118)
+        assert epc["source"] == "canonical"
+
+    def test_rate_comp_diff_tagged_rate_comps(self):
+        m1 = {6: {"name":"A","toggle":True,"col_letter":"F",
+                  "data":{ROW_PROJECT_NUMBER:1,ROW_DC_MW:5.0},
+                  "rate_comps":{1:{"custom_generic":"Generic","energy_rate":0.05,
+                                   "equity_on":1,"debt_on":0,"appraisal_on":0}},
+                  "dscr_schedule":{}}}
+        m2 = {6: {"name":"A","toggle":True,"col_letter":"F",
+                  "data":{ROW_PROJECT_NUMBER:1,ROW_DC_MW:5.0},
+                  "rate_comps":{1:{"custom_generic":"Generic","energy_rate":0.08,
+                                   "equity_on":1,"debt_on":0,"appraisal_on":0}},
+                  "dscr_schedule":{}}}
+        matched = match_projects(m1, m2)
+        diffs = diff_inputs(matched, m1, m2)
+        rc_diff = next(d for d in diffs if d["label"] == "RC1 Energy Rate")
+        assert rc_diff["source"] == "rate_comps"
+
+    def test_special_diff_tagged_special(self):
+        m1 = _make_projects((6, 1, "A", {"_debt_match_equity": 1}))
+        m2 = _make_projects((6, 1, "A", {"_debt_match_equity": 0}))
+        matched = match_projects(m1, m2)
+        diffs = diff_inputs(matched, m1, m2)
+        d = next(x for x in diffs if x["label"] == "Debt Rate: match equity")
+        assert d["source"] == "special"
+
+    def test_dscr_diff_tagged_special(self):
+        m1 = _make_projects((6, 1, "A", {}))
+        m1[6]["dscr_schedule"] = {3: 1.20}
+        m2 = _make_projects((6, 1, "A", {}))
+        m2[6]["dscr_schedule"] = {3: 1.35}
+        matched = match_projects(m1, m2)
+        diffs = diff_inputs(matched, m1, m2)
+        d = next(x for x in diffs if x["label"] == "DSCR Y3")
+        assert d["source"] == "special"
+
+    def test_source_column_written_to_xlsx(self):
+        m1 = {"projects": _make_projects((6, 1, "A", {118: 1.65, ROW_DC_MW: 5.0}))}
+        m2 = {"projects": _make_projects((6, 1, "A", {118: 1.75, ROW_DC_MW: 5.0}))}
+        buf, _ = build_walk_xlsx(m1, m2, "M1", "M2")
+        import openpyxl
+        wb = openpyxl.load_workbook(buf)
+        ws = wb["Build Walk"]
+        # Find the PV EPC row in variance section; check col K (11) = "canonical"
+        for r in range(1, ws.max_row + 1):
+            lbl = ws.cell(row=r, column=2).value
+            if lbl and "EPC" in str(lbl) and lbl != "Project Inputs":
+                src = ws.cell(row=r, column=11).value
+                if src == "canonical":
+                    wb.close()
+                    return
+        wb.close()
+        pytest.fail("Source column 'canonical' not written for EPC row")
+
+
+class TestTranche2Impact:
+    """Dollar impact estimation — column L in variance section."""
+
+    def test_impact_per_project_epc(self):
+        # M1 EPC = $1.65/W, M2 = $1.75/W, 5 MWdc (5,000,000 W).
+        # Delta = 1.65 - 1.75 = -0.10. Higher EPC = worse for sponsor, so
+        # sign flips: impact = -(-0.10) * 5_000_000 = +500,000? No wait.
+        # _delta = M1 - M2 = -0.10. favor_m1_high=False → flip → +0.10 * 5M = +500k.
+        # Reading the code: raw = -0.10 * 5_000_000 = -500,000. Not favor_m1_high
+        # → flip → +500,000. But M1 has LOWER EPC than M2 (1.65 < 1.75), which
+        # IS better for sponsor in M1. So +500,000 is the M1 advantage over M2.
+        from lib.impact import per_project_impact
+        data = {ROW_DC_MW: 5.0}
+        imp = per_project_impact(118, 1.65, 1.75, data)
+        assert imp == pytest.approx(500_000, abs=1.0)
+
+    def test_impact_per_project_upfront_incentive(self):
+        # M1 Upfront = $0.20/W, M2 = $0.10/W. M1 has more incentive → favors M1.
+        # Raw delta = +0.10. favor_m1_high=True → no flip → +500k.
+        from lib.impact import per_project_impact
+        data = {ROW_DC_MW: 5.0}
+        imp = per_project_impact(216, 0.20, 0.10, data)
+        assert imp == pytest.approx(500_000, abs=1.0)
+
+    def test_impact_unknown_row_returns_none(self):
+        from lib.impact import per_project_impact
+        data = {ROW_DC_MW: 5.0}
+        assert per_project_impact(9999, 1.0, 2.0, data) is None
+
+    def test_impact_missing_dc_returns_none(self):
+        from lib.impact import per_project_impact
+        imp = per_project_impact(118, 1.65, 1.75, {})
+        assert imp is None
+
+    def test_portfolio_impact_sums_projects(self):
+        from lib.impact import portfolio_impact
+        # Two projects, both 5 MWdc, both with 10 cent EPC delta
+        per_project = {1: (1.65, 1.75), 2: (1.60, 1.70)}
+        m1_data = {
+            1: {ROW_DC_MW: 5.0},
+            2: {ROW_DC_MW: 5.0},
+        }
+        total = portfolio_impact(118, per_project, m1_data)
+        # Each project: +500k; total ~= +1M
+        assert total == pytest.approx(1_000_000, abs=1.0)
+
+    def test_portfolio_impact_column_written_to_xlsx(self):
+        m1 = {"projects": _make_projects((6, 1, "A", {118: 1.65, ROW_DC_MW: 5.0}))}
+        m2 = {"projects": _make_projects((6, 1, "A", {118: 1.75, ROW_DC_MW: 5.0}))}
+        buf, _ = build_walk_xlsx(m1, m2, "M1", "M2")
+        import openpyxl
+        wb = openpyxl.load_workbook(buf)
+        ws = wb["Build Walk"]
+        # Find PV EPC row, check col L (12) for a dollar value
+        for r in range(1, ws.max_row + 1):
+            lbl = ws.cell(row=r, column=2).value
+            if lbl and "EPC" in str(lbl) and lbl != "Project Inputs":
+                imp = ws.cell(row=r, column=12).value
+                if imp is not None and isinstance(imp, (int, float)):
+                    # +500k for M1 cheaper by $0.10/W × 5 MW
+                    assert imp == pytest.approx(500_000, abs=1.0)
+                    wb.close()
+                    return
+        wb.close()
+        pytest.fail("$ Impact column not populated for EPC row")
