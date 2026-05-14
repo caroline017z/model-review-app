@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePortfolioStore } from "@/stores/portfolio";
+import { useActiveReviewProjects } from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
 import { useReviewerStore } from "@/stores/reviewer";
 import { VarianceChart } from "@/components/charts/VarianceChart";
@@ -12,7 +12,7 @@ import { fmtNpp, fmtIrr, fmtEquity, fmtImpact } from "@/lib/format";
 import type { BibleMappingCategory } from "@/lib/api";
 
 export function ProjectReviewView() {
-  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
+  const reviewProjects = useActiveReviewProjects();
   const selectedIdx = useUiStore((s) => s.selectedProjectIdx);
   const setSelected = useUiStore((s) => s.setSelectedProject);
   const project = reviewProjects[selectedIdx];

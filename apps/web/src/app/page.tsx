@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/AppShell";
-import { usePortfolioStore } from "@/stores/portfolio";
+import { BibleManager } from "@/components/bible/BibleManager";
+import { usePortfolioStore, useActivePortfolio } from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
 import { useReviewerStore } from "@/stores/reviewer";
+import { useBibleStore } from "@/stores/bible";
 import { uploadModel, runReview } from "@/lib/api";
 import { ProjectReviewView } from "@/components/review/ProjectReviewView";
 import { PortfolioView } from "@/components/review/PortfolioView";
@@ -19,6 +21,8 @@ function UploadPanel() {
   const model2 = usePortfolioStore((s) => s.model2);
   const setReviewData = usePortfolioStore((s) => s.setReviewData);
   const setModelScope = useReviewerStore((s) => s.setModelScope);
+  const refreshBibles = useBibleStore((s) => s.refresh);
+  const activeBible = useBibleStore((s) => s.activeVintage());
   const fileRef1 = useRef<HTMLInputElement>(null);
   const fileRef2 = useRef<HTMLInputElement>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -30,15 +34,13 @@ function UploadPanel() {
   const [m2Label, setM2Label] = useState("");
   const [m1File, setM1File] = useState<string>("");
   const [m2File, setM2File] = useState<string>("");
+  const [bibleExpanded, setBibleExpanded] = useState(false);
+
+  useEffect(() => {
+    refreshBibles();
+  }, [refreshBibles]);
 
   const uploadMut = useMutation({ mutationFn: uploadModel });
-
-  const reviewMut = useMutation({
-    mutationFn: ({ modelId, label, projectIds }: { modelId: string; label: string; projectIds?: string[] }) =>
-      runReview(modelId, projectIds, label),
-    onSuccess: (data) => setReviewData(data),
-    onError: (err) => setReviewError(err instanceof Error ? err.message : "Review failed"),
-  });
 
   const handleUpload = useCallback(
     async (file: File, slot: 1 | 2) => {
@@ -66,23 +68,26 @@ function UploadPanel() {
         const data = await uploadMut.mutateAsync(file);
         const label = slot === 1 ? m1Label || autoLabel : m2Label || autoLabel;
         if (slot === 1) {
-          setStatus("Running audit...");
           setModel1(data, label);
           setModelScope(data.model_id);
-          // Pass ALL candidate project IDs so the full portfolio is audited
-          const allIds = data.projects.map((p) => p.id);
-          reviewMut.mutate({ modelId: data.model_id, label, projectIds: allIds });
         } else {
           setModel2(data, label);
-          setStatus("");
-          setLoading(false);
         }
-      } catch {
+        // Always run the audit for both slots so the portfolio tab can swap
+        // between them without re-fetching.
+        setStatus("Running audit...");
+        const allIds = data.projects.map((p) => p.id);
+        const review = await runReview(data.model_id, allIds, label);
+        setReviewData(review, slot);
+        setStatus("");
+        setLoading(false);
+      } catch (err) {
         setStatus("Failed");
         setLoading(false);
+        setReviewError(err instanceof Error ? err.message : "Upload or audit failed");
       }
     },
-    [setModel1, setModel2, setModelScope, uploadMut, reviewMut, m1File, m2File, m1Label, m2Label],
+    [setModel1, setModel2, setModelScope, setReviewData, uploadMut, m1File, m2File, m1Label, m2Label],
   );
 
   return (
@@ -198,6 +203,30 @@ function UploadPanel() {
         </div>
       </div>
 
+      {/* Bible vintage manager — collapsed by default; shows active label as teaser */}
+      <div className="w-full border rounded" style={{ borderColor: "var(--border)" }}>
+        <button
+          type="button"
+          onClick={() => setBibleExpanded((b) => !b)}
+          className="w-full flex items-center justify-between px-3 py-2 text-[11px] hover:bg-[var(--inset)] transition cursor-pointer"
+        >
+          <span className="flex items-center gap-2">
+            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "var(--teal)" }}>
+              Pricing Bible
+            </span>
+            <span style={{ color: "var(--muted)" }}>
+              {activeBible ? activeBible.label : "Loading..."}
+            </span>
+          </span>
+          <span style={{ color: "var(--muted)" }}>{bibleExpanded ? "−" : "+"}</span>
+        </button>
+        {bibleExpanded && (
+          <div className="border-t px-3 py-3" style={{ borderColor: "var(--border)" }}>
+            <BibleManager variant="panel" />
+          </div>
+        )}
+      </div>
+
       {(uploadMut.isError || reviewError) && (
         <p className="text-[11px]" style={{ color: "var(--off)" }}>
           {uploadMut.isError ? `Upload failed: ${uploadMut.error?.message}` : `Review failed: ${reviewError}`}
@@ -217,7 +246,7 @@ function ReviewContent() {
 }
 
 export default function Home() {
-  const portfolio = usePortfolioStore((s) => s.portfolio);
+  const portfolio = useActivePortfolio();
   return portfolio ? (
     <AppShell><ReviewContent /></AppShell>
   ) : (

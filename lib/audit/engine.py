@@ -28,6 +28,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from lib.audit.bible import Bible
 from lib.audit.context import AuditContext
 
 
@@ -84,9 +85,15 @@ class AuditEngine:
     def __init__(self, rules: list[AuditRule]):
         self.rules = list(rules)
 
-    def run(self, proj_data: dict) -> dict[str, Any]:
-        """Audit a single project. Mirrors `bible_audit.audit_project`."""
-        ctx = AuditContext.from_proj_data(proj_data)
+    def run(self, proj_data: dict, bible: Bible | None = None) -> dict[str, Any]:
+        """Audit a single project against a bible.
+
+        If `bible` is None, falls back to `Bible.bundled_q1_2026()` — the
+        backward-compat default that wraps the Python-literal bible
+        bundled with the source tree.
+        """
+        active_bible = bible if bible is not None else Bible.bundled_q1_2026()
+        ctx = AuditContext.from_proj_data(proj_data, active_bible)
         result = AuditResult(context=ctx)
         for rule in self.rules:
             rule.apply(ctx, result)

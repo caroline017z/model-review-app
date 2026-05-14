@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from apps.api.bible_store import bible_store
 from apps.api.store import model_store
 from lib.data_loader import get_projects
 from lib.mockup_view import build_payload, filter_projects, list_candidate_projects
@@ -17,7 +18,9 @@ class ReviewRequest(BaseModel):
     project_ids: list[str] | None = None
     model_label: str = "Model"
     reviewer: str = "Caroline Z."
-    bible_label: str = "Q1 '26"
+    # Optional override. When None, the active vintage's label is used so
+    # the UI always reflects what the audit actually ran against.
+    bible_label: str | None = None
 
 
 @router.post("")
@@ -37,12 +40,18 @@ def run_review(req: ReviewRequest):
         suggested_ids = {c["id"] for c in candidates if c.get("suggested")}
         review_projects = filter_projects(projects, suggested_ids)
 
+    # Run the audit against the currently active Bible vintage so uploaded
+    # bibles take effect immediately. Label defaults to that vintage's label.
+    active_bible = bible_store.active()
+    bible_label = req.bible_label or active_bible.label
+
     try:
         projects_list, portfolio = build_payload(
             review_projects,
             model_label=req.model_label,
             reviewer=req.reviewer,
-            bible_label=req.bible_label,
+            bible_label=bible_label,
+            bible=active_bible,
         )
     except Exception as e:
         raise HTTPException(500, f"Audit pipeline error: {e}") from e

@@ -1,18 +1,25 @@
 "use client";
 
-import { usePortfolioStore } from "@/stores/portfolio";
+import {
+  usePortfolioStore,
+  useActiveReviewProjects,
+  useActivePortfolio,
+  useActivePendingExclusions,
+  useActiveConfirmedExclusions,
+} from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
 import { HeatmapChart } from "@/components/charts/HeatmapChart";
 import { fmtEquity } from "@/lib/format";
 
 export function PortfolioView() {
-  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
-  const portfolio = usePortfolioStore((s) => s.portfolio);
+  const reviewProjects = useActiveReviewProjects();
+  const portfolio = useActivePortfolio();
   const model1 = usePortfolioStore((s) => s.model1);
   const model2 = usePortfolioStore((s) => s.model2);
-  const pendingExclusions = usePortfolioStore((s) => s.pendingExclusions);
-  const confirmedExclusions = usePortfolioStore((s) => s.confirmedExclusions);
+  const pendingExclusions = useActivePendingExclusions();
+  const confirmedExclusions = useActiveConfirmedExclusions();
   const togglePending = usePortfolioStore((s) => s.togglePending);
+  const setAllPending = usePortfolioStore((s) => s.setAllPending);
   const confirmPortfolio = usePortfolioStore((s) => s.confirmPortfolio);
 
   // Compute pending changes reactively (not via store get() which isn't reactive)
@@ -72,6 +79,27 @@ export function PortfolioView() {
           <span className="text-[9px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--muted)" }}>
             Portfolio Summary &middot; {ranked.length} projects
           </span>
+          <div className="flex items-center gap-1 text-[9.5px]">
+            <button
+              type="button"
+              onClick={() => setAllPending(true, ranked.length)}
+              className="px-2 py-0.5 rounded font-semibold cursor-pointer hover:bg-[var(--inset)] transition"
+              style={{ color: "var(--teal)" }}
+              title="Include every project"
+            >
+              All on
+            </button>
+            <span style={{ color: "var(--muted)" }}>·</span>
+            <button
+              type="button"
+              onClick={() => setAllPending(false, ranked.length)}
+              className="px-2 py-0.5 rounded font-semibold cursor-pointer hover:bg-[var(--inset)] transition"
+              style={{ color: "var(--muted)" }}
+              title="Exclude every project"
+            >
+              All off
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs min-w-[720px]">

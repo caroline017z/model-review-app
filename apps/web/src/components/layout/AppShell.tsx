@@ -6,12 +6,12 @@ import { AuditStrip } from "./AuditStrip";
 import { ProjectNavigator } from "./ProjectNavigator";
 import { ReferencePanel } from "@/components/review/ReferencePanel";
 import { useUiStore } from "@/stores/ui";
-import { usePortfolioStore } from "@/stores/portfolio";
+import { useActiveReviewProjects, useActivePortfolio } from "@/stores/portfolio";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const mode = useUiStore((s) => s.mode);
-  const portfolio = usePortfolioStore((s) => s.portfolio);
-  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
+  const portfolio = useActivePortfolio();
+  const reviewProjects = useActiveReviewProjects();
   const selectedIdx = useUiStore((s) => s.selectedProjectIdx);
   const setSelected = useUiStore((s) => s.setSelectedProject);
 

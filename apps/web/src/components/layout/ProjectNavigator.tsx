@@ -1,38 +1,28 @@
 "use client";
 
-import { usePortfolioStore } from "@/stores/portfolio";
+import {
+  usePortfolioStore,
+  useReviewProjectsForSlot,
+  useConfirmedExclusionsForSlot,
+} from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
 import { useReviewerStore } from "@/stores/reviewer";
 
-function ModelTab({ label, count, active, onClick }: { label: string; count: number; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex-1 px-2 py-1.5 text-[10px] font-semibold rounded-t border-b-2 transition cursor-pointer truncate ${
-        active
-          ? "border-[var(--teal)] text-[var(--teal)] bg-[var(--surface)]"
-          : "border-transparent text-[var(--muted)] hover:text-[var(--text-2)] bg-transparent"
-      }`}
-    >
-      <div className="truncate">{label}</div>
-      <div className="text-[8px] font-normal">{count} projects</div>
-    </button>
-  );
-}
-
 export function ProjectNavigator() {
-  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
+  // Sidebar always reflects Model 1 — gives Caroline a stable reference for
+  // the M1 portfolio while she works on M2 in the main panel.
+  const reviewProjects = useReviewProjectsForSlot(1);
+  const excludedIds = useConfirmedExclusionsForSlot(1);
   const model1 = usePortfolioStore((s) => s.model1);
   const model2 = usePortfolioStore((s) => s.model2);
-  const excludedIds = usePortfolioStore((s) => s.confirmedExclusions);
   const selectedIdx = useUiStore((s) => s.selectedProjectIdx);
   const setSelected = useUiStore((s) => s.setSelectedProject);
+  const activeModelTab = useUiStore((s) => s.activeModelTab);
+  const setActiveModelTab = useUiStore((s) => s.setActiveModelTab);
   const navSearch = useUiStore((s) => s.navSearch);
   const setNavSearch = useUiStore((s) => s.setNavSearch);
   const navFilter = useUiStore((s) => s.navFilter);
   const setNavFilter = useUiStore((s) => s.setNavFilter);
-  const activeModelTab = useUiStore((s) => s.activeModelTab);
-  const setActiveModelTab = useUiStore((s) => s.setActiveModelTab);
   const approvals = useReviewerStore((s) => s.approvals);
   const isApproved = (idx: number) => !!approvals[idx]?.approved;
 
@@ -43,7 +33,6 @@ export function ProjectNavigator() {
     all: "All", OFF: "FAIL", OUT: "FLAG", REVIEW: "REVIEW",
   };
 
-  // TODO: When two models loaded, split projects by model. For now, all projects shown.
   const filtered = reviewProjects
     .map((p, i) => ({ p, i }))
     .filter(({ p, i }) => {
@@ -56,21 +45,37 @@ export function ProjectNavigator() {
 
   return (
     <div className="p-3 overflow-y-auto text-[12px]">
-      {/* Model tabs — only shown when 2 models uploaded */}
+      {/* When two models are loaded, the sidebar pins to Model 1 as a
+          stable reference. Show a small switch to toggle the *main panel*
+          between the two models — the sidebar list itself doesn't change. */}
       {hasTwoModels && (
-        <div className="flex gap-px mb-2 border-b border-[var(--border)]">
-          <ModelTab
-            label={model1.label}
-            count={model1.projects.length}
-            active={activeModelTab === 1}
-            onClick={() => setActiveModelTab(1)}
-          />
-          <ModelTab
-            label={model2.label}
-            count={model2.projects.length}
-            active={activeModelTab === 2}
-            onClick={() => setActiveModelTab(2)}
-          />
+        <div className="mb-2 pb-2 border-b border-[var(--border)]">
+          <div className="text-[9px] font-bold uppercase tracking-[0.08em] mb-1" style={{ color: "var(--muted)" }}>
+            Main view
+          </div>
+          <div className="flex gap-px rounded overflow-hidden bg-[var(--inset)] p-0.5">
+            <button
+              onClick={() => setActiveModelTab(1)}
+              className={`flex-1 px-2 py-1 text-[10px] font-semibold rounded transition cursor-pointer truncate ${
+                activeModelTab === 1 ? "bg-[var(--teal)] text-white" : "text-[var(--muted)] hover:text-[var(--text-2)]"
+              }`}
+              title={`Show ${model1.label} in main panel`}
+            >
+              {model1.label}
+            </button>
+            <button
+              onClick={() => setActiveModelTab(2)}
+              className={`flex-1 px-2 py-1 text-[10px] font-semibold rounded transition cursor-pointer truncate ${
+                activeModelTab === 2 ? "bg-[var(--indigo)] text-white" : "text-[var(--muted)] hover:text-[var(--text-2)]"
+              }`}
+              title={`Show ${model2.label} in main panel`}
+            >
+              {model2.label}
+            </button>
+          </div>
+          <p className="text-[8.5px] mt-1 italic" style={{ color: "var(--muted)" }}>
+            Sidebar pinned to {model1.label} for reference
+          </p>
         </div>
       )}
 
@@ -120,7 +125,7 @@ export function ProjectNavigator() {
           return (
           <button
             key={i}
-            onClick={() => setSelected(i)}
+            onClick={() => { setActiveModelTab(1); setSelected(i); }}
             className={`w-full text-left border rounded p-[6px_8px] cursor-pointer transition-all border-l-3 ${
               isSel
                 ? "border-l-[var(--teal)] bg-white shadow-[0_1px_3px_rgba(5,13,37,0.06)] border-[var(--border)]"

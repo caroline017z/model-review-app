@@ -1,6 +1,6 @@
 "use client";
 
-import { usePortfolioStore } from "@/stores/portfolio";
+import { useActiveReviewProjects, useActivePortfolio, useActiveConfirmedExclusions } from "@/stores/portfolio";
 import { useReviewerStore } from "@/stores/reviewer";
 
 interface PillProps {
@@ -29,9 +29,9 @@ function Pill({ count, label, variant = "default" }: PillProps) {
 }
 
 export function AuditStrip() {
-  const portfolio = usePortfolioStore((s) => s.portfolio);
-  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
-  const confirmedExclusions = usePortfolioStore((s) => s.confirmedExclusions);
+  const portfolio = useActivePortfolio();
+  const reviewProjects = useActiveReviewProjects();
+  const confirmedExclusions = useActiveConfirmedExclusions();
   const reviewerApprovals = useReviewerStore((s) => s.approvals);
   if (!portfolio) return null;
 
