@@ -21,6 +21,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+from lib.audit.bible import Bible
 from lib.bible_audit import audit_project
 
 logger = logging.getLogger(__name__)
@@ -1112,9 +1113,9 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
     }
 
 
-def _safe_audit(proj_data: dict, proj_name: str = "") -> dict:
+def _safe_audit(proj_data: dict, proj_name: str = "", bible: Bible | None = None) -> dict:
     try:
-        return audit_project(proj_data)
+        return audit_project(proj_data, bible=bible)
     except Exception as exc:  # noqa: BLE001 — we want to surface any audit failure
         logger.exception("audit_project failed for project %r: %s", proj_name, exc)
         return {
@@ -1329,8 +1330,13 @@ def build_payload(
     model_label: str = "Model",
     reviewer: str = "Caroline Z.",
     bible_label: str = "Q1 '26",
+    bible: Bible | None = None,
 ) -> tuple[list[dict], dict]:
-    """Build (projects_list, portfolio_dict) from real model data."""
+    """Build (projects_list, portfolio_dict) from real model data.
+
+    `bible` is the active vintage to audit against. When None, the audit
+    pipeline falls back to the bundled Q1'26 record (pre-Phase-4 behavior).
+    """
     projects_list: list[dict] = []
     totals = {"OFF": 0, "OUT": 0, "MISSING": 0, "REVIEW": 0, "OK": 0}
     total_mw = 0.0
@@ -1338,7 +1344,7 @@ def build_payload(
     heatmap_projects: list[str] = []
 
     for _, proj in _iter_projects(m1_projects):
-        audit = _safe_audit(proj.get("data", {}), proj.get("name", ""))
+        audit = _safe_audit(proj.get("data", {}), proj.get("name", ""), bible=bible)
         projects_list.append(_build_mockup_project(proj, audit, model_label))
         summary = audit.get("summary", {}) or {}
         for k in totals:

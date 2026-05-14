@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useUiStore, type ViewMode } from "@/stores/ui";
 import { usePortfolioStore } from "@/stores/portfolio";
 import { useReviewerStore } from "@/stores/reviewer";
-import { exportReview } from "@/lib/api";
+import { useBibleStore } from "@/stores/bible";
+import { exportReview, runReview } from "@/lib/api";
+import { BibleManager } from "@/components/bible/BibleManager";
 
 const modes: { key: ViewMode; label: string; requiresTwo?: boolean }[] = [
   { key: "portfolio", label: "Portfolio" },
@@ -17,12 +19,39 @@ export function TopBar() {
   const mode = useUiStore((s) => s.mode);
   const setMode = useUiStore((s) => s.setMode);
   const portfolio = usePortfolioStore((s) => s.portfolio);
+  const model1 = usePortfolioStore((s) => s.model1);
   const model2 = usePortfolioStore((s) => s.model2);
+  const setReviewData = usePortfolioStore((s) => s.setReviewData);
   const clearReviewer = useReviewerStore((s) => s.clearAll);
   const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
   const approvals = useReviewerStore((s) => s.approvals);
   const actions = useReviewerStore((s) => s.actions);
+  const refreshBibles = useBibleStore((s) => s.refresh);
+  const activeBible = useBibleStore((s) => s.activeVintage());
   const [exporting, setExporting] = useState(false);
+  const [bibleOpen, setBibleOpen] = useState(false);
+  const [rerunning, setRerunning] = useState(false);
+
+  useEffect(() => {
+    refreshBibles();
+  }, [refreshBibles]);
+
+  // After switching the active vintage, re-run the audit against the new Bible
+  // so the displayed findings reflect what's currently active.
+  const handleBibleActivated = async () => {
+    setBibleOpen(false);
+    if (!model1) return;
+    setRerunning(true);
+    try {
+      const ids = model1.projects.map((p) => p.id);
+      const data = await runReview(model1.modelId, ids, model1.label);
+      setReviewData(data);
+    } catch (e) {
+      console.error("Re-audit after bible switch failed:", e);
+    } finally {
+      setRerunning(false);
+    }
+  };
 
   const handleExport = async () => {
     if (!portfolio || !reviewProjects.length) return;
@@ -110,7 +139,14 @@ export function TopBar() {
         {portfolio && (
           <>
             <span>Model: <b className="text-white/90 font-semibold">{portfolio.modelName}</b></span>
-            <span>Bible: <b className="text-white/90 font-semibold">{portfolio.bibleLabel}</b></span>
+            <button
+              onClick={() => setBibleOpen(true)}
+              className="hover:bg-white/[0.08] rounded px-1 py-0.5 transition cursor-pointer"
+              title="Switch or upload Pricing Bible vintage"
+            >
+              Bible: <b className="text-white/90 font-semibold underline decoration-dotted">{activeBible?.label ?? portfolio.bibleLabel}</b>
+              {rerunning && <span className="ml-1 text-[9px] italic">(re-auditing...)</span>}
+            </button>
             <span>Reviewer: <b className="text-white/90 font-semibold">{portfolio.reviewer}</b></span>
             <button
               onClick={handleExport}
@@ -128,6 +164,22 @@ export function TopBar() {
           </>
         )}
       </div>
+
+      {/* Bible vintage manager modal */}
+      {bibleOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onClick={() => setBibleOpen(false)}
+        >
+          <div
+            className="bg-[var(--bg)] rounded-lg shadow-xl max-h-[80vh] overflow-y-auto"
+            style={{ borderColor: "var(--border)", color: "var(--text)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <BibleManager variant="modal" onActivate={handleBibleActivated} />
+          </div>
+        </div>
+      )}
     </header>
   );
 }

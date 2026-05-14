@@ -217,3 +217,69 @@ export async function getBenchmarks() {
     "/api/benchmarks",
   );
 }
+
+// --- Bible vintage types ---
+
+export interface VintageSummary {
+  vintage_id: string;
+  label: string;
+  source: string;
+  uploaded_at: string;
+  is_active: boolean;
+}
+
+export interface VintageDetail extends VintageSummary {
+  cs_average_row_count: number;
+  market_entries_count: number;
+}
+
+export interface VintageUploadResponse {
+  vintage_id: string;
+  label: string;
+  source: string;
+  uploaded_at: string;
+  overlaid_row_count: number;
+  is_active: boolean;
+}
+
+// --- Bible vintage functions ---
+
+export async function listVintages(): Promise<VintageSummary[]> {
+  return apiFetch<VintageSummary[]>("/api/bible/vintages");
+}
+
+export async function getActiveVintage(): Promise<VintageDetail> {
+  return apiFetch<VintageDetail>("/api/bible/active");
+}
+
+export async function uploadVintage(
+  file: File,
+  label: string,
+  setActive: boolean,
+): Promise<VintageUploadResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  const params = new URLSearchParams({
+    label,
+    set_active: String(setActive),
+  });
+  const res = await fetch(`${API_BASE}/api/bible/vintages?${params}`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Bible upload failed: ${await res.text()}`);
+  return res.json();
+}
+
+export async function setActiveVintage(vintageId: string): Promise<VintageDetail> {
+  return apiFetch<VintageDetail>("/api/bible/active", {
+    method: "POST",
+    body: JSON.stringify({ vintage_id: vintageId }),
+  });
+}
+
+export async function deleteVintage(vintageId: string): Promise<void> {
+  await apiFetch<{ deleted: boolean }>(`/api/bible/vintages/${vintageId}`, {
+    method: "DELETE",
+  });
+}
