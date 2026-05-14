@@ -1,15 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { usePortfolioStore } from "@/stores/portfolio";
+import {
+  usePortfolioStore,
+  useReviewProjectsForSlot,
+  usePendingExclusionsForSlot,
+  useConfirmedExclusionsForSlot,
+} from "@/stores/portfolio";
 import { downloadWalk } from "@/lib/api";
 
 export function BuildWalkView() {
   const model1 = usePortfolioStore((s) => s.model1);
   const model2 = usePortfolioStore((s) => s.model2);
-  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
-  const pendingExclusions = usePortfolioStore((s) => s.pendingExclusions);
-  const confirmedExclusions = usePortfolioStore((s) => s.confirmedExclusions);
+  // Walk anchors on Model 1, so always use M1's project list + exclusions
+  // regardless of which tab the user is currently viewing.
+  const reviewProjects = useReviewProjectsForSlot(1);
+  const pendingExclusions = usePendingExclusionsForSlot(1);
+  const confirmedExclusions = useConfirmedExclusionsForSlot(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

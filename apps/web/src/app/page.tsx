@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/AppShell";
 import { BibleManager } from "@/components/bible/BibleManager";
-import { usePortfolioStore } from "@/stores/portfolio";
+import { usePortfolioStore, useActivePortfolio } from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
 import { useReviewerStore } from "@/stores/reviewer";
 import { useBibleStore } from "@/stores/bible";
@@ -42,13 +42,6 @@ function UploadPanel() {
 
   const uploadMut = useMutation({ mutationFn: uploadModel });
 
-  const reviewMut = useMutation({
-    mutationFn: ({ modelId, label, projectIds }: { modelId: string; label: string; projectIds?: string[] }) =>
-      runReview(modelId, projectIds, label),
-    onSuccess: (data) => setReviewData(data),
-    onError: (err) => setReviewError(err instanceof Error ? err.message : "Review failed"),
-  });
-
   const handleUpload = useCallback(
     async (file: File, slot: 1 | 2) => {
       setReviewError(null);
@@ -75,23 +68,26 @@ function UploadPanel() {
         const data = await uploadMut.mutateAsync(file);
         const label = slot === 1 ? m1Label || autoLabel : m2Label || autoLabel;
         if (slot === 1) {
-          setStatus("Running audit...");
           setModel1(data, label);
           setModelScope(data.model_id);
-          // Pass ALL candidate project IDs so the full portfolio is audited
-          const allIds = data.projects.map((p) => p.id);
-          reviewMut.mutate({ modelId: data.model_id, label, projectIds: allIds });
         } else {
           setModel2(data, label);
-          setStatus("");
-          setLoading(false);
         }
-      } catch {
+        // Always run the audit for both slots so the portfolio tab can swap
+        // between them without re-fetching.
+        setStatus("Running audit...");
+        const allIds = data.projects.map((p) => p.id);
+        const review = await runReview(data.model_id, allIds, label);
+        setReviewData(review, slot);
+        setStatus("");
+        setLoading(false);
+      } catch (err) {
         setStatus("Failed");
         setLoading(false);
+        setReviewError(err instanceof Error ? err.message : "Upload or audit failed");
       }
     },
-    [setModel1, setModel2, setModelScope, uploadMut, reviewMut, m1File, m2File, m1Label, m2Label],
+    [setModel1, setModel2, setModelScope, setReviewData, uploadMut, m1File, m2File, m1Label, m2Label],
   );
 
   return (
@@ -250,7 +246,7 @@ function ReviewContent() {
 }
 
 export default function Home() {
-  const portfolio = usePortfolioStore((s) => s.portfolio);
+  const portfolio = useActivePortfolio();
   return portfolio ? (
     <AppShell><ReviewContent /></AppShell>
   ) : (

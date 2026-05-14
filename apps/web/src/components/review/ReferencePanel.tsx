@@ -1,6 +1,6 @@
 "use client";
 
-import { usePortfolioStore } from "@/stores/portfolio";
+import { useActiveReviewProjects } from "@/stores/portfolio";
 import { useUiStore } from "@/stores/ui";
 
 /* ---------- tiny helpers ---------- */
@@ -148,7 +148,7 @@ function customerMixItems(refs: Record<string, unknown> | undefined): RefItem[] 
 /* ---------- main panel ---------- */
 
 export function ReferencePanel() {
-  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
+  const reviewProjects = useActiveReviewProjects();
   const selectedIdx = useUiStore((s) => s.selectedProjectIdx);
   const project = reviewProjects[selectedIdx];
 

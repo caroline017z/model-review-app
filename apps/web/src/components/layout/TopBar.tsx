@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useUiStore, type ViewMode } from "@/stores/ui";
-import { usePortfolioStore } from "@/stores/portfolio";
+import { usePortfolioStore, useActiveReviewProjects, useActivePortfolio } from "@/stores/portfolio";
 import { useReviewerStore } from "@/stores/reviewer";
 import { useBibleStore } from "@/stores/bible";
 import { exportReview, runReview } from "@/lib/api";
@@ -18,12 +18,12 @@ const modes: { key: ViewMode; label: string; requiresTwo?: boolean }[] = [
 export function TopBar() {
   const mode = useUiStore((s) => s.mode);
   const setMode = useUiStore((s) => s.setMode);
-  const portfolio = usePortfolioStore((s) => s.portfolio);
+  const portfolio = useActivePortfolio();
   const model1 = usePortfolioStore((s) => s.model1);
   const model2 = usePortfolioStore((s) => s.model2);
   const setReviewData = usePortfolioStore((s) => s.setReviewData);
   const clearReviewer = useReviewerStore((s) => s.clearAll);
-  const reviewProjects = usePortfolioStore((s) => s.reviewProjects);
+  const reviewProjects = useActiveReviewProjects();
   const approvals = useReviewerStore((s) => s.approvals);
   const actions = useReviewerStore((s) => s.actions);
   const refreshBibles = useBibleStore((s) => s.refresh);
@@ -36,16 +36,21 @@ export function TopBar() {
     refreshBibles();
   }, [refreshBibles]);
 
-  // After switching the active vintage, re-run the audit against the new Bible
-  // so the displayed findings reflect what's currently active.
+  // After switching the active vintage, re-run the audit for both loaded
+  // models so either tab reflects the new Bible findings without reload.
   const handleBibleActivated = async () => {
     setBibleOpen(false);
     if (!model1) return;
     setRerunning(true);
     try {
-      const ids = model1.projects.map((p) => p.id);
-      const data = await runReview(model1.modelId, ids, model1.label);
-      setReviewData(data);
+      const ids1 = model1.projects.map((p) => p.id);
+      const data1 = await runReview(model1.modelId, ids1, model1.label);
+      setReviewData(data1, 1);
+      if (model2) {
+        const ids2 = model2.projects.map((p) => p.id);
+        const data2 = await runReview(model2.modelId, ids2, model2.label);
+        setReviewData(data2, 2);
+      }
     } catch (e) {
       console.error("Re-audit after bible switch failed:", e);
     } finally {
@@ -103,10 +108,15 @@ export function TopBar() {
   const handleReset = () => {
     // Reset all stores to initial state
     usePortfolioStore.setState({
-      model1: null, model2: null, reviewProjects: [], portfolio: null,
-      selectedIds: {}, excludedIds: {}, pendingExclusions: {}, confirmedExclusions: {},
+      model1: null, model2: null,
+      reviewProjects1: [], reviewProjects2: [],
+      portfolio1: null, portfolio2: null,
+      selectedIds: {},
+      excludedIds1: {}, excludedIds2: {},
+      pendingExclusions1: {}, pendingExclusions2: {},
+      confirmedExclusions1: {}, confirmedExclusions2: {},
     });
-    useUiStore.setState({ mode: "project", selectedProjectIdx: 0, navSearch: "", navFilter: "all" });
+    useUiStore.setState({ mode: "project", selectedProjectIdx: 0, navSearch: "", navFilter: "all", activeModelTab: 1 });
     clearReviewer();
   };
 
