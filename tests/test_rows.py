@@ -1,4 +1,5 @@
 """Tests for rows.py — row constant integrity."""
+
 import lib.rows as rows
 from lib.config import INPUT_ROW_LABELS, OUTPUT_ROWS
 

@@ -3,7 +3,8 @@
 Guarantees that the sidebar's MW total, the payload's MW total, and the
 rendered HTML payload all stay in sync.
 """
-from lib.mockup_view import list_candidate_projects, filter_projects, build_payload
+
+from lib.mockup_view import build_payload, filter_projects, list_candidate_projects
 
 
 def _synthetic(n_active=2, n_inactive=3, n_placeholder=10):
@@ -12,19 +13,22 @@ def _synthetic(n_active=2, n_inactive=3, n_placeholder=10):
     col = 6
     for i in range(n_active):
         d[col] = {
-            "name": f"Active-{i}", "toggle": True,
+            "name": f"Active-{i}",
+            "toggle": True,
             "data": {10: "AcmeDev", 11: 5.0 + i, 18: "IL", 19: "Ameren", 22: "ABP"},
         }
         col += 1
     for i in range(n_inactive):
         d[col] = {
-            "name": f"Inactive-{i}", "toggle": False,
+            "name": f"Inactive-{i}",
+            "toggle": False,
             "data": {10: "AcmeDev", 11: 3.0 + i, 18: "IL", 19: "Ameren", 22: "ABP"},
         }
         col += 1
     for _ in range(n_placeholder):
         d[col] = {
-            "name": f"Placeholder-{col}", "toggle": True,
+            "name": f"Placeholder-{col}",
+            "toggle": True,
             "data": {11: 0, 18: "", 19: "", 22: ""},
         }
         col += 1

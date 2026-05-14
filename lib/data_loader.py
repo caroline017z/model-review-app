@@ -3,25 +3,32 @@
 Reads pricing model workbooks and extracts project data.
 Pure Python — no Streamlit dependency.
 """
+
 import copy
 import logging
-import openpyxl
-from pathlib import Path
 import re
+from pathlib import Path
+from typing import Any
 
-logger = logging.getLogger(__name__)
+import openpyxl
 
 from lib.config import (
-    INPUT_ROW_LABELS, OUTPUT_ROWS, TEXT_ROWS,
-    RATE_COMP_STARTS, EQUITY_RATE_TOGGLE_START,
-    DEBT_RATE_TOGGLE_START, APPRAISAL_RATE_TOGGLE_START,
+    APPRAISAL_RATE_TOGGLE_START,
+    DEBT_RATE_TOGGLE_START,
+    EQUITY_RATE_TOGGLE_START,
+    INPUT_ROW_LABELS,
+    OUTPUT_ROWS,
+    RATE_COMP_STARTS,
 )
 from lib.utils import canonicalize_name, safe_float
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
 # Dynamic label-based row mapping
 # ---------------------------------------------------------------------------
+
 
 def _normalize_label(s):
     """Normalize a label for fuzzy matching: lowercase, strip, collapse whitespace, remove punctuation noise."""
@@ -29,7 +36,7 @@ def _normalize_label(s):
         return ""
     s = str(s).strip().lower()
     s = s.replace("\n", " ").replace("\r", " ")
-    s = re.sub(r'\s+', ' ', s)
+    s = re.sub(r"\s+", " ", s)
     return s
 
 
@@ -75,6 +82,7 @@ def _labels_match(canonical, actual):
         s = re.sub(r"[()/%]", " ", s)
         s = re.sub(r"\s+", " ", s).strip()
         return s
+
     c = _canon(canonical)
     a = _canon(actual)
     if c == a:
@@ -92,7 +100,20 @@ def _labels_match(canonical, actual):
 # Canonical row → list of alternative labels accepted as matches.
 # Keeps matching tolerant to template drift without relaxing _labels_match.
 ROW_LABEL_ALIASES: dict[int, list[str]] = {
-    2: ["Project #", "Project Number", "Project No", "#", "Project ID", "Proj #", "Proj No", "Project Code", "Proj", "No.", "No", "Project Inputs"],
+    2: [
+        "Project #",
+        "Project Number",
+        "Project No",
+        "#",
+        "Project ID",
+        "Proj #",
+        "Proj No",
+        "Project Code",
+        "Proj",
+        "No.",
+        "No",
+        "Project Inputs",
+    ],
     4: ["Project Name", "Projects", "Project"],
     7: ["Toggle (On/Off)", "Project Toggle (on/off)", "Project Toggle", "Toggle"],
     10: ["Developer", "Developer Name"],
@@ -102,7 +123,12 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
     31: ["Live Appraisal IRR", "Appraisal IRR", "Live Appraisal Model IRR"],
     33: ["FMV Calculated", "FMV Calculated ($/W)", "FMV $/W"],
     36: ["Target IRR"],
-    37: ["Live Levered Pre-Tax IRR", "Levered Pre-Tax IRR", "Live Levered PT IRR", "Levered PT IRR"],
+    37: [
+        "Live Levered Pre-Tax IRR",
+        "Levered Pre-Tax IRR",
+        "Live Levered PT IRR",
+        "Levered PT IRR",
+    ],
     38: ["NPP ($/W) - SOLVE", "NPP ($/W)", "NPP $/W", "NPP per W"],
     39: ["NPP ($)", "NPP $"],
     118: ["PV EPC Cost", "EPC Cost", "PV EPC"],
@@ -123,8 +149,19 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
     240: ["Customer Mgmt Cost", "Customer Management Cost", "Cust Mgmt", "Customer Mgmt"],
     241: ["Customer Mgmt Esc", "Customer Management Escalator", "Cust Mgmt Escalator"],
     286: ["Decom Annual Premium", "Decom Bond Annual Premium"],
-    296: ["P&C Insurance Annual Premium", "P&C Insurance ($/MW-dc/yr)", "Insurance Annual Premium", "P&C Insurance"],
-    297: ["P&C Insurance Esc", "P&C Insurance Escalator", "Insurance Escalator", "Insurance Esc", "P&C Insurance Escalator"],
+    296: [
+        "P&C Insurance Annual Premium",
+        "P&C Insurance ($/MW-dc/yr)",
+        "Insurance Annual Premium",
+        "P&C Insurance",
+    ],
+    297: [
+        "P&C Insurance Esc",
+        "P&C Insurance Escalator",
+        "Insurance Escalator",
+        "Insurance Esc",
+        "P&C Insurance Escalator",
+    ],
     291: ["Custom PropTax Toggle", "Custom Property Tax Toggle", "Custom Prop Tax"],
     292: ["Property Taxes Yr 1", "Property Tax Year 1", "Property Taxes"],
     293: ["PropTax Escalator", "Property Tax Escalator", "Prop Tax Esc"],
@@ -133,8 +170,21 @@ ROW_LABEL_ALIASES: dict[int, list[str]] = {
     681: ["Active FMV", "Active Fair Market Value", "FMV", "Active Market Value"],
     591: ["Tax Treatment", "Tax Equity Treatment"],
     596: ["TE Structure", "Tax Equity Structure"],
-    597: ["ITC Rate", "ITC %", "Investment Tax Credit Rate", "Investment Tax Credit %", "Tax Credit Rate"],
-    602: ["Eligible Costs %", "ITC Eligible Costs", "Eligible Cost %", "ITC Eligible Cost %", "Eligible Costs", "Eligible Cost"],
+    597: [
+        "ITC Rate",
+        "ITC %",
+        "Investment Tax Credit Rate",
+        "Investment Tax Credit %",
+        "Tax Credit Rate",
+    ],
+    602: [
+        "Eligible Costs %",
+        "ITC Eligible Costs",
+        "Eligible Cost %",
+        "ITC Eligible Cost %",
+        "Eligible Costs",
+        "Eligible Cost",
+    ],
 }
 
 
@@ -163,13 +213,13 @@ def _detect_label_column(ws, max_row=1000):
 WRAPPED_EPC_LABEL_PATTERNS = [
     # (regex, component name) — order is informational only
     # Matches rows 103-108 in typical models
-    (r"^pv\s*epc\s*cost$",                            "PV EPC Cost"),
-    (r"^pv\s*module\s*cost",                           "PV Module Cost"),
-    (r"^pv\s*contingency\s*cost$",                     "PV Contingency"),
-    (r"^pv\s*lntp(\s*cost)?$",                         "PV LNTP Cost"),
-    (r"^safe\s*harbor\s*costs?$",                      "Safe Harbor Costs"),
-    (r"^epc\s*size[.\-\s]based\s*adder",                "EPC Size-Based Adders"),
-    (r"^epc\s*contingency|^contingency.*epc",          "EPC Contingency"),
+    (r"^pv\s*epc\s*cost$", "PV EPC Cost"),
+    (r"^pv\s*module\s*cost", "PV Module Cost"),
+    (r"^pv\s*contingency\s*cost$", "PV Contingency"),
+    (r"^pv\s*lntp(\s*cost)?$", "PV LNTP Cost"),
+    (r"^safe\s*harbor\s*costs?$", "Safe Harbor Costs"),
+    (r"^epc\s*size[.\-\s]based\s*adder", "EPC Size-Based Adders"),
+    (r"^epc\s*contingency|^contingency.*epc", "EPC Contingency"),
 ]
 
 
@@ -199,7 +249,7 @@ def _scan_wrapped_epc_rows(ws, label_col, max_row=1000):
 # of how the program field is labeled.
 GUIDEHOUSE_NAME_PATTERNS = [
     r"guidehouse",
-    r"\bgh\b",                  # "GH discount" abbreviation
+    r"\bgh\b",  # "GH discount" abbreviation
 ]
 ABP_REC_NAME_PATTERNS = [
     r"\babp\s*rec\b",
@@ -225,19 +275,22 @@ def _scan_rate_components(ws, col):
           "abp_rec_live": bool,    # any ABP REC component with equity_on truthy
         }
     """
-    out = {"guidehouse": [], "abp_rec": [], "abp_rec_live": False}
+    out: dict[str, Any] = {"guidehouse": [], "abp_rec": [], "abp_rec_live": False}
     for i, start in enumerate(RATE_COMP_STARTS, 1):
         name = ws.cell(row=start + 1, column=col).value
         if not name:
             continue
-        eq_on  = safe_float(ws.cell(row=EQUITY_RATE_TOGGLE_START + (i - 1), column=col).value)
-        dt_on  = safe_float(ws.cell(row=DEBT_RATE_TOGGLE_START   + (i - 1), column=col).value)
-        ap_on  = safe_float(ws.cell(row=APPRAISAL_RATE_TOGGLE_START + (i - 1), column=col).value)
+        eq_on = safe_float(ws.cell(row=EQUITY_RATE_TOGGLE_START + (i - 1), column=col).value)
+        dt_on = safe_float(ws.cell(row=DEBT_RATE_TOGGLE_START + (i - 1), column=col).value)
+        ap_on = safe_float(ws.cell(row=APPRAISAL_RATE_TOGGLE_START + (i - 1), column=col).value)
         rec = {
-            "idx": i, "name": str(name).strip(),
+            "idx": i,
+            "name": str(name).strip(),
             "energy_rate": safe_float(ws.cell(row=start + 3, column=col).value),
-            "discount":    safe_float(ws.cell(row=start + 7, column=col).value),
-            "equity_on": bool(eq_on), "debt_on": bool(dt_on), "appraisal_on": bool(ap_on),
+            "discount": safe_float(ws.cell(row=start + 7, column=col).value),
+            "equity_on": bool(eq_on),
+            "debt_on": bool(dt_on),
+            "appraisal_on": bool(ap_on),
         }
         if _matches_any(name, GUIDEHOUSE_NAME_PATTERNS):
             out["guidehouse"].append(rec)
@@ -270,11 +323,10 @@ def template_fingerprint(row_map: dict) -> str:
     audited before trusting per-row diffs.
     """
     import hashlib
-    parts = [
-        f"{canon}:{row_map.get(canon)}"
-        for canon in _CRITICAL_CANONICAL_ROWS
-    ]
-    return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:8]
+
+    parts = [f"{canon}:{row_map.get(canon)}" for canon in _CRITICAL_CANONICAL_ROWS]
+    # Non-cryptographic fingerprint — used to detect template drift between models.
+    return hashlib.sha1("|".join(parts).encode("utf-8"), usedforsecurity=False).hexdigest()[:8]
 
 
 def validate_model_result(result: dict) -> dict:
@@ -287,18 +339,15 @@ def validate_model_result(result: dict) -> dict:
     """
     projects = result.get("projects") or {}
     real_projects = [
-        p for p in projects.values()
+        p
+        for p in projects.values()
         if isinstance(p, dict) and p.get("name") and str(p.get("name")).strip()
     ]
     row_map = result.get("_row_map") or {}
     critical_missing = sorted(
-        canon for canon in _CRITICAL_CANONICAL_ROWS
-        if row_map.get(canon) is None
+        canon for canon in _CRITICAL_CANONICAL_ROWS if row_map.get(canon) is None
     )
-    ok = (
-        len(real_projects) >= 1
-        and len(critical_missing) <= _MAX_ALLOWED_CRITICAL_MISSING
-    )
+    ok = len(real_projects) >= 1 and len(critical_missing) <= _MAX_ALLOWED_CRITICAL_MISSING
     return {
         "ok": ok,
         "project_count": len(real_projects),
@@ -336,7 +385,9 @@ def _build_row_mapping(ws, label_col, max_row=1000):
             logger.warning(
                 "Duplicate label %r appears at rows %s — first wins (row %d). "
                 "If the later rows matter, add more-specific aliases.",
-                norm, rows, rows[0],
+                norm,
+                rows,
+                rows[0],
             )
 
     all_canonical = dict(INPUT_ROW_LABELS)
@@ -377,11 +428,9 @@ def _build_row_mapping(ws, label_col, max_row=1000):
     for actual_r, canon_list in actual_to_canonicals.items():
         if len(canon_list) <= 1:
             continue
-        # Prefer the canonical whose primary label is an exact normalized match.
-        actual_norm = actual_by_norm_first.get(
-            next((n for n, r in actual_by_norm_first.items() if r == actual_r), ""),
-            "",
-        )
+        # Prefer the canonical whose primary label is an exact normalized match
+        # against the actual cell label found at this row.
+        actual_norm = next((n for n, r in actual_by_norm_first.items() if r == actual_r), "")
         exact_winner = None
         for cr in canon_list:
             primary = _normalize_label(all_canonical.get(cr, ""))
@@ -396,14 +445,18 @@ def _build_row_mapping(ws, label_col, max_row=1000):
         logger.warning(
             "Collision: actual row %d claimed by canonical rows %s — "
             "keeping %d (exact match), setting %s to None.",
-            actual_r, canon_list, exact_winner, losers,
+            actual_r,
+            canon_list,
+            exact_winner,
+            losers,
         )
 
     if unresolved_critical:
         logger.warning(
             "Critical row(s) unresolved: %s — downstream UI may show blanks "
             "or default to a fallback. Consider adding labels in column %s.",
-            unresolved_critical, chr(64 + label_col) if label_col else "?",
+            unresolved_critical,
+            chr(64 + label_col) if label_col else "?",
         )
     return mapping
 
@@ -462,8 +515,8 @@ def load_pricing_model(file):
         rate_rows.add(EQUITY_RATE_TOGGLE_START + i)
         rate_rows.add(DEBT_RATE_TOGGLE_START + i)
         rate_rows.add(APPRAISAL_RATE_TOGGLE_START + i)
-    rate_rows.add(400)   # debt match toggle
-    rate_rows.add(512)   # appraisal match toggle
+    rate_rows.add(400)  # debt match toggle
+    rate_rows.add(512)  # appraisal match toggle
 
     # Resolve actual row numbers for key fixed-position rows
     # (name+toggle rarely drift, but fall back to canonical so we can still
@@ -491,7 +544,9 @@ def load_pricing_model(file):
             else:
                 is_on = str(toggle_cell).strip().lower() in ("1", "on", "true", "yes", "y")
 
-        data = {}
+        # Heterogeneous: int keys are canonical row numbers; string keys carry
+        # derived metadata (_units_by_row, _wrapped_epc_components, _abp_rec_live, …)
+        data: dict[int | str, Any] = {}
         for canonical_r in all_needed_canonical:
             actual_r = row_map.get(canonical_r)
             # Unresolved labels → None (don't read whatever lives at the
@@ -527,10 +582,13 @@ def load_pricing_model(file):
                 if not label_str or label_str.isdigit():
                     continue
                 # Only store if it looks like a real unit
-                if unit_str and (unit_str.startswith("$") or unit_str.startswith("%")
-                                or unit_str.lower() in ("years", "months", "mwdc", "mwac",
-                                    "kwh/wdc", "kwh/mwp", "ratio", "toggle")
-                                or "/" in unit_str):
+                if unit_str and (
+                    unit_str.startswith("$")
+                    or unit_str.startswith("%")
+                    or unit_str.lower()
+                    in ("years", "months", "mwdc", "mwac", "kwh/wdc", "kwh/mwp", "ratio", "toggle")
+                    or "/" in unit_str
+                ):
                     all_units[label_str] = unit_str
         data["_all_units"] = all_units
 
@@ -547,24 +605,30 @@ def load_pricing_model(file):
         rate_comps = {}
         for i, start in enumerate(RATE_COMP_STARTS, 1):
             rate_comps[i] = {
-                "name": ws.cell(row=start+1, column=col).value,
-                "custom_generic": ws.cell(row=start+2, column=col).value,
-                "energy_rate": ws.cell(row=start+3, column=col).value,
-                "escalator": ws.cell(row=start+4, column=col).value,
-                "start_date": ws.cell(row=start+5, column=col).value,
-                "term": ws.cell(row=start+6, column=col).value,
-                "discount": ws.cell(row=start+7, column=col).value,
-                "ucb_fee": ws.cell(row=start+8, column=col).value,
-                "equity_on": safe_float(ws.cell(row=EQUITY_RATE_TOGGLE_START+(i-1), column=col).value),
-                "debt_on": safe_float(ws.cell(row=DEBT_RATE_TOGGLE_START+(i-1), column=col).value),
-                "appraisal_on": safe_float(ws.cell(row=APPRAISAL_RATE_TOGGLE_START+(i-1), column=col).value),
+                "name": ws.cell(row=start + 1, column=col).value,
+                "custom_generic": ws.cell(row=start + 2, column=col).value,
+                "energy_rate": ws.cell(row=start + 3, column=col).value,
+                "escalator": ws.cell(row=start + 4, column=col).value,
+                "start_date": ws.cell(row=start + 5, column=col).value,
+                "term": ws.cell(row=start + 6, column=col).value,
+                "discount": ws.cell(row=start + 7, column=col).value,
+                "ucb_fee": ws.cell(row=start + 8, column=col).value,
+                "equity_on": safe_float(
+                    ws.cell(row=EQUITY_RATE_TOGGLE_START + (i - 1), column=col).value
+                ),
+                "debt_on": safe_float(
+                    ws.cell(row=DEBT_RATE_TOGGLE_START + (i - 1), column=col).value
+                ),
+                "appraisal_on": safe_float(
+                    ws.cell(row=APPRAISAL_RATE_TOGGLE_START + (i - 1), column=col).value
+                ),
             }
 
         # For Custom rate components, the escalator input on Project Inputs
         # is not used — the rate curve defines year-by-year rates directly.
         # Suppress the escalator to avoid showing misleading values.
-        for i, start in enumerate(RATE_COMP_STARTS, 1):
-            cg = ws.cell(row=start+2, column=col).value  # Custom/Generic
+        for start in RATE_COMP_STARTS:
+            cg = ws.cell(row=start + 2, column=col).value  # Custom/Generic
             if cg and str(cg).strip().lower() == "custom":
                 esc_canonical = start + 4  # escalator row for this rate comp
                 if esc_canonical in data:
@@ -607,7 +671,10 @@ def load_pricing_model(file):
                 logger.warning(
                     "Wrapped EPC component %r = %.2f at row %d for col %d — "
                     "outside $/W plausibility range (0-10). Possible unit mismatch.",
-                    comp.get("component"), v, comp.get("row"), col,
+                    comp.get("component"),
+                    v,
+                    comp.get("row"),
+                    col,
                 )
         data["_wrapped_epc_total"] = wrapped_total if any_value else None
         # Bible comparison: wrapped total MINUS contingency
@@ -621,15 +688,20 @@ def load_pricing_model(file):
         # ---- Rate-component scan: Guidehouse discount + ABP REC live state ----
         rate_scan = _scan_rate_components(ws, col)
         data["_guidehouse_components"] = rate_scan["guidehouse"]
-        data["_abp_rec_components"]    = rate_scan["abp_rec"]
-        data["_abp_rec_live"]          = rate_scan["abp_rec_live"]
+        data["_abp_rec_components"] = rate_scan["abp_rec"]
+        data["_abp_rec_live"] = rate_scan["abp_rec_live"]
 
-        clean_name = " | ".join(line.strip() for line in str(name_cell).strip().splitlines() if line.strip())
+        clean_name = " | ".join(
+            line.strip() for line in str(name_cell).strip().splitlines() if line.strip()
+        )
         projects[col] = {
-            "name": clean_name, "toggle": is_on,
+            "name": clean_name,
+            "toggle": is_on,
             "col_letter": openpyxl.utils.get_column_letter(col),
-            "data": data, "rate_comps": rate_comps,
-            "dscr_label": dscr_label, "dscr_schedule": dscr_schedule,
+            "data": data,
+            "rate_comps": rate_comps,
+            "dscr_label": dscr_label,
+            "dscr_schedule": dscr_schedule,
         }
 
     # Ops Sandbox
@@ -640,31 +712,42 @@ def load_pricing_model(file):
         for r in range(19, 29):
             label = ws_ops.cell(row=r, column=2).value
             if label and "Placeholder" not in str(label):
-                ops_sandbox["revenue_adders"].append({
-                    "label": str(label).strip(),
-                    "annual": safe_float(ws_ops.cell(row=r, column=3).value),
-                    "equity": safe_float(ws_ops.cell(row=r, column=4).value) or 0,
-                    "debt": safe_float(ws_ops.cell(row=r, column=5).value) or 0,
-                    "appraisal": safe_float(ws_ops.cell(row=r, column=6).value) or 0,
-                    "npv_total": safe_float(ws_ops.cell(row=r, column=8).value),
-                })
+                ops_sandbox["revenue_adders"].append(
+                    {
+                        "label": str(label).strip(),
+                        "annual": safe_float(ws_ops.cell(row=r, column=3).value),
+                        "equity": safe_float(ws_ops.cell(row=r, column=4).value) or 0,
+                        "debt": safe_float(ws_ops.cell(row=r, column=5).value) or 0,
+                        "appraisal": safe_float(ws_ops.cell(row=r, column=6).value) or 0,
+                        "npv_total": safe_float(ws_ops.cell(row=r, column=8).value),
+                    }
+                )
         for r in range(36, 46):
             label = ws_ops.cell(row=r, column=2).value
             if label and "Placeholder" not in str(label):
-                ops_sandbox["opex_overrides"].append({
-                    "label": str(label).strip(),
-                    "annual": safe_float(ws_ops.cell(row=r, column=3).value),
-                    "equity": safe_float(ws_ops.cell(row=r, column=4).value) or 0,
-                    "debt": safe_float(ws_ops.cell(row=r, column=5).value) or 0,
-                    "appraisal": safe_float(ws_ops.cell(row=r, column=6).value) or 0,
-                    "npv_total": safe_float(ws_ops.cell(row=r, column=8).value),
-                })
-        for attr, row in [("equity_adder_npv", 31), ("debt_adder_npv", 32), ("appraisal_adder_npv", 33),
-                          ("equity_opex_npv", 48), ("debt_opex_npv", 49), ("appraisal_opex_npv", 50)]:
+                ops_sandbox["opex_overrides"].append(
+                    {
+                        "label": str(label).strip(),
+                        "annual": safe_float(ws_ops.cell(row=r, column=3).value),
+                        "equity": safe_float(ws_ops.cell(row=r, column=4).value) or 0,
+                        "debt": safe_float(ws_ops.cell(row=r, column=5).value) or 0,
+                        "appraisal": safe_float(ws_ops.cell(row=r, column=6).value) or 0,
+                        "npv_total": safe_float(ws_ops.cell(row=r, column=8).value),
+                    }
+                )
+        for attr, row in [
+            ("equity_adder_npv", 31),
+            ("debt_adder_npv", 32),
+            ("appraisal_adder_npv", 33),
+            ("equity_opex_npv", 48),
+            ("debt_opex_npv", 49),
+            ("appraisal_opex_npv", 50),
+        ]:
             ops_sandbox[attr] = safe_float(ws_ops.cell(row=row, column=8).value)
 
     # --- Rate Curves sheet ---
-    rate_curves = {}
+    # Heterogeneous: int RC index keys, "dates"/"projects"/"rcN_*" string keys.
+    rate_curves: dict[str | int, Any] = {}
     if "Rate Curves" in wb.sheetnames:
         ws_rc = wb["Rate Curves"]
 
@@ -748,9 +831,7 @@ def load_pricing_model(file):
             # without routing through the rate_curves["projects"] lookup.
             # Keys: _rate_curves_rc1 .. _rate_curves_rc6 → {date: $/kWh}.
             for _rc_idx in range(1, 7):
-                projects[col_idx][f"_rate_curves_rc{_rc_idx}"] = (
-                    proj_rc_data.get(_rc_idx, {})
-                )
+                projects[col_idx][f"_rate_curves_rc{_rc_idx}"] = proj_rc_data.get(_rc_idx, {})
 
     wb.close()
     result = {
@@ -785,9 +866,6 @@ def get_rate_curves(model_result):
     if isinstance(model_result, dict) and "rate_curves" in model_result:
         return model_result["rate_curves"]
     return {}
-
-
-
 
 
 def load_mapper_output(file):
@@ -869,12 +947,11 @@ def load_mapper_output(file):
     return projects
 
 
-
 def load_data_room(files):
     data_room = {}
     for f in files:
         wb = openpyxl.load_workbook(f, data_only=True, read_only=False)
-        fname = Path(f.name).stem if hasattr(f, 'name') else str(f)
+        fname = Path(f.name).stem if hasattr(f, "name") else str(f)
         sheets_info = {}
         for sn in wb.sheetnames:
             ws = wb[sn]

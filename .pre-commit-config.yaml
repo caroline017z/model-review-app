@@ -1,0 +1,39 @@
+# Pre-commit hooks mirror the CI gate so failures show up locally
+# before the push, not after.
+# Install once with: uv run pre-commit install
+
+repos:
+  # Trim whitespace, normalize line endings, catch common mistakes
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=5000"]
+      - id: detect-private-key
+
+  # Ruff: lint + format (replaces black + isort + flake8)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.13
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # Mypy on the audit-critical core. Heavy hooks run as pre-push, not pre-commit,
+  # so day-to-day commits stay fast.
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.1.0
+    hooks:
+      - id: mypy
+        stages: [pre-push]
+        additional_dependencies:
+          - openpyxl==3.1.5
+          - fastapi==0.136.1
+          - pydantic==2.13.4
+        args: [--config-file=pyproject.toml]
+        files: ^(lib|apps)/

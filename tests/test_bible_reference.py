@@ -1,5 +1,6 @@
 """Unit tests for the fuzzy market lookup."""
-from lib.bible_reference import lookup_market, MARKET_BIBLE, normalize_state
+
+from lib.bible_reference import MARKET_BIBLE, lookup_market, normalize_state
 
 
 class TestLookupMarket:

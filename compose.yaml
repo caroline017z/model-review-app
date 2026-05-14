@@ -1,0 +1,19 @@
+# Local development orchestration.
+# Runs the FastAPI backend; the Next.js SPA is run separately via `npm run dev`
+# inside apps/web to keep its hot-reload story fast and decoupled.
+
+services:
+  api:
+    build: .
+    image: model-review-api:dev
+    container_name: model-review-api
+    ports:
+      - "8000:8000"
+    environment:
+      VP_LOG_LEVEL: "${VP_LOG_LEVEL:-INFO}"
+    # Source-mount for live reload during local dev.
+    # Production deploy uses the baked-in image without volumes.
+    volumes:
+      - ./lib:/app/lib:ro
+      - ./apps:/app/apps:ro
+    restart: unless-stopped

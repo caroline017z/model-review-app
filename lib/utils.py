@@ -1,9 +1,11 @@
 """
 38DN Pricing Model Review — Shared Utilities
 """
+
 import re
-from datetime import datetime, date
-from lib.config import P, PLOTLY_BG, PLOTLY_GRID, PCT_ROWS, TEXT_ROWS, DATE_ROWS, DPW_ROWS, INT_ROWS
+from datetime import date, datetime
+
+from lib.config import DATE_ROWS, DPW_ROWS, INT_ROWS, PCT_ROWS, PLOTLY_BG, PLOTLY_GRID, TEXT_ROWS, P
 
 
 def safe_float(v):
@@ -109,21 +111,31 @@ def fmt_row_val(v, row):
 
 
 def kpi_card(label, value, sub="", style="accent"):
-    return (f'<div class="kpi-card {style}">'
-            f'<div class="kpi-label">{label}</div>'
-            f'<div class="kpi-value">{value}</div>'
-            f'<div class="kpi-sub">{sub}</div></div>')
+    return (
+        f'<div class="kpi-card {style}">'
+        f'<div class="kpi-label">{label}</div>'
+        f'<div class="kpi-value">{value}</div>'
+        f'<div class="kpi-sub">{sub}</div></div>'
+    )
 
 
 def styled_plotly(fig, height=360):
     fig.update_layout(
-        plot_bgcolor=PLOTLY_BG, paper_bgcolor=PLOTLY_BG,
+        plot_bgcolor=PLOTLY_BG,
+        paper_bgcolor=PLOTLY_BG,
         font=dict(family="Century Gothic, Segoe UI, sans-serif", color=P["navy"], size=11),
-        height=height, margin=dict(t=40, b=28, l=48, r=16),
-        xaxis=dict(gridcolor=PLOTLY_GRID, zerolinecolor="rgba(5,13,37,0.12)",
-                   tickfont=dict(family="Century Gothic", color=P["navy2"], size=10)),
-        yaxis=dict(gridcolor=PLOTLY_GRID, zerolinecolor="rgba(5,13,37,0.12)",
-                   tickfont=dict(family="Century Gothic", color=P["navy2"], size=10)),
+        height=height,
+        margin=dict(t=40, b=28, l=48, r=16),
+        xaxis=dict(
+            gridcolor=PLOTLY_GRID,
+            zerolinecolor="rgba(5,13,37,0.12)",
+            tickfont=dict(family="Century Gothic", color=P["navy2"], size=10),
+        ),
+        yaxis=dict(
+            gridcolor=PLOTLY_GRID,
+            zerolinecolor="rgba(5,13,37,0.12)",
+            tickfont=dict(family="Century Gothic", color=P["navy2"], size=10),
+        ),
     )
     return fig
 

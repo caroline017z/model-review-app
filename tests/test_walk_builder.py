@@ -1,8 +1,17 @@
 """Tests for walk_builder.py — project matching, metrics, diff, and xlsx generation."""
+
 import io
+
 import pytest
-from lib.rows import ROW_PROJECT_NUMBER, ROW_DC_MW, ROW_NPP, ROW_FMV_IRR
-from lib.walk_builder import match_projects, extract_metrics, diff_inputs, _categorize_row, build_walk_xlsx
+
+from lib.rows import ROW_DC_MW, ROW_FMV_IRR, ROW_NPP, ROW_PROJECT_NUMBER
+from lib.walk_builder import (
+    _categorize_row,
+    build_walk_xlsx,
+    diff_inputs,
+    extract_metrics,
+    match_projects,
+)
 
 
 def _make_projects(*specs):
@@ -12,8 +21,12 @@ def _make_projects(*specs):
         data = {ROW_PROJECT_NUMBER: pnum, ROW_DC_MW: 5.0, ROW_NPP: 0.10, ROW_FMV_IRR: 0.18}
         data.update(overrides or {})
         projects[col] = {
-            "name": name, "toggle": True, "col_letter": "F",
-            "data": data, "rate_comps": {}, "dscr_schedule": {},
+            "name": name,
+            "toggle": True,
+            "col_letter": "F",
+            "data": data,
+            "rate_comps": {},
+            "dscr_schedule": {},
         }
     return projects
 
@@ -110,6 +123,7 @@ class TestBuildWalkXlsx:
         assert summary["m1_label"] == "Base Case"
         # Verify it's a valid xlsx by reading it back
         import openpyxl
+
         wb = openpyxl.load_workbook(buf)
         ws = wb.active
         assert ws.title == "Build Walk"
@@ -126,6 +140,7 @@ class TestBuildWalkXlsx:
         assert summary["n_matched"] == 0
         # Should still produce valid xlsx
         import openpyxl
+
         wb = openpyxl.load_workbook(buf)
         assert wb.active.title == "Build Walk"
         wb.close()
@@ -141,7 +156,9 @@ class TestPortedWalkSpec:
 
     def test_irr_uses_row_37_not_row_31(self):
         from lib.rows import ROW_LEVERED_PT_IRR
-        from lib.walk_builder import match_projects as lib_match, extract_metrics as lib_extract
+        from lib.walk_builder import extract_metrics as lib_extract
+        from lib.walk_builder import match_projects as lib_match
+
         assert ROW_LEVERED_PT_IRR == 37
         m1 = _make_projects((6, 1, "Joel", {ROW_LEVERED_PT_IRR: 0.18, 31: 0.99}))
         m2 = _make_projects((6, 1, "Joel", {ROW_LEVERED_PT_IRR: 0.20, 31: 0.99}))
@@ -152,30 +169,36 @@ class TestPortedWalkSpec:
 
     def test_delta_direction_is_m1_minus_m2(self):
         from lib.walk_builder import build_walk_xlsx as lib_build
+
         m1 = {"projects": _make_projects((6, 1, "Joel", {ROW_NPP: 0.15, ROW_DC_MW: 10.0}))}
         m2 = {"projects": _make_projects((6, 1, "Joel", {ROW_NPP: 0.10, ROW_DC_MW: 10.0}))}
         buf, _ = lib_build(m1, m2, "M1", "M2")
         import openpyxl
+
         wb = openpyxl.load_workbook(buf)
         ws = wb["Build Walk"]
         delta_formula = ws.cell(row=7, column=7).value
         assert delta_formula is not None
         assert delta_formula.replace(" ", "") == "=E7-H7", (
-            f"Expected M1-M2 formula =E7-H7, got {delta_formula!r}")
+            f"Expected M1-M2 formula =E7-H7, got {delta_formula!r}"
+        )
         wb.close()
 
     def test_bool_vs_int_toggle_not_a_diff(self):
-        from lib.walk_builder import match_projects as lib_match, diff_inputs as lib_diff
+        from lib.walk_builder import diff_inputs as lib_diff
+        from lib.walk_builder import match_projects as lib_match
+
         m1 = _make_projects((6, 1, "Joel", {291: True}))
         m2 = _make_projects((6, 1, "Joel", {291: 1}))
         matched = lib_match(m1, m2)
         diffs = lib_diff(matched, m1, m2)
         proptax_diffs = [d for d in diffs if d["row"] == 291]
-        assert len(proptax_diffs) == 0, (
-            "True vs 1 on PropTax toggle should not flag as differing")
+        assert len(proptax_diffs) == 0, "True vs 1 on PropTax toggle should not flag as differing"
 
     def test_bool_vs_int_genuine_diff_still_detected(self):
-        from lib.walk_builder import match_projects as lib_match, diff_inputs as lib_diff
+        from lib.walk_builder import diff_inputs as lib_diff
+        from lib.walk_builder import match_projects as lib_match
+
         m1 = _make_projects((6, 1, "Joel", {291: True}))
         m2 = _make_projects((6, 1, "Joel", {291: False}))
         matched = lib_match(m1, m2)
@@ -184,7 +207,9 @@ class TestPortedWalkSpec:
         assert len(proptax_diffs) == 1
 
     def test_n_diff_count_in_diff_record(self):
-        from lib.walk_builder import match_projects as lib_match, diff_inputs as lib_diff
+        from lib.walk_builder import diff_inputs as lib_diff
+        from lib.walk_builder import match_projects as lib_match
+
         m1 = _make_projects(
             (6, 1, "A", {118: 1.65}),
             (7, 2, "B", {118: 1.65}),
@@ -203,16 +228,22 @@ class TestPortedWalkSpec:
 
     def test_notes_column_written(self):
         from lib.walk_builder import build_walk_xlsx as lib_build
-        m1 = {"projects": _make_projects(
-            (6, 1, "A", {118: 1.65}),
-            (7, 2, "B", {118: 1.65}),
-        )}
-        m2 = {"projects": _make_projects(
-            (6, 1, "A", {118: 1.65}),
-            (7, 2, "B", {118: 1.99}),
-        )}
+
+        m1 = {
+            "projects": _make_projects(
+                (6, 1, "A", {118: 1.65}),
+                (7, 2, "B", {118: 1.65}),
+            )
+        }
+        m2 = {
+            "projects": _make_projects(
+                (6, 1, "A", {118: 1.65}),
+                (7, 2, "B", {118: 1.99}),
+            )
+        }
         buf, _ = lib_build(m1, m2, "M1", "M2")
         import openpyxl
+
         wb = openpyxl.load_workbook(buf)
         ws = wb["Build Walk"]
         found = False
@@ -227,16 +258,22 @@ class TestPortedWalkSpec:
 
     def test_unmatched_sheet_when_orphans_exist(self):
         from lib.walk_builder import build_walk_xlsx as lib_build
-        m1 = {"projects": _make_projects(
-            (6, 1, "Matched", {}),
-            (7, 99, "M1Orphan", {}),
-        )}
-        m2 = {"projects": _make_projects(
-            (6, 1, "Matched", {}),
-            (7, 88, "M2Orphan", {}),
-        )}
+
+        m1 = {
+            "projects": _make_projects(
+                (6, 1, "Matched", {}),
+                (7, 99, "M1Orphan", {}),
+            )
+        }
+        m2 = {
+            "projects": _make_projects(
+                (6, 1, "Matched", {}),
+                (7, 88, "M2Orphan", {}),
+            )
+        }
         buf, summary = lib_build(m1, m2, "M1", "M2")
         import openpyxl
+
         wb = openpyxl.load_workbook(buf)
         assert "Unmatched" in wb.sheetnames
         assert summary["n_unmatched_m1"] == 1
@@ -253,10 +290,12 @@ class TestPortedWalkSpec:
 
     def test_no_unmatched_sheet_when_clean_pairing(self):
         from lib.walk_builder import build_walk_xlsx as lib_build
+
         m1 = {"projects": _make_projects((6, 1, "Joel", {}))}
         m2 = {"projects": _make_projects((6, 1, "Joel", {}))}
         buf, summary = lib_build(m1, m2, "M1", "M2")
         import openpyxl
+
         wb = openpyxl.load_workbook(buf)
         assert "Unmatched" not in wb.sheetnames
         assert summary["n_unmatched_m1"] == 0
@@ -265,8 +304,9 @@ class TestPortedWalkSpec:
 
     def test_filename_sanitization(self):
         from apps.api.routers.walk import _safe_filename_part
+
         assert _safe_filename_part("Macro: foo") == "Macro_foo"
-        assert _safe_filename_part('a/b\\c:d?e') == "abcde"
+        assert _safe_filename_part("a/b\\c:d?e") == "abcde"
         assert _safe_filename_part("") == "model"
         assert _safe_filename_part("   ") == "model"
 
@@ -276,17 +316,19 @@ class TestDeeperDiffCoverage:
     and 1c (Rate Curves COD-period diff) added during the walk methodology
     rework."""
 
-    def _rc_project(self, col, pnum, name, rate_comps, extra_data=None,
-                    rate_curves=None):
+    def _rc_project(self, col, pnum, name, rate_comps, extra_data=None, rate_curves=None):
         """Build a project with a populated rate_comps dict + optional
         _rate_curves_rcN top-level keys."""
-        data = {ROW_PROJECT_NUMBER: pnum, ROW_DC_MW: 5.0, ROW_NPP: 0.10,
-                ROW_FMV_IRR: 0.18}
+        data = {ROW_PROJECT_NUMBER: pnum, ROW_DC_MW: 5.0, ROW_NPP: 0.10, ROW_FMV_IRR: 0.18}
         if extra_data:
             data.update(extra_data)
         proj = {
-            "name": name, "toggle": True, "col_letter": "F",
-            "data": data, "rate_comps": rate_comps, "dscr_schedule": {},
+            "name": name,
+            "toggle": True,
+            "col_letter": "F",
+            "data": data,
+            "rate_comps": rate_comps,
+            "dscr_schedule": {},
         }
         if rate_curves:
             for rc_idx, curve in rate_curves.items():
@@ -295,14 +337,36 @@ class TestDeeperDiffCoverage:
 
     def test_rc3_rate_diff_detected(self):
         """RC3 energy_rate differing — must surface as 'RC3 Energy Rate'."""
-        m1_proj = self._rc_project(6, 1, "Alpha", {
-            3: {"name": "REC", "custom_generic": "Generic", "energy_rate": 0.05,
-                "equity_on": 1, "debt_on": 0, "appraisal_on": 0},
-        })
-        m2_proj = self._rc_project(6, 1, "Alpha", {
-            3: {"name": "REC", "custom_generic": "Generic", "energy_rate": 0.07,
-                "equity_on": 1, "debt_on": 0, "appraisal_on": 0},
-        })
+        m1_proj = self._rc_project(
+            6,
+            1,
+            "Alpha",
+            {
+                3: {
+                    "name": "REC",
+                    "custom_generic": "Generic",
+                    "energy_rate": 0.05,
+                    "equity_on": 1,
+                    "debt_on": 0,
+                    "appraisal_on": 0,
+                },
+            },
+        )
+        m2_proj = self._rc_project(
+            6,
+            1,
+            "Alpha",
+            {
+                3: {
+                    "name": "REC",
+                    "custom_generic": "Generic",
+                    "energy_rate": 0.07,
+                    "equity_on": 1,
+                    "debt_on": 0,
+                    "appraisal_on": 0,
+                },
+            },
+        )
         matched = match_projects(m1_proj, m2_proj)
         diffs = diff_inputs(matched, m1_proj, m2_proj)
         labels = [d["label"] for d in diffs]
@@ -311,14 +375,34 @@ class TestDeeperDiffCoverage:
     def test_rc_value_suppressed_when_off_in_one_side(self):
         """Per Decision B(i): when RC is off in either model, don't surface
         the per-field rate diff — only the toggle diff."""
-        m1_proj = self._rc_project(6, 1, "Alpha", {
-            2: {"custom_generic": "Generic", "energy_rate": 0.05,
-                "equity_on": 1, "debt_on": 0, "appraisal_on": 0},
-        })
-        m2_proj = self._rc_project(6, 1, "Alpha", {
-            2: {"custom_generic": "Generic", "energy_rate": 0.09,
-                "equity_on": 0, "debt_on": 0, "appraisal_on": 0},  # off
-        })
+        m1_proj = self._rc_project(
+            6,
+            1,
+            "Alpha",
+            {
+                2: {
+                    "custom_generic": "Generic",
+                    "energy_rate": 0.05,
+                    "equity_on": 1,
+                    "debt_on": 0,
+                    "appraisal_on": 0,
+                },
+            },
+        )
+        m2_proj = self._rc_project(
+            6,
+            1,
+            "Alpha",
+            {
+                2: {
+                    "custom_generic": "Generic",
+                    "energy_rate": 0.09,
+                    "equity_on": 0,
+                    "debt_on": 0,
+                    "appraisal_on": 0,
+                },  # off
+            },
+        )
         matched = match_projects(m1_proj, m2_proj)
         diffs = diff_inputs(matched, m1_proj, m2_proj)
         labels = [d["label"] for d in diffs]
@@ -329,14 +413,34 @@ class TestDeeperDiffCoverage:
 
     def test_rc_value_shown_when_both_on(self):
         """When RC is on in BOTH, value-field diffs DO surface."""
-        m1_proj = self._rc_project(6, 1, "Alpha", {
-            1: {"custom_generic": "Generic", "energy_rate": 0.05,
-                "equity_on": 1, "debt_on": 0, "appraisal_on": 0},
-        })
-        m2_proj = self._rc_project(6, 1, "Alpha", {
-            1: {"custom_generic": "Generic", "energy_rate": 0.07,
-                "equity_on": 1, "debt_on": 0, "appraisal_on": 0},
-        })
+        m1_proj = self._rc_project(
+            6,
+            1,
+            "Alpha",
+            {
+                1: {
+                    "custom_generic": "Generic",
+                    "energy_rate": 0.05,
+                    "equity_on": 1,
+                    "debt_on": 0,
+                    "appraisal_on": 0,
+                },
+            },
+        )
+        m2_proj = self._rc_project(
+            6,
+            1,
+            "Alpha",
+            {
+                1: {
+                    "custom_generic": "Generic",
+                    "energy_rate": 0.07,
+                    "equity_on": 1,
+                    "debt_on": 0,
+                    "appraisal_on": 0,
+                },
+            },
+        )
         matched = match_projects(m1_proj, m2_proj)
         diffs = diff_inputs(matched, m1_proj, m2_proj)
         labels = [d["label"] for d in diffs]
@@ -368,19 +472,38 @@ class TestDeeperDiffCoverage:
     def test_rate_curve_cod_diff_for_custom_rcs(self):
         """Both sides have Custom RC1 but the rate at COD differs."""
         from datetime import datetime
+
         curve_m1 = {datetime(2026, 1, 1): 0.1200, datetime(2027, 1, 1): 0.1250}
         curve_m2 = {datetime(2026, 1, 1): 0.1050, datetime(2027, 1, 1): 0.1080}
         m1 = self._rc_project(
-            6, 1, "Alpha",
-            rate_comps={1: {"custom_generic": "Custom", "energy_rate": None,
-                            "equity_on": 1, "debt_on": 0, "appraisal_on": 0}},
+            6,
+            1,
+            "Alpha",
+            rate_comps={
+                1: {
+                    "custom_generic": "Custom",
+                    "energy_rate": None,
+                    "equity_on": 1,
+                    "debt_on": 0,
+                    "appraisal_on": 0,
+                }
+            },
             extra_data={15: 2026},  # COD year
             rate_curves={1: curve_m1},
         )
         m2 = self._rc_project(
-            6, 1, "Alpha",
-            rate_comps={1: {"custom_generic": "Custom", "energy_rate": None,
-                            "equity_on": 1, "debt_on": 0, "appraisal_on": 0}},
+            6,
+            1,
+            "Alpha",
+            rate_comps={
+                1: {
+                    "custom_generic": "Custom",
+                    "energy_rate": None,
+                    "equity_on": 1,
+                    "debt_on": 0,
+                    "appraisal_on": 0,
+                }
+            },
             extra_data={15: 2026},
             rate_curves={1: curve_m2},
         )
@@ -398,17 +521,36 @@ class TestDeeperDiffCoverage:
         """Shape mismatch (one Custom, one Generic) suppresses Rate Curves
         diff — that shape change is already flagged by Pass 1a."""
         from datetime import datetime
+
         m1 = self._rc_project(
-            6, 1, "Alpha",
-            rate_comps={1: {"custom_generic": "Custom", "energy_rate": None,
-                            "equity_on": 1, "debt_on": 0, "appraisal_on": 0}},
+            6,
+            1,
+            "Alpha",
+            rate_comps={
+                1: {
+                    "custom_generic": "Custom",
+                    "energy_rate": None,
+                    "equity_on": 1,
+                    "debt_on": 0,
+                    "appraisal_on": 0,
+                }
+            },
             extra_data={15: 2026},
             rate_curves={1: {datetime(2026, 1, 1): 0.1200}},
         )
         m2 = self._rc_project(
-            6, 1, "Alpha",
-            rate_comps={1: {"custom_generic": "Generic", "energy_rate": 0.1050,
-                            "equity_on": 1, "debt_on": 0, "appraisal_on": 0}},
+            6,
+            1,
+            "Alpha",
+            rate_comps={
+                1: {
+                    "custom_generic": "Generic",
+                    "energy_rate": 0.1050,
+                    "equity_on": 1,
+                    "debt_on": 0,
+                    "appraisal_on": 0,
+                }
+            },
             extra_data={15: 2026},
         )
         matched = match_projects(m1, m2)
@@ -420,9 +562,9 @@ class TestDeeperDiffCoverage:
 
 class TestTranche1:
     """Regressions for the Tranche 1 walk accuracy fixes:
-      - Unit reconciliation for $/kWh ↔ $/MW/yr drift on rows 121, 240
-      - Substring-match false positive in data_loader rate curve pairing
-      - Unmatched sheet reason codes
+    - Unit reconciliation for $/kWh ↔ $/MW/yr drift on rows 121, 240
+    - Substring-match false positive in data_loader rate curve pairing
+    - Unmatched sheet reason codes
     """
 
     def test_unit_reconciliation_cust_mgmt_false_positive_suppressed(self):
@@ -430,14 +572,13 @@ class TestTranche1:
         reconcile: $0.0025 × 1.25 × 1,000,000 = $3,125/MW/yr → differs
         from $2,500 but by a reasonable margin, not by 1000x. The point is
         we don't report the raw $0.0025 vs $2,500 as an enormous diff."""
-        m1 = _make_projects((6, 1, "A", {240: 0.0020, 14: 1.25}))   # $/kWh basis
-        m2 = _make_projects((6, 1, "A", {240: 2500.0, 14: 1.25}))   # $/MW/yr basis
+        m1 = _make_projects((6, 1, "A", {240: 0.0020, 14: 1.25}))  # $/kWh basis
+        m2 = _make_projects((6, 1, "A", {240: 2500.0, 14: 1.25}))  # $/MW/yr basis
         # $0.0020 × 1.25 × 1e6 = $2,500 → equivalent, no diff
         matched = match_projects(m1, m2)
         diffs = diff_inputs(matched, m1, m2)
         cust_mgmt = [d for d in diffs if d["row"] == 240]
-        assert len(cust_mgmt) == 0, (
-            f"Expected no diff after unit reconciliation, got {cust_mgmt}")
+        assert len(cust_mgmt) == 0, f"Expected no diff after unit reconciliation, got {cust_mgmt}"
 
     def test_unit_reconciliation_genuine_diff_still_detected(self):
         """Same units, real difference — must still flag."""
@@ -464,19 +605,34 @@ class TestTranche1:
         """An M1 project with no Project # should surface reason code
         'missing_proj_num' in the Unmatched sheet."""
         from openpyxl import load_workbook
+
         # M1 project 1: Alpha, no proj#. M2 project 1: Alpha, proj# 1.
         # Match via name fallback would succeed if names match, so give them
         # different names to force an orphan.
-        m1 = {"projects": {6: {
-            "name": "Alpha (no pnum)", "toggle": True, "col_letter": "F",
-            "data": {ROW_PROJECT_NUMBER: None, ROW_DC_MW: 5.0},
-            "rate_comps": {}, "dscr_schedule": {},
-        }}}
-        m2 = {"projects": {6: {
-            "name": "Beta", "toggle": True, "col_letter": "F",
-            "data": {ROW_PROJECT_NUMBER: 2, ROW_DC_MW: 5.0},
-            "rate_comps": {}, "dscr_schedule": {},
-        }}}
+        m1 = {
+            "projects": {
+                6: {
+                    "name": "Alpha (no pnum)",
+                    "toggle": True,
+                    "col_letter": "F",
+                    "data": {ROW_PROJECT_NUMBER: None, ROW_DC_MW: 5.0},
+                    "rate_comps": {},
+                    "dscr_schedule": {},
+                }
+            }
+        }
+        m2 = {
+            "projects": {
+                6: {
+                    "name": "Beta",
+                    "toggle": True,
+                    "col_letter": "F",
+                    "data": {ROW_PROJECT_NUMBER: 2, ROW_DC_MW: 5.0},
+                    "rate_comps": {},
+                    "dscr_schedule": {},
+                }
+            }
+        }
         buf, _ = build_walk_xlsx(m1, m2, "M1", "M2")
         wb = load_workbook(buf)
         assert "Unmatched" in wb.sheetnames
@@ -496,23 +652,37 @@ class TestTranche1:
         """M1 has proj# 5 but M2 has no proj# 5 → reason should be
         'proj_num_not_in_other' (not 'missing_proj_num')."""
         from openpyxl import load_workbook
-        m1 = {"projects": {6: {
-            "name": "Only-M1", "toggle": True, "col_letter": "F",
-            "data": {ROW_PROJECT_NUMBER: 5, ROW_DC_MW: 5.0},
-            "rate_comps": {}, "dscr_schedule": {},
-        }}}
-        m2 = {"projects": {6: {
-            "name": "Only-M2", "toggle": True, "col_letter": "F",
-            "data": {ROW_PROJECT_NUMBER: 6, ROW_DC_MW: 5.0},
-            "rate_comps": {}, "dscr_schedule": {},
-        }}}
+
+        m1 = {
+            "projects": {
+                6: {
+                    "name": "Only-M1",
+                    "toggle": True,
+                    "col_letter": "F",
+                    "data": {ROW_PROJECT_NUMBER: 5, ROW_DC_MW: 5.0},
+                    "rate_comps": {},
+                    "dscr_schedule": {},
+                }
+            }
+        }
+        m2 = {
+            "projects": {
+                6: {
+                    "name": "Only-M2",
+                    "toggle": True,
+                    "col_letter": "F",
+                    "data": {ROW_PROJECT_NUMBER: 6, ROW_DC_MW: 5.0},
+                    "rate_comps": {},
+                    "dscr_schedule": {},
+                }
+            }
+        }
         buf, _ = build_walk_xlsx(m1, m2, "M1", "M2")
         wb = load_workbook(buf)
         un = wb["Unmatched"]
         headers = [un.cell(row=1, column=c).value for c in range(1, 7)]
         rc_col = headers.index("Reason Code") + 1
-        codes = {un.cell(row=r, column=rc_col).value
-                 for r in range(2, un.max_row + 1)}
+        codes = {un.cell(row=r, column=rc_col).value for r in range(2, un.max_row + 1)}
         assert "proj_num_not_in_other" in codes
 
 
@@ -524,6 +694,7 @@ class TestDataLoaderRateCurveMatch:
         """Build two strings that demonstrate the old substring rule was
         broken and the new canonical rule works."""
         import re as _re
+
         def canon(s):
             return _re.sub(r"\s+", " ", str(s) or "").strip().casefold()
 
@@ -541,6 +712,7 @@ class TestDataLoaderRateCurveMatch:
 
     def test_canonical_match_ignores_whitespace_case(self):
         import re as _re
+
         def canon(s):
             return _re.sub(r"\s+", " ", str(s) or "").strip().casefold()
 
@@ -568,16 +740,42 @@ class TestTranche2Provenance:
         assert epc["source"] == "canonical"
 
     def test_rate_comp_diff_tagged_rate_comps(self):
-        m1 = {6: {"name":"A","toggle":True,"col_letter":"F",
-                  "data":{ROW_PROJECT_NUMBER:1,ROW_DC_MW:5.0},
-                  "rate_comps":{1:{"custom_generic":"Generic","energy_rate":0.05,
-                                   "equity_on":1,"debt_on":0,"appraisal_on":0}},
-                  "dscr_schedule":{}}}
-        m2 = {6: {"name":"A","toggle":True,"col_letter":"F",
-                  "data":{ROW_PROJECT_NUMBER:1,ROW_DC_MW:5.0},
-                  "rate_comps":{1:{"custom_generic":"Generic","energy_rate":0.08,
-                                   "equity_on":1,"debt_on":0,"appraisal_on":0}},
-                  "dscr_schedule":{}}}
+        m1 = {
+            6: {
+                "name": "A",
+                "toggle": True,
+                "col_letter": "F",
+                "data": {ROW_PROJECT_NUMBER: 1, ROW_DC_MW: 5.0},
+                "rate_comps": {
+                    1: {
+                        "custom_generic": "Generic",
+                        "energy_rate": 0.05,
+                        "equity_on": 1,
+                        "debt_on": 0,
+                        "appraisal_on": 0,
+                    }
+                },
+                "dscr_schedule": {},
+            }
+        }
+        m2 = {
+            6: {
+                "name": "A",
+                "toggle": True,
+                "col_letter": "F",
+                "data": {ROW_PROJECT_NUMBER: 1, ROW_DC_MW: 5.0},
+                "rate_comps": {
+                    1: {
+                        "custom_generic": "Generic",
+                        "energy_rate": 0.08,
+                        "equity_on": 1,
+                        "debt_on": 0,
+                        "appraisal_on": 0,
+                    }
+                },
+                "dscr_schedule": {},
+            }
+        }
         matched = match_projects(m1, m2)
         diffs = diff_inputs(matched, m1, m2)
         rc_diff = next(d for d in diffs if d["label"] == "RC1 Energy Rate")
@@ -606,6 +804,7 @@ class TestTranche2Provenance:
         m2 = {"projects": _make_projects((6, 1, "A", {118: 1.75, ROW_DC_MW: 5.0}))}
         buf, _ = build_walk_xlsx(m1, m2, "M1", "M2")
         import openpyxl
+
         wb = openpyxl.load_workbook(buf)
         ws = wb["Build Walk"]
         # Find the PV EPC row in variance section; check col K (11) = "canonical"
@@ -632,6 +831,7 @@ class TestTranche2Impact:
         # → flip → +500,000. But M1 has LOWER EPC than M2 (1.65 < 1.75), which
         # IS better for sponsor in M1. So +500,000 is the M1 advantage over M2.
         from lib.impact import per_project_impact
+
         data = {ROW_DC_MW: 5.0}
         imp = per_project_impact(118, 1.65, 1.75, data)
         assert imp == pytest.approx(500_000, abs=1.0)
@@ -640,22 +840,26 @@ class TestTranche2Impact:
         # M1 Upfront = $0.20/W, M2 = $0.10/W. M1 has more incentive → favors M1.
         # Raw delta = +0.10. favor_m1_high=True → no flip → +500k.
         from lib.impact import per_project_impact
+
         data = {ROW_DC_MW: 5.0}
         imp = per_project_impact(216, 0.20, 0.10, data)
         assert imp == pytest.approx(500_000, abs=1.0)
 
     def test_impact_unknown_row_returns_none(self):
         from lib.impact import per_project_impact
+
         data = {ROW_DC_MW: 5.0}
         assert per_project_impact(9999, 1.0, 2.0, data) is None
 
     def test_impact_missing_dc_returns_none(self):
         from lib.impact import per_project_impact
+
         imp = per_project_impact(118, 1.65, 1.75, {})
         assert imp is None
 
     def test_portfolio_impact_sums_projects(self):
         from lib.impact import portfolio_impact
+
         # Two projects, both 5 MWdc, both with 10 cent EPC delta
         per_project = {1: (1.65, 1.75), 2: (1.60, 1.70)}
         m1_data = {
@@ -671,6 +875,7 @@ class TestTranche2Impact:
         m2 = {"projects": _make_projects((6, 1, "A", {118: 1.75, ROW_DC_MW: 5.0}))}
         buf, _ = build_walk_xlsx(m1, m2, "M1", "M2")
         import openpyxl
+
         wb = openpyxl.load_workbook(buf)
         ws = wb["Build Walk"]
         # Find PV EPC row, check col L (12) for a dollar value
@@ -694,10 +899,12 @@ class TestTranche3Matching:
 
     def test_canonicalize_pnum_int_float_equivalence(self):
         from lib.utils import canonicalize_pnum
+
         assert canonicalize_pnum(1) == canonicalize_pnum(1.0) == canonicalize_pnum("1")
 
     def test_canonicalize_pnum_string_pnum(self):
         from lib.utils import canonicalize_pnum
+
         # "P-001" has no numeric form; canonicalizes via name rule.
         c1 = canonicalize_pnum("P-001")
         c2 = canonicalize_pnum("p-001")
@@ -706,11 +913,13 @@ class TestTranche3Matching:
 
     def test_canonicalize_pnum_none_and_blank(self):
         from lib.utils import canonicalize_pnum
+
         assert canonicalize_pnum(None) is None
         assert canonicalize_pnum("") is None
 
     def test_canonicalize_pnum_non_integer_float(self):
         from lib.utils import canonicalize_pnum
+
         # 1.5 and 1.5 agree; 1.5 and 1 do NOT.
         assert canonicalize_pnum(1.5) == canonicalize_pnum(1.5)
         assert canonicalize_pnum(1.5) != canonicalize_pnum(1)
@@ -756,6 +965,7 @@ class TestTranche3Matching:
         m2 = _make_projects((7, None, "Alpha", {}))
         buf, _ = build_walk_xlsx({"projects": m1}, {"projects": m2}, "M1", "M2")
         import openpyxl
+
         wb = openpyxl.load_workbook(buf)
         ws = wb["Build Walk"]
         # Project Name lives in col B starting at row 7.
@@ -782,7 +992,9 @@ class TestTranche3RateCurveConfidence:
 
     def test_rate_at_cod_exact_match(self):
         from datetime import datetime
+
         from lib.walk_builder import _rate_at_cod
+
         curve = {datetime(2026, 1, 1): 0.12, datetime(2027, 1, 1): 0.13}
         rate, conf = _rate_at_cod(curve, {15: 2026, 587: 1})
         assert rate == 0.12
@@ -790,7 +1002,9 @@ class TestTranche3RateCurveConfidence:
 
     def test_rate_at_cod_extrapolated_forward(self):
         from datetime import datetime
+
         from lib.walk_builder import _rate_at_cod
+
         curve = {datetime(2027, 1, 1): 0.13}
         # COD 2026 but curve starts 2027 → extrapolate forward.
         rate, conf = _rate_at_cod(curve, {15: 2026})
@@ -799,7 +1013,9 @@ class TestTranche3RateCurveConfidence:
 
     def test_rate_at_cod_clamped_end(self):
         from datetime import datetime
+
         from lib.walk_builder import _rate_at_cod
+
         curve = {datetime(2025, 1, 1): 0.10}
         # COD 2030 but curve ends 2025 → clamp to last value.
         rate, conf = _rate_at_cod(curve, {15: 2030})
@@ -808,6 +1024,7 @@ class TestTranche3RateCurveConfidence:
 
     def test_rate_at_cod_empty_curve(self):
         from lib.walk_builder import _rate_at_cod
+
         rate, conf = _rate_at_cod({}, {15: 2026})
         assert rate is None
         assert conf is None
@@ -816,17 +1033,23 @@ class TestTranche3RateCurveConfidence:
         """/api/walk compares model fingerprints and adds a warning to
         summary when they differ. Covered via the router directly rather
         than a full HTTP request."""
-        from apps.api.routers.walk import generate_walk, WalkRequest
+        from apps.api.routers.walk import WalkRequest, generate_walk
         from apps.api.store import model_store
-        m1 = {"projects": _make_projects((6, 1, "A", {118: 1.65, ROW_DC_MW: 5.0})),
-              "fingerprint": "abc12345"}
-        m2 = {"projects": _make_projects((6, 1, "A", {118: 1.75, ROW_DC_MW: 5.0})),
-              "fingerprint": "def67890"}
+
+        m1 = {
+            "projects": _make_projects((6, 1, "A", {118: 1.65, ROW_DC_MW: 5.0})),
+            "fingerprint": "abc12345",
+        }
+        m2 = {
+            "projects": _make_projects((6, 1, "A", {118: 1.75, ROW_DC_MW: 5.0})),
+            "fingerprint": "def67890",
+        }
         id1 = model_store.put(m1, "m1.xlsx")
         id2 = model_store.put(m2, "m2.xlsx")
         req = WalkRequest(m1_id=id1, m2_id=id2, m1_label="A", m2_label="B")
         resp = generate_walk(req)
         import json
+
         summary = json.loads(resp.headers["X-Walk-Summary"])
         assert "template_drift" in summary
         assert summary["template_drift"]["m1_fingerprint"] == "abc12345"
@@ -835,17 +1058,23 @@ class TestTranche3RateCurveConfidence:
         model_store.delete(id2)
 
     def test_no_template_drift_warning_when_fingerprints_match(self):
-        from apps.api.routers.walk import generate_walk, WalkRequest
+        from apps.api.routers.walk import WalkRequest, generate_walk
         from apps.api.store import model_store
-        m1 = {"projects": _make_projects((6, 1, "A", {118: 1.65, ROW_DC_MW: 5.0})),
-              "fingerprint": "same1234"}
-        m2 = {"projects": _make_projects((6, 1, "A", {118: 1.75, ROW_DC_MW: 5.0})),
-              "fingerprint": "same1234"}
+
+        m1 = {
+            "projects": _make_projects((6, 1, "A", {118: 1.65, ROW_DC_MW: 5.0})),
+            "fingerprint": "same1234",
+        }
+        m2 = {
+            "projects": _make_projects((6, 1, "A", {118: 1.75, ROW_DC_MW: 5.0})),
+            "fingerprint": "same1234",
+        }
         id1 = model_store.put(m1, "m1.xlsx")
         id2 = model_store.put(m2, "m2.xlsx")
         req = WalkRequest(m1_id=id1, m2_id=id2, m1_label="A", m2_label="B")
         resp = generate_walk(req)
         import json
+
         summary = json.loads(resp.headers["X-Walk-Summary"])
         assert "template_drift" not in summary
         model_store.delete(id1)
@@ -854,11 +1083,16 @@ class TestTranche3RateCurveConfidence:
     def test_verdict_from_summary_thresholds(self):
         """Spot-check the canonical classification rules."""
         from lib.bible_audit import verdict_from_summary
+
         assert verdict_from_summary({"OK": 5, "OFF": 0, "OUT": 0, "MISSING": 0}) == "CLEAN"
         assert verdict_from_summary({"OK": 5, "OFF": 1, "OUT": 0, "MISSING": 0}) == "REVIEW"
         assert verdict_from_summary({"OK": 5, "OFF": 0, "OUT": 3, "MISSING": 0}) == "REVIEW"
-        assert verdict_from_summary({"OK": 5, "OFF": 2, "OUT": 0, "MISSING": 0}) == "REWORK REQUIRED"
-        assert verdict_from_summary({"OK": 5, "OFF": 1, "OUT": 2, "MISSING": 0}) == "REWORK REQUIRED"
+        assert (
+            verdict_from_summary({"OK": 5, "OFF": 2, "OUT": 0, "MISSING": 0}) == "REWORK REQUIRED"
+        )
+        assert (
+            verdict_from_summary({"OK": 5, "OFF": 1, "OUT": 2, "MISSING": 0}) == "REWORK REQUIRED"
+        )
 
     def test_extract_metrics_sets_m1_verdict(self):
         """extract_metrics runs the M1-side audit and records the verdict."""
@@ -875,6 +1109,7 @@ class TestTranche3RateCurveConfidence:
         m2 = {"projects": _make_projects((6, 1, "Alpha", {}))}
         buf, _ = build_walk_xlsx(m1, m2, "M1", "M2")
         import openpyxl
+
         wb = openpyxl.load_workbook(buf)
         ws = wb["Build Walk"]
         # Header label at D6
@@ -900,21 +1135,49 @@ class TestTranche3RateCurveConfidence:
         """When a Custom-Custom RC pair has any project with non-exact
         rate-curve lookup, the Notes column mentions it."""
         from datetime import datetime
+
         # Project with COD 2030 but both curves end in 2025 → clamped_end.
-        m1 = {6: {"name":"Alpha","toggle":True,"col_letter":"F",
-                  "data":{ROW_PROJECT_NUMBER:1,ROW_DC_MW:5.0,15:2030},
-                  "rate_comps":{1:{"custom_generic":"Custom","energy_rate":None,
-                                   "equity_on":1,"debt_on":0,"appraisal_on":0}},
-                  "dscr_schedule":{},
-                  "_rate_curves_rc1":{datetime(2025,1,1):0.10}}}
-        m2 = {6: {"name":"Alpha","toggle":True,"col_letter":"F",
-                  "data":{ROW_PROJECT_NUMBER:1,ROW_DC_MW:5.0,15:2030},
-                  "rate_comps":{1:{"custom_generic":"Custom","energy_rate":None,
-                                   "equity_on":1,"debt_on":0,"appraisal_on":0}},
-                  "dscr_schedule":{},
-                  "_rate_curves_rc1":{datetime(2025,1,1):0.08}}}
+        m1 = {
+            6: {
+                "name": "Alpha",
+                "toggle": True,
+                "col_letter": "F",
+                "data": {ROW_PROJECT_NUMBER: 1, ROW_DC_MW: 5.0, 15: 2030},
+                "rate_comps": {
+                    1: {
+                        "custom_generic": "Custom",
+                        "energy_rate": None,
+                        "equity_on": 1,
+                        "debt_on": 0,
+                        "appraisal_on": 0,
+                    }
+                },
+                "dscr_schedule": {},
+                "_rate_curves_rc1": {datetime(2025, 1, 1): 0.10},
+            }
+        }
+        m2 = {
+            6: {
+                "name": "Alpha",
+                "toggle": True,
+                "col_letter": "F",
+                "data": {ROW_PROJECT_NUMBER: 1, ROW_DC_MW: 5.0, 15: 2030},
+                "rate_comps": {
+                    1: {
+                        "custom_generic": "Custom",
+                        "energy_rate": None,
+                        "equity_on": 1,
+                        "debt_on": 0,
+                        "appraisal_on": 0,
+                    }
+                },
+                "dscr_schedule": {},
+                "_rate_curves_rc1": {datetime(2025, 1, 1): 0.08},
+            }
+        }
         buf, _ = build_walk_xlsx({"projects": m1}, {"projects": m2}, "M1", "M2")
         import openpyxl
+
         wb = openpyxl.load_workbook(buf)
         ws = wb["Build Walk"]
         # Find the RC1 Rate Curve (COD) row; Notes col 10 should mention extrapolated

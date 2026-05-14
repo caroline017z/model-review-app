@@ -1,13 +1,15 @@
 """Model upload, list, and delete endpoints."""
+
 from __future__ import annotations
 
 import io
 import logging
+
 from fastapi import APIRouter, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from apps.api.store import model_store
-from lib.data_loader import load_pricing_model, get_projects, validate_model_result
+from lib.data_loader import get_projects, load_pricing_model, validate_model_result
 from lib.mockup_view import list_candidate_projects
 
 logger = logging.getLogger(__name__)
@@ -62,10 +64,10 @@ async def upload_model(file: UploadFile):
         result = load_pricing_model(buf)
     except KeyError as e:
         # e.g. missing "Project Inputs" sheet — user-friendly 400
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
     except Exception as e:
         logger.exception("Failed to parse model: %s", e)
-        raise HTTPException(400, f"Failed to parse model: {e}")
+        raise HTTPException(400, f"Failed to parse model: {e}") from e
 
     # Structural validation: reject workbooks with zero real projects or
     # too many critical rows unresolved (usually signals wrong template).
@@ -90,7 +92,7 @@ async def upload_model(file: UploadFile):
         model_id=model_id,
         filename=file.filename,
         project_count=len(candidates),
-        projects=[CandidateProject(**{k: c.get(k) for k in CandidateProject.model_fields}) for c in candidates],
+        projects=[CandidateProject.model_validate(c) for c in candidates],
         fingerprint=validation["fingerprint"],
         critical_missing=validation["critical_missing"],
     )

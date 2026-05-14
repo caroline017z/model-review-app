@@ -1,8 +1,8 @@
 """Tests for benchmark_store.py — override persistence and application."""
-import json
+
 import copy
-import pytest
-from lib.benchmark_store import load_overrides, save_overrides, delete_overrides, apply_overrides
+
+from lib.benchmark_store import apply_overrides, delete_overrides, load_overrides, save_overrides
 from lib.config import BIBLE_BENCHMARKS
 
 

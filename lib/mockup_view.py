@@ -11,6 +11,7 @@ Template contract: VP_Review_Mockup.html contains the block
 
 Everything between those markers is replaced at render time.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,15 +25,38 @@ from lib.bible_audit import audit_project
 
 logger = logging.getLogger(__name__)
 from lib.bible_reference import CS_AVERAGE, CS_STATE_OVERRIDES, lookup_market
-from lib.config import BIBLE_BENCHMARKS, INPUT_ROW_LABELS as _INPUT_ROW_LABELS
+from lib.config import BIBLE_BENCHMARKS
+from lib.config import INPUT_ROW_LABELS as _INPUT_ROW_LABELS
 from lib.rows import (
-    ROW_PROJECT_NUMBER, ROW_DEVELOPER, ROW_DC_MW, ROW_AC_KW, ROW_STATE, ROW_UTILITY,
-    ROW_PROGRAM_A, ROW_PROGRAM_B, ROW_EPC_WRAPPED, ROW_LNTP, ROW_IX,
-    ROW_CLOSING, ROW_PPA_RATE, ROW_ESCALATOR, ROW_NPP, ROW_FMV_IRR, ROW_FMV_PER_W,
-    ROW_UPFRONT, ROW_INSURANCE, ROW_ITC_PCT, ROW_ELIG_COSTS,
-    ROW_OM_PREV, ROW_OM_CORR, ROW_AM_FEE,
-    ROW_APPRAISAL_IRR, ROW_LEVERED_PT_IRR, ROW_ACTIVE_FMV,
-    ROW_CUSTOM_PROPTAX_TOGGLE, ROW_PROPERTY_TAX_YR1, ROW_PROPTAX_ESCALATOR,
+    ROW_AC_KW,
+    ROW_ACTIVE_FMV,
+    ROW_AM_FEE,
+    ROW_APPRAISAL_IRR,
+    ROW_CLOSING,
+    ROW_CUSTOM_PROPTAX_TOGGLE,
+    ROW_DC_MW,
+    ROW_DEVELOPER,
+    ROW_ELIG_COSTS,
+    ROW_EPC_WRAPPED,
+    ROW_ESCALATOR,
+    ROW_FMV_PER_W,
+    ROW_INSURANCE,
+    ROW_ITC_PCT,
+    ROW_IX,
+    ROW_LEVERED_PT_IRR,
+    ROW_LNTP,
+    ROW_NPP,
+    ROW_OM_CORR,
+    ROW_OM_PREV,
+    ROW_PPA_RATE,
+    ROW_PROGRAM_A,
+    ROW_PROGRAM_B,
+    ROW_PROJECT_NUMBER,
+    ROW_PROPERTY_TAX_YR1,
+    ROW_PROPTAX_ESCALATOR,
+    ROW_STATE,
+    ROW_UPFRONT,
+    ROW_UTILITY,
 )
 
 
@@ -44,6 +68,7 @@ def _col_letter(col_idx: int) -> str:
         n, r = divmod(n - 1, 26)
         s = chr(65 + r) + s
     return s
+
 
 _TEMPLATE_PATH = Path(__file__).parent / "VP_Review_Mockup.html"
 _INJECT_RE = re.compile(
@@ -72,14 +97,14 @@ from lib.financial_constants import (
 )
 
 # Assumptions for derived chart data (when real model run isn't available).
-DEFAULT_DEGRADATION = 0.005         # 0.5% / yr
+DEFAULT_DEGRADATION = 0.005  # 0.5% / yr
 DEFAULT_OPEX_ESC = 0.02
-DEFAULT_OM_PREV = 4_750             # $/MW/yr
+DEFAULT_OM_PREV = 4_750  # $/MW/yr
 DEFAULT_OM_CORR = 2_000
 DEFAULT_AM_FEE = 3_000
 DEFAULT_INSURANCE = 3_500
-TAX_EQUITY_MONETIZATION = 0.85      # TE pays ~85¢ per $1 of ITC
-DEBT_FRACTION_OF_NET = 0.55         # DSCR-sized illustrative
+TAX_EQUITY_MONETIZATION = 0.85  # TE pays ~85¢ per $1 of ITC
+DEBT_FRACTION_OF_NET = 0.55  # DSCR-sized illustrative
 CORPORATE_TAX_RATE = 0.21
 # MACRS 5-yr (half-year convention) with ITC basis reduction applied separately.
 MACRS_5YR = (0.20, 0.32, 0.192, 0.1152, 0.1152, 0.0576)
@@ -89,11 +114,14 @@ BIBLE_LNTP_PER_W = 0.10
 BIBLE_CL_PER_W = 0.06
 BIBLE_IX_PER_W = 0.05
 BIBLE_ITC_FRAC = 0.40
-from lib.financial_constants import BIBLE_ELIG_FRAC  # canonical home; kept here as re-export for legacy local refs
+from lib.financial_constants import (
+    BIBLE_ELIG_FRAC,  # canonical home; kept here as re-export for legacy local refs
+)
+
 # Terminal-value assumptions (year-25 → year-35 merchant tail).
 PANEL_USEFUL_LIFE_YEARS = 35
-MERCHANT_RATE_PER_MWH = 25.0        # Post-PPA merchant revenue — conservative
-MERCHANT_OPEX_MARGIN = 0.50         # Half of merchant revenue survives OpEx
+MERCHANT_RATE_PER_MWH = 25.0  # Post-PPA merchant revenue — conservative
+MERCHANT_OPEX_MARGIN = 0.50  # Half of merchant revenue survives OpEx
 # IRR calibration: the 0.18% / cent rule assumes ~45% sponsor equity. Scale to
 # the project's actual equity fraction to stay stable under high leverage.
 CALIBRATION_SPONSOR_FRACTION = 0.45
@@ -248,10 +276,7 @@ def _roll_up(findings: list[dict], dc_mw: float, sponsor_fraction: float | None 
         v = f.get("impact")
         if isinstance(v, (int, float)):
             total += v
-    if dc_mw > 0:
-        npp_per_w = total / (dc_mw * 1_000_000)
-    else:
-        npp_per_w = 0.0
+    npp_per_w = total / (dc_mw * 1_000_000) if dc_mw > 0 else 0.0
 
     leverage_scale = 1.0
     if sponsor_fraction and sponsor_fraction > 0:
@@ -272,9 +297,9 @@ def _fmt_money_short(v: float) -> str:
     sign = "(" if v < 0 else ""
     close = ")" if v < 0 else ""
     if a >= 1_000_000:
-        return f"{sign}${a/1_000_000:.2f}M{close}"
+        return f"{sign}${a / 1_000_000:.2f}M{close}"
     if a >= 1_000:
-        return f"{sign}${a/1_000:.0f}k{close}"
+        return f"{sign}${a / 1_000:.0f}k{close}"
     return f"{sign}${a:.0f}{close}"
 
 
@@ -283,7 +308,9 @@ def _build_references(proj: dict, audit: dict) -> dict:
     data = proj.get("data", {})
     state = str(audit.get("state") or data.get(ROW_STATE) or "").strip().upper()
     utility = str(data.get(ROW_UTILITY) or "").strip()
-    program = str(audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip()
+    program = str(
+        audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or ""
+    ).strip()
 
     # Pricing reference (cross-market + per-state overrides + size-dependent EPC)
     cs = {**CS_AVERAGE, **CS_STATE_OVERRIDES.get(state, {})}
@@ -292,8 +319,13 @@ def _build_references(proj: dict, audit: dict) -> dict:
     dc_mw = _num(data.get(ROW_DC_MW)) or 0
     if dc_mw > 0 and dc_mw < 5:
         cs = dict(cs)  # don't mutate global
-        cs[ROW_EPC_WRAPPED] = {"value": 1.75, "unit": "$/W", "tol": 0.10,
-                               "label": "PV EPC Cost", "note": f"<5 MWdc ({dc_mw:.1f} MW): $1.75/W"}
+        cs[ROW_EPC_WRAPPED] = {
+            "value": 1.75,
+            "unit": "$/W",
+            "tol": 0.10,
+            "label": "PV EPC Cost",
+            "note": f"<5 MWdc ({dc_mw:.1f} MW): $1.75/W",
+        }
 
     def _cs_item(row: int, pretty: str) -> dict | None:
         info = cs.get(row)
@@ -301,16 +333,19 @@ def _build_references(proj: dict, audit: dict) -> dict:
             return None
         return {
             "k": pretty,
-            "v": _format_cell(info.get("value"), info.get("unit", "")),
+            "v": _format_cell(info.get("value"), str(info.get("unit", ""))),
             "s": _build_tol_note(info),
         }
 
-    bible_items = [_cs_item(r, p) for r, p in [
-        (ROW_EPC_WRAPPED, f"EPC ($/W) {'<5MW' if dc_mw < 5 else '≥5MW'}"),
-        (ROW_LNTP, "LNTP ($/W)"),
-        (ROW_CLOSING, "Closing & Legal ($/W)"),
-        (ROW_ELIG_COSTS, "Eligible Costs %"),
-    ]]
+    bible_items = [
+        _cs_item(r, p)
+        for r, p in [
+            (ROW_EPC_WRAPPED, f"EPC ($/W) {'<5MW' if dc_mw < 5 else '≥5MW'}"),
+            (ROW_LNTP, "LNTP ($/W)"),
+            (ROW_CLOSING, "Closing & Legal ($/W)"),
+            (ROW_ELIG_COSTS, "Eligible Costs %"),
+        ]
+    ]
     bible_items = [x for x in bible_items if x]
 
     # Market
@@ -323,34 +358,55 @@ def _build_references(proj: dict, audit: dict) -> dict:
             lag = market.get(217)
             lag_str = f"{int(lag)}-mo lag" if isinstance(lag, (int, float)) and lag else ""
             incentive_detail = market.get("incentive_detail") or ""
-            sub = lag_str if not incentive_detail else (incentive_detail + (f" · {lag_str}" if lag_str else ""))
-            market_items.append({"k": "Upfront Incentive ($/W)", "v": _format_cell(up_val, "$/W"), "s": sub})
+            sub = (
+                lag_str
+                if not incentive_detail
+                else (incentive_detail + (f" · {lag_str}" if lag_str else ""))
+            )
+            market_items.append(
+                {"k": "Upfront Incentive ($/W)", "v": _format_cell(up_val, "$/W"), "s": sub}
+            )
         rec_rate = market.get("rec_rate")
         rec_term = market.get("rec_term")
         if rec_rate is not None:
             rec_v = f"${rec_rate:,.2f}/MWh" if isinstance(rec_rate, (int, float)) else str(rec_rate)
-            rec_s = f"{int(rec_term)}-yr" if isinstance(rec_term, (int, float)) else (str(rec_term) if rec_term else "")
+            rec_s = (
+                f"{int(rec_term)}-yr"
+                if isinstance(rec_term, (int, float))
+                else (str(rec_term) if rec_term else "")
+            )
             market_items.append({"k": "REC Rate", "v": rec_v, "s": rec_s})
         if market.get("post_rec_rate") not in (None, 0):
-            prr = market.get("post_rec_rate"); prt = market.get("post_rec_term")
-            market_items.append({
-                "k": "Post-REC Rate",
-                "v": f"${prr:,.2f}/MWh" if isinstance(prr, (int, float)) else str(prr),
-                "s": f"{int(prt)}-yr" if isinstance(prt, (int, float)) else (str(prt) if prt else ""),
-            })
+            prr = market.get("post_rec_rate")
+            prt = market.get("post_rec_term")
+            market_items.append(
+                {
+                    "k": "Post-REC Rate",
+                    "v": f"${prr:,.2f}/MWh" if isinstance(prr, (int, float)) else str(prr),
+                    "s": f"{int(prt)}-yr"
+                    if isinstance(prt, (int, float))
+                    else (str(prt) if prt else ""),
+                }
+            )
         if market.get("rate_curve"):
-            market_items.append({
-                "k": "Rate Curve",
-                "v": str(market["rate_curve"]),
-                "s": str(market.get("rate_source") or ""),
-            })
+            market_items.append(
+                {
+                    "k": "Rate Curve",
+                    "v": str(market["rate_curve"]),
+                    "s": str(market.get("rate_source") or ""),
+                }
+            )
         rc_discount = market.get(161)
         if rc_discount not in (None, 0):
-            market_items.append({
-                "k": "Customer Discount",
-                "v": f"{rc_discount*100:.1f}%" if isinstance(rc_discount, (int, float)) else str(rc_discount),
-                "s": "Applied to rate curve",
-            })
+            market_items.append(
+                {
+                    "k": "Customer Discount",
+                    "v": f"{rc_discount * 100:.1f}%"
+                    if isinstance(rc_discount, (int, float))
+                    else str(rc_discount),
+                    "s": "Applied to rate curve",
+                }
+            )
 
     # OpEx
     opex_items = []
@@ -358,22 +414,28 @@ def _build_references(proj: dict, audit: dict) -> dict:
     if ins:
         opex_items.append(ins)
     if market and 240 in market and market[240] not in (None, 0):
-        opex_items.append({
-            "k": "Cust Mgmt ($/kWh)",
-            "v": f"${market[240]:.4f}/kWh",
-            "s": "Market-specific",
-        })
+        opex_items.append(
+            {
+                "k": "Cust Mgmt ($/kWh)",
+                "v": f"${market[240]:.4f}/kWh",
+                "s": "Market-specific",
+            }
+        )
     if market and market.get("cust_acq_blend") is not None:
-        opex_items.append({
-            "k": "Cust Acquisition (blended)",
-            "v": f"${market['cust_acq_blend']:.4f}/kWh",
-            "s": str(market.get("cust_mix") or ""),
-        })
+        opex_items.append(
+            {
+                "k": "Cust Acquisition (blended)",
+                "v": f"${market['cust_acq_blend']:.4f}/kWh",
+                "s": str(market.get("cust_mix") or ""),
+            }
+        )
 
     return {
-        "bibleHeader": f"Q1 '26 Pricing Reference",
+        "bibleHeader": "Q1 '26 Pricing Reference",
         "bible": bible_items,
-        "marketHeader": market_header if market else f"Market — (no match for {state}/{utility}/{program})",
+        "marketHeader": market_header
+        if market
+        else f"Market — (no match for {state}/{utility}/{program})",
         "market": market_items,
         "marketMatched": bool(market),
         "opex": opex_items,
@@ -400,8 +462,14 @@ from lib.bible_audit import verdict_from_summary
 
 def _derive_sub(proj: dict, audit: dict, label: str) -> str:
     data = proj.get("data", {})
-    state = (audit.get("state") or data.get(ROW_STATE) or "").strip() if isinstance(data.get(ROW_STATE), str) else (audit.get("state") or "")
-    utility = (data.get(ROW_UTILITY) or "").strip() if isinstance(data.get(ROW_UTILITY), str) else ""
+    state = (
+        (audit.get("state") or data.get(ROW_STATE) or "").strip()
+        if isinstance(data.get(ROW_STATE), str)
+        else (audit.get("state") or "")
+    )
+    utility = (
+        (data.get(ROW_UTILITY) or "").strip() if isinstance(data.get(ROW_UTILITY), str) else ""
+    )
     program = audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or ""
     if isinstance(program, str):
         program = program.strip()
@@ -430,34 +498,38 @@ def _build_findings(audit: dict, data: dict) -> list[dict]:
         if exp_n is not None and act_n is not None:
             delta_n = round(act_n - exp_n, 4)
         impact = _compute_impact(info, data)
-        findings.append({
-            "field": str(field_label),
-            "short": _short(str(field_label)),
-            "bible": bible_str,
-            "model": model_str,
-            "delta": delta_n,
-            "deltaUnit": unit,
-            "impact": round(impact) if isinstance(impact, (int, float)) else None,
-            "status": status,
-            "source": info.get("source", ""),
-        })
+        findings.append(
+            {
+                "field": str(field_label),
+                "short": _short(str(field_label)),
+                "bible": bible_str,
+                "model": model_str,
+                "delta": delta_n,
+                "deltaUnit": unit,
+                "impact": round(impact) if isinstance(impact, (int, float)) else None,
+                "status": status,
+                "source": info.get("source", ""),
+            }
+        )
     for gh in audit.get("guidehouse", []) or []:
         status = gh.get("status", "OK")
         if status == "OK":
             continue
         exp = gh.get("expected")
         act = gh.get("actual")
-        findings.append({
-            "field": f"RC{gh.get('rate_idx', '?')} discount ({gh.get('name', '')})",
-            "short": f"RC{gh.get('rate_idx', '?')}",
-            "bible": f"{exp*100:.2f}%" if isinstance(exp, (int, float)) else "—",
-            "model": f"{act*100:.2f}%" if isinstance(act, (int, float)) else "—",
-            "delta": None,
-            "deltaUnit": "%",
-            "impact": None,
-            "status": status,
-            "source": "Guidehouse strip",
-        })
+        findings.append(
+            {
+                "field": f"RC{gh.get('rate_idx', '?')} discount ({gh.get('name', '')})",
+                "short": f"RC{gh.get('rate_idx', '?')}",
+                "bible": f"{exp * 100:.2f}%" if isinstance(exp, (int, float)) else "—",
+                "model": f"{act * 100:.2f}%" if isinstance(act, (int, float)) else "—",
+                "delta": None,
+                "deltaUnit": "%",
+                "impact": None,
+                "status": status,
+                "source": "Guidehouse strip",
+            }
+        )
     return findings
 
 
@@ -498,12 +570,12 @@ def _build_kpis(proj: dict, findings: list[dict]) -> dict:
     ac_mw = ac_kw / 1000 if ac_kw else 0
     epc = _num(data.get(ROW_EPC_WRAPPED))
     npp = _num(data.get(ROW_NPP))
-    npp_dollars = _num(data.get(39))   # NPP ($) — for the 'Total $X.XM' subline
+    npp_dollars = _num(data.get(39))  # NPP ($) — for the 'Total $X.XM' subline
     fmv_per_w = _num(data.get(ROW_FMV_PER_W))
     itc = _num(data.get(ROW_ITC_PCT))
-    appraisal_irr = _num(data.get(ROW_APPRAISAL_IRR))   # row 31
+    appraisal_irr = _num(data.get(ROW_APPRAISAL_IRR))  # row 31
     levered_pt_irr = _num(data.get(ROW_LEVERED_PT_IRR))  # row 37
-    active_fmv = _num(data.get(ROW_ACTIVE_FMV))          # row 681
+    active_fmv = _num(data.get(ROW_ACTIVE_FMV))  # row 681
     epc_off = any(f["status"] == "OFF" and "EPC" in f["field"].upper() for f in findings)
     itc_off = any(f["status"] == "OFF" and "ITC" in f["field"].upper() for f in findings)
 
@@ -571,6 +643,7 @@ def _build_capital_stack(proj: dict, market: dict | None) -> dict:
     Order: Sponsor Equity, Tax Equity, Debt, Incentives.
     """
     data = proj.get("data", {})
+
     def _fill(val, fallback):
         return val if val is not None else fallback
 
@@ -636,7 +709,9 @@ def _primary_rate(proj: dict) -> tuple[float | None, float | None]:
             continue
         esc_raw = c.get("escalator")
         # "N/A (Custom)" sentinel should be treated as 0 escalator.
-        esc = _num(esc_raw) if not (isinstance(esc_raw, str) and "custom" in esc_raw.lower()) else 0.0
+        esc = (
+            _num(esc_raw) if not (isinstance(esc_raw, str) and "custom" in esc_raw.lower()) else 0.0
+        )
         # Prefer components that fund equity distributions.
         if c.get("equity_on"):
             return rate, esc
@@ -717,12 +792,8 @@ def _build_cashflow(proj: dict) -> dict:
         # OpEx NPV factor over the remaining useful life.
         if year == OPEX_TERM_YEARS:
             remaining_life = max(0, PANEL_USEFUL_LIFE_YEARS - OPEX_TERM_YEARS)
-            merchant_rev_k = (
-                prod_mwh * MERCHANT_RATE_PER_MWH * MERCHANT_OPEX_MARGIN / 1000
-            )
-            terminal.append(int(round(
-                merchant_rev_k * remaining_life * OPEX_NPV_FACTOR
-            )))
+            merchant_rev_k = prod_mwh * MERCHANT_RATE_PER_MWH * MERCHANT_OPEX_MARGIN / 1000
+            terminal.append(int(round(merchant_rev_k * remaining_life * OPEX_NPV_FACTOR)))
         else:
             terminal.append(0)
 
@@ -777,13 +848,11 @@ def _build_sensitivity(proj: dict) -> dict:
     # OpEx (use benchmark total × DC_MW)
     if dc_mw:
         total_opex = DEFAULT_OM_PREV + DEFAULT_OM_CORR + DEFAULT_AM_FEE + DEFAULT_INSURANCE
-        _add("OpEx $/MW-yr",
-             -0.10 * total_opex * dc_mw * OPEX_TERM_YEARS * OPEX_NPV_FACTOR)
+        _add("OpEx $/MW-yr", -0.10 * total_opex * dc_mw * OPEX_TERM_YEARS * OPEX_NPV_FACTOR)
 
     insurance = _num(data.get(ROW_INSURANCE))
     if insurance and dc_mw:
-        _add("Insurance $/MW-yr",
-             -0.10 * insurance * dc_mw * OPEX_TERM_YEARS * OPEX_NPV_FACTOR)
+        _add("Insurance $/MW-yr", -0.10 * insurance * dc_mw * OPEX_TERM_YEARS * OPEX_NPV_FACTOR)
 
     # Rank by absolute swing, take top 7
     candidates.sort(key=lambda c: -abs(c["hi"] - c["lo"]))
@@ -796,7 +865,9 @@ def _build_sensitivity(proj: dict) -> dict:
     }
 
 
-from lib.rate_curve import rate_at_cod as _rate_at_cod  # noqa: E402 — re-export for inline call sites in this module
+from lib.rate_curve import (
+    rate_at_cod as _rate_at_cod,  # noqa: E402 — re-export for inline call sites in this module
+)
 
 
 def _build_rate_comp1(proj: dict, market: dict | None = None) -> dict:
@@ -823,7 +894,6 @@ def _build_rate_comp1(proj: dict, market: dict | None = None) -> dict:
     name = str(rc1.get("name") or "").strip()
     rate = _num(rc1.get("energy_rate"))
     custom_generic = str(rc1.get("custom_generic") or "").strip().lower()
-    esc = rc1.get("escalator")
     cust_discount = _num(rc1.get("discount"))  # this is the CUSTOMER discount
     equity_on = bool(rc1.get("equity_on"))
 
@@ -841,7 +911,7 @@ def _build_rate_comp1(proj: dict, market: dict | None = None) -> dict:
     # Extract GH haircut % from the name (e.g., "GH25 -22.5%" → 22.5)
     gh_haircut_pct = None
     if name:
-        m = _rc_re.search(r'[-–]\s*(\d+\.?\d*)\s*%', name)
+        m = _rc_re.search(r"[-–]\s*(\d+\.?\d*)\s*%", name)
         if m:
             gh_haircut_pct = float(m.group(1))
 
@@ -864,7 +934,7 @@ def _build_rate_comp1(proj: dict, market: dict | None = None) -> dict:
         "rateSource": "Rate Curves" if is_custom else "Project Inputs",
         "rateConfidence": rate_confidence,
         "custDiscount": round(cust_discount, 4) if cust_discount is not None else None,
-        "custDiscountDisplay": f"{cust_discount*100:.1f}%" if cust_discount is not None else "—",
+        "custDiscountDisplay": f"{cust_discount * 100:.1f}%" if cust_discount is not None else "—",
         "ghHaircut": gh_haircut_pct,
         "ghHaircutDisplay": f"-{gh_haircut_pct:.1f}%" if gh_haircut_pct is not None else "—",
         "bibleDiscount": bible_discount,
@@ -905,20 +975,46 @@ _ROW_CATEGORY: dict[int, str] = {}
 for _cat, _checks in BIBLE_BENCHMARKS.items():
     for _lbl, _spec in _checks.items():
         if "row" in _spec:
-            _ROW_CATEGORY[_spec["row"]] = _cat
+            _ROW_CATEGORY[int(_spec["row"])] = _cat
 
 _ROW_CATEGORY_FALLBACK: dict[int, str] = {
-    118: "CapEx", 119: "CapEx", 121: "CapEx", 122: "CapEx", 123: "CapEx", 126: "CapEx",
-    225: "OpEx", 226: "OpEx", 227: "OpEx", 228: "OpEx", 230: "OpEx", 231: "OpEx",
-    240: "OpEx", 241: "OpEx", 286: "OpEx", 296: "OpEx", 297: "OpEx", 302: "OpEx",
-    157: "Revenue", 158: "Revenue", 160: "Revenue", 161: "Revenue", 162: "Revenue",
-    216: "Incentives & Tax", 217: "Incentives & Tax",
-    597: "Incentives & Tax", 602: "Incentives & Tax",
+    118: "CapEx",
+    119: "CapEx",
+    121: "CapEx",
+    122: "CapEx",
+    123: "CapEx",
+    126: "CapEx",
+    225: "OpEx",
+    226: "OpEx",
+    227: "OpEx",
+    228: "OpEx",
+    230: "OpEx",
+    231: "OpEx",
+    240: "OpEx",
+    241: "OpEx",
+    286: "OpEx",
+    296: "OpEx",
+    297: "OpEx",
+    302: "OpEx",
+    157: "Revenue",
+    158: "Revenue",
+    160: "Revenue",
+    161: "Revenue",
+    162: "Revenue",
+    216: "Incentives & Tax",
+    217: "Incentives & Tax",
+    597: "Incentives & Tax",
+    602: "Incentives & Tax",
 }
 
 _MAPPING_CATEGORY_ORDER = [
-    "CapEx", "System Sizing", "Revenue", "Incentives & Tax",
-    "OpEx", "System Details", "Other",
+    "CapEx",
+    "System Sizing",
+    "Revenue",
+    "Incentives & Tax",
+    "OpEx",
+    "System Details",
+    "Other",
 ]
 
 
@@ -932,17 +1028,19 @@ def _build_full_mapping(audit: dict) -> list[dict]:
     for row_num, info in (audit.get("rows") or {}).items():
         cat = _categorize_audit_row(row_num)
         label = info.get("label") or _INPUT_ROW_LABELS.get(row_num) or f"Row {row_num}"
-        groups.setdefault(cat, []).append({
-            "row": row_num,
-            "label": label,
-            "unit": info.get("unit", ""),
-            "expected": info.get("expected"),
-            "actual": info.get("actual"),
-            "status": info.get("status", "OK"),
-            "source": info.get("source", ""),
-            "tol": info.get("tol"),
-            "range": list(info["range"]) if info.get("range") else None,
-        })
+        groups.setdefault(cat, []).append(
+            {
+                "row": row_num,
+                "label": label,
+                "unit": info.get("unit", ""),
+                "expected": info.get("expected"),
+                "actual": info.get("actual"),
+                "status": info.get("status", "OK"),
+                "source": info.get("source", ""),
+                "tol": info.get("tol"),
+                "range": list(info["range"]) if info.get("range") else None,
+            }
+        )
     result = []
     for cat in _MAPPING_CATEGORY_ORDER:
         rows = groups.pop(cat, [])
@@ -965,7 +1063,9 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
     # (lookup_market itself handles MD/DE normalization; no need to pre-normalize.)
     _state = str(audit.get("state") or data.get(ROW_STATE) or "").strip().upper()
     _utility = str(data.get(ROW_UTILITY) or "").strip()
-    _program = str(audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip()
+    _program = str(
+        audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or ""
+    ).strip()
     market = lookup_market(_state, _utility, _program)
     stack = _build_capital_stack(proj, market)
     # Feed sponsor fraction into the roll-up so IRR scales with actual leverage.
@@ -975,10 +1075,7 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
     developer = str(data.get(ROW_DEVELOPER) or "").strip()
     utility = str(data.get(ROW_UTILITY) or "").strip()
     program = str(
-        audit.get("program_used")
-        or data.get(ROW_PROGRAM_A)
-        or data.get(ROW_PROGRAM_B)
-        or ""
+        audit.get("program_used") or data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or ""
     ).strip()
     pnum_raw = data.get(ROW_PROJECT_NUMBER)
     try:
@@ -990,7 +1087,7 @@ def _build_mockup_project(proj: dict, audit: dict, label: str) -> dict:
         "sub": _derive_sub(proj, audit, label),
         # First-class fields for the portfolio summary / nav — consumers no
         # longer parse `sub` strings to recover them.
-        "projNumber": proj_number,        # Project # from Project Inputs row 2
+        "projNumber": proj_number,  # Project # from Project Inputs row 2
         "developer": developer,
         "state": audit.get("state") or str(data.get(ROW_STATE) or "").strip(),
         "utility": utility,
@@ -1025,7 +1122,9 @@ def _safe_audit(proj_data: dict, proj_name: str = "") -> dict:
             "summary": {"OK": 0, "OFF": 0, "OUT": 0, "MISSING": 0, "REVIEW": 0},
             "guidehouse": [],
             "wrapped_epc": {},
-            "state": "", "utility": "", "program_used": "",
+            "state": "",
+            "utility": "",
+            "program_used": "",
         }
 
 
@@ -1044,7 +1143,6 @@ def _iter_projects(m1_projects: dict):
 
 
 import re as _re  # local alias to avoid shadowing
-
 
 # Template-placeholder detection. Real model templates ship with ~60 scratch
 # slots named "Project 15" / "Project 16" / … with developer literally set to
@@ -1067,9 +1165,7 @@ def _looks_real(proj: dict) -> bool:
     if dc <= 0:
         return False
     dev = str(data.get(ROW_DEVELOPER) or "").strip().lower()
-    if dev in _PLACEHOLDER_DEV_TOKENS:
-        return False
-    return True
+    return dev not in _PLACEHOLDER_DEV_TOKENS
 
 
 def list_candidate_projects(m1_projects: dict) -> list[dict]:
@@ -1109,22 +1205,25 @@ def list_candidate_projects(m1_projects: dict) -> list[dict]:
             elif isinstance(pnum_raw, str):
                 # Extract trailing digits from strings like "Project 1"
                 import re as _pnum_re
-                m = _pnum_re.search(r'\d+', str(pnum_raw))
+
+                m = _pnum_re.search(r"\d+", str(pnum_raw))
                 if m:
                     proj_number = int(m.group())
         col_idx = int(col) if isinstance(col, (int, float)) else None
-        raw.append({
-            "id": str(col),
-            "col_letter": _col_letter(col_idx) if col_idx else str(col),
-            "proj_number": proj_number,
-            "name": str(proj.get("name") or "Unnamed").strip(),
-            "dc": round(_num(data.get(ROW_DC_MW)) or 0, 2),
-            "developer": str(data.get(ROW_DEVELOPER) or "").strip(),
-            "state": str(data.get(ROW_STATE) or "").strip(),
-            "utility": str(data.get(ROW_UTILITY) or "").strip(),
-            "program": str(data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip(),
-            "toggled_on": bool(proj.get("toggle", False)),
-        })
+        raw.append(
+            {
+                "id": str(col),
+                "col_letter": _col_letter(col_idx) if col_idx else str(col),
+                "proj_number": proj_number,
+                "name": str(proj.get("name") or "Unnamed").strip(),
+                "dc": round(_num(data.get(ROW_DC_MW)) or 0, 2),
+                "developer": str(data.get(ROW_DEVELOPER) or "").strip(),
+                "state": str(data.get(ROW_STATE) or "").strip(),
+                "utility": str(data.get(ROW_UTILITY) or "").strip(),
+                "program": str(data.get(ROW_PROGRAM_A) or data.get(ROW_PROGRAM_B) or "").strip(),
+                "toggled_on": bool(proj.get("toggle", False)),
+            }
+        )
 
     # Default-suggested = row-7 toggle=On OR same developer as any On project.
     # Duplicate-named columns both count if both carry the same developer.
@@ -1133,13 +1232,12 @@ def list_candidate_projects(m1_projects: dict) -> list[dict]:
     # they're still included in `suggested` (default-checked).
     active_devs = {
         (c["developer"] or "").lower()
-        for c in raw if c["toggled_on"] and (c["developer"] or "").strip()
+        for c in raw
+        if c["toggled_on"] and (c["developer"] or "").strip()
     }
     for c in raw:
         dev_l = (c["developer"] or "").lower()
-        c["dev_sibling"] = bool(
-            not c["toggled_on"] and dev_l and dev_l in active_devs
-        )
+        c["dev_sibling"] = bool(not c["toggled_on"] and dev_l and dev_l in active_devs)
         c["suggested"] = bool(c["toggled_on"] or c["dev_sibling"])
     return raw
 
@@ -1149,10 +1247,7 @@ def filter_projects(m1_projects: dict, included_ids: set[str] | None) -> dict:
     `included_ids`. If `included_ids` is None, returns all candidates
     (toggle=On + real data); callers should pre-filter via list_candidate_projects."""
     candidates = {str(c["id"]) for c in list_candidate_projects(m1_projects)}
-    if included_ids is None:
-        allowed = candidates
-    else:
-        allowed = candidates & {str(i) for i in included_ids}
+    allowed = candidates if included_ids is None else candidates & {str(i) for i in included_ids}
     out = {}
     for col, proj in _iter_projects(m1_projects):
         if str(col) in allowed:
@@ -1166,6 +1261,7 @@ def _default_json(o):
     # Preserve Decimal numeric fidelity so JS keeps typeof==='number'.
     try:
         from decimal import Decimal
+
         if isinstance(o, Decimal):
             return float(o)
     except ImportError:
@@ -1191,9 +1287,9 @@ def _safe_json(payload) -> str:
     s = json.dumps(payload, default=_default_json, ensure_ascii=False)
     return (
         s.replace("</", "<\\/")
-         .replace("<!--", "<\\!--")
-         .replace("\u2028", "\\u2028")
-         .replace("\u2029", "\\u2029")
+        .replace("<!--", "<\\!--")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
     )
 
 
@@ -1201,15 +1297,15 @@ def _safe_json(payload) -> str:
 _STATUS_CODE = {"OK": 0, "OUT": 1, "OFF": 2, "MISSING": 3, "REVIEW": 3}
 # (heatmap column label, rows in the audit that flow into that column)
 _HEATMAP_COLUMNS = [
-    ("EPC",       [ROW_EPC_WRAPPED]),
-    ("LNTP",      [ROW_LNTP]),
-    ("C&L",       [ROW_CLOSING]),
-    ("ITC",       [ROW_ITC_PCT]),
+    ("EPC", [ROW_EPC_WRAPPED]),
+    ("LNTP", [ROW_LNTP]),
+    ("C&L", [ROW_CLOSING]),
+    ("ITC", [ROW_ITC_PCT]),
     ("Elig Cost", [ROW_ELIG_COSTS]),
-    ("Upfront",   [ROW_UPFRONT]),
+    ("Upfront", [ROW_UPFRONT]),
     ("Insurance", [ROW_INSURANCE]),
-    ("O&M",       [ROW_OM_PREV, ROW_OM_CORR]),
-    ("AM Fee",    [ROW_AM_FEE]),
+    ("O&M", [ROW_OM_PREV, ROW_OM_CORR]),
+    ("AM Fee", [ROW_AM_FEE]),
 ]
 
 
@@ -1321,4 +1417,6 @@ def render_empty_html(
     bible_label: str = "Q1 '26",
 ) -> str:
     """Render the mockup in the 'no projects loaded' empty state."""
-    return render_html({}, model_label="No model loaded", reviewer=reviewer, bible_label=bible_label)
+    return render_html(
+        {}, model_label="No model loaded", reviewer=reviewer, bible_label=bible_label
+    )

@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+# Cancel in-progress runs when a new commit lands on the same branch / PR.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python (ruff · mypy · pytest · bandit · pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.13"
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Sync deps from uv.lock
+        run: uv sync --frozen
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check .
+
+      - name: Type check (mypy)
+        run: uv run mypy lib apps
+
+      - name: Tests + coverage (pytest)
+        run: uv run pytest tests/ --cov --cov-report=term --cov-report=xml
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
+
+      - name: Security (bandit, fail on medium+)
+        run: uv run bandit -c pyproject.toml -r lib apps --severity-level medium
+
+      - name: Dep vulnerability scan (pip-audit)
+        # Audit the locked production deps, excluding the local project itself
+        # (editable installs can't be hashed). `--strict` fails on any vuln.
+        run: |
+          uv export --frozen --no-dev --no-emit-project --output-file requirements-prod.txt
+          uv run pip-audit --strict --requirement requirements-prod.txt
+        shell: bash
+
+  web:
+    name: Web (eslint · tsc · build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Type check (tsc)
+        run: npx tsc --noEmit
+
+      - name: Build (next build)
+        run: npm run build
+
+  docker:
+    name: Docker (build only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: python
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: model-review-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

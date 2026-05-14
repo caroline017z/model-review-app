@@ -6,6 +6,7 @@ mockup_view.py and impact.py with subtly different values — extracted here
 so future updates touch ONE place. Imports stay cheap (no transitive
 dependencies on heavy modules).
 """
+
 from __future__ import annotations
 
 #: PPA / OpEx cash-flow horizon in years. Standard 38DN PPA term.

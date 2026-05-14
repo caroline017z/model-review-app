@@ -1,4 +1,5 @@
 """Walk comparison endpoint — compare two models, return .xlsx."""
+
 from __future__ import annotations
 
 import json
@@ -45,13 +46,15 @@ def generate_walk(req: WalkRequest):
 
     try:
         buf, summary = build_walk_xlsx(
-            m1["result"], m2["result"],
-            req.m1_label, req.m2_label,
+            m1["result"],
+            m2["result"],
+            req.m1_label,
+            req.m2_label,
             include_proj_numbers=set(req.project_numbers) if req.project_numbers else None,
             include_proj_names=set(req.project_names) if req.project_names else None,
         )
     except Exception as e:
-        raise HTTPException(500, f"Walk generation error: {e}")
+        raise HTTPException(500, f"Walk generation error: {e}") from e
 
     # Template drift warning: if the two models have different fingerprints,
     # at least one critical row is at a different position in one vs the
@@ -76,14 +79,27 @@ def generate_walk(req: WalkRequest):
         from lib.data_loader import get_projects
         from lib.rows import ROW_PROJECT_NUMBER
         from lib.utils import safe_float
+
         m1p = get_projects(m1["result"]) or {}
         m2p = get_projects(m2["result"]) or {}
-        m1_pnums = [safe_float(p.get("data", {}).get(ROW_PROJECT_NUMBER)) for p in m1p.values() if isinstance(p, dict)]
-        m2_pnums = [safe_float(p.get("data", {}).get(ROW_PROJECT_NUMBER)) for p in m2p.values() if isinstance(p, dict)]
+        m1_pnums = [
+            safe_float(p.get("data", {}).get(ROW_PROJECT_NUMBER))
+            for p in m1p.values()
+            if isinstance(p, dict)
+        ]
+        m2_pnums = [
+            safe_float(p.get("data", {}).get(ROW_PROJECT_NUMBER))
+            for p in m2p.values()
+            if isinstance(p, dict)
+        ]
         import logging
+
         logging.warning(
             "Walk matched 0 projects. M1 has %d projects (proj#: %s), M2 has %d (proj#: %s)",
-            len(m1p), m1_pnums[:5], len(m2p), m2_pnums[:5],
+            len(m1p),
+            m1_pnums[:5],
+            len(m2p),
+            m2_pnums[:5],
         )
 
     filename = f"Build_Walk_{_safe_filename_part(req.m1_label)}_vs_{_safe_filename_part(req.m2_label)}.xlsx"

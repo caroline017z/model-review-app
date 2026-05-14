@@ -1,0 +1,153 @@
+[project]
+name = "model-review-app"
+version = "0.1.0"
+description = "38DN VP Pricing Model Review — internal audit tool for solar pricing models"
+requires-python = ">=3.12,<3.14"
+readme = "README.md"
+
+dependencies = [
+    # Web service
+    "fastapi==0.136.1",
+    "uvicorn[standard]==0.46.0",
+    "python-multipart==0.0.28",
+    "pydantic==2.13.4",
+
+    # Workbook reader
+    "openpyxl==3.1.5",
+
+    # Legacy Streamlit shell (still importable via legacy/app.py until Phase 6)
+    "streamlit==1.57.0",
+]
+
+[dependency-groups]
+dev = [
+    # Test
+    "pytest==9.0.3",
+    "pytest-cov==7.1.0",
+    "httpx==0.28.1",            # FastAPI TestClient transport
+
+    # Lint / format / type
+    "ruff==0.15.13",
+    "mypy==2.1.0",
+
+    # Security
+    "bandit[toml]==1.9.4",
+    "pip-audit==2.10.0",
+
+    # Pre-commit
+    "pre-commit==4.6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["apps", "lib"]
+
+# ---------------------------------------------------------------------------
+# Ruff (lint + format)
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [
+    ".venv",
+    "legacy",            # Phase 6 will delete legacy/; don't gate on it
+    "apps/web",          # Node project — ESLint owns it
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long — let formatter handle
+    "B008",  # do not perform function calls in argument defaults (FastAPI Depends)
+    "E702",  # multiple-statements-on-one-line-semicolon — intentional in openpyxl cell-format code
+    "E402",  # module-import-not-at-top — legit logging.basicConfig setup pattern
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]  # assert False in tests is fine
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ---------------------------------------------------------------------------
+# Mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["legacy/", ".venv/", "apps/web/", "build/", "dist/"]
+
+# Mypy 2.x defaults are stricter than 1.x. Disable the "you have untyped
+# code" error codes via disable_error_code (more reliable than the
+# disallow_* flags in 2.x). Most of the codebase predates the CI gate;
+# tightening typing is a separate phase. Keep real type-error detection
+# on (assignment, arg-type, index, attr-defined, name-defined, operator).
+check_untyped_defs = true
+disable_error_code = [
+    "no-untyped-def",     # missing function annotations
+    "no-untyped-call",    # calling untyped function from typed context
+    "type-arg",           # generic without type arg (e.g., `dict` vs `dict[str, int]`)
+    "no-any-return",      # returning Any from typed context
+    "var-annotated",      # untyped variable in assignment
+]
+
+# Strict mode for the audit-critical core modules.
+# Tighten file-by-file once each module passes clean.
+[[tool.mypy.overrides]]
+module = ["lib.rows", "lib.financial_constants", "lib.utils"]
+strict = true
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+
+[tool.coverage.run]
+source = ["lib", "apps/api"]
+omit = ["legacy/*", "tests/*"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+show_missing = true
+skip_covered = false
+
+# ---------------------------------------------------------------------------
+# Bandit (security static analysis)
+# ---------------------------------------------------------------------------
+[tool.bandit]
+exclude_dirs = [".venv", "tests", "legacy", "apps/web", "build", "dist"]
+skips = [
+    "B101",  # assert_used — fine in non-test if guarded by explicit comment
+]
