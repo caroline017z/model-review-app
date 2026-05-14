@@ -58,9 +58,11 @@ jobs:
         run: uv run bandit -c pyproject.toml -r lib apps --severity-level medium
 
       - name: Dep vulnerability scan (pip-audit)
-        # Audit only the locked production deps (skip dev group).
-        # `--strict` makes any vulnerability fail the build.
-        run: uv run pip-audit --strict --no-deps -r <(uv export --frozen --no-dev --no-header)
+        # Audit the locked production deps, excluding the local project itself
+        # (editable installs can't be hashed). `--strict` fails on any vuln.
+        run: |
+          uv export --frozen --no-dev --no-emit-project --output-file requirements-prod.txt
+          uv run pip-audit --strict --requirement requirements-prod.txt
         shell: bash
 
   web:
