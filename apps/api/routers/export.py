@@ -1,14 +1,15 @@
 """Review export endpoint — generate an Excel summary of the review session."""
+
 from __future__ import annotations
 
 import io
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -76,7 +77,11 @@ def export_review(req: ExportRequest):
     cell = ws.cell(row=r, column=2, value=f"38°N Pricing Model Review — {req.model_label}")
     cell.font = Font(bold=True, size=14, color="002060")
     r += 1
-    ws.cell(row=r, column=2, value=f"Reference: {req.bible_label}  |  Reviewer: {req.reviewer}  |  {datetime.now().strftime('%b %d, %Y %H:%M')}")
+    ws.cell(
+        row=r,
+        column=2,
+        value=f"Reference: {req.bible_label}  |  Reviewer: {req.reviewer}  |  {datetime.now().strftime('%b %d, %Y %H:%M')}",
+    )
     ws.cell(row=r, column=2).font = Font(size=10, color="7d8694")
     r += 2
 
@@ -85,7 +90,11 @@ def export_review(req: ExportRequest):
     n_total = len(req.projects)
     total_fail = sum(len([f for f in p.findings if f.status == "OFF"]) for p in req.projects)
     total_flag = sum(len([f for f in p.findings if f.status == "OUT"]) for p in req.projects)
-    ws.cell(row=r, column=2, value=f"{n_approved} of {n_total} projects approved  |  {total_fail} FAIL  |  {total_flag} FLAG")
+    ws.cell(
+        row=r,
+        column=2,
+        value=f"{n_approved} of {n_total} projects approved  |  {total_fail} FAIL  |  {total_flag} FLAG",
+    )
     ws.cell(row=r, column=2).font = BOLD_FONT
     r += 2
 
@@ -105,7 +114,7 @@ def export_review(req: ExportRequest):
         ws.cell(row=r, column=4).alignment = Alignment(horizontal="right", vertical="center")
 
         c5 = ws.cell(row=r, column=5, value=proj.nppPerW)
-        c5.number_format = '0.000_);[Red]\\(0.000\\)'
+        c5.number_format = "0.000_);[Red]\\(0.000\\)"
         c5.font = Font(color="FFFFFF", size=11)
         c5.fill = NAVY_FILL
 
@@ -115,7 +124,7 @@ def export_review(req: ExportRequest):
 
         irr_frac = proj.irrPct / 100 if abs(proj.irrPct) > 1 else proj.irrPct
         c7 = ws.cell(row=r, column=7, value=irr_frac)
-        c7.number_format = '0.00%'
+        c7.number_format = "0.00%"
         c7.font = Font(color="FFFFFF", size=11)
         c7.fill = NAVY_FILL
 
@@ -123,7 +132,11 @@ def export_review(req: ExportRequest):
         r += 1
 
         if proj.approvalTimestamp:
-            ws.cell(row=r, column=2, value=f"Approved by {proj.approvalReviewer or '—'} at {proj.approvalTimestamp}")
+            ws.cell(
+                row=r,
+                column=2,
+                value=f"Approved by {proj.approvalReviewer or '—'} at {proj.approvalTimestamp}",
+            )
             ws.cell(row=r, column=2).font = Font(size=9, color="518484", italic=True)
             r += 1
 
@@ -148,7 +161,7 @@ def export_review(req: ExportRequest):
             ws.cell(row=r, column=4, value=f.bible).alignment = CENTER
             ws.cell(row=r, column=5, value=f.model).alignment = CENTER
             if f.impact is not None:
-                ws.cell(row=r, column=6, value=f.impact).number_format = '#,##0'
+                ws.cell(row=r, column=6, value=f.impact).number_format = "#,##0"
                 ws.cell(row=r, column=6).alignment = CENTER
             ws.cell(row=r, column=7, value=f.action or "").alignment = CENTER
             ws.cell(row=r, column=8, value=f.note or "")
@@ -160,7 +173,9 @@ def export_review(req: ExportRequest):
     wb.save(buf)
     buf.seek(0)
 
-    filename = f"Review_Summary_{req.model_label}_{datetime.now().strftime('%Y%m%d')}.xlsx".replace(" ", "_")
+    filename = f"Review_Summary_{req.model_label}_{datetime.now().strftime('%Y%m%d')}.xlsx".replace(
+        " ", "_"
+    )
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

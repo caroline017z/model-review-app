@@ -1,18 +1,20 @@
 """Benchmark override CRUD endpoints."""
+
 from __future__ import annotations
 
 import copy
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from lib.benchmark_store import apply_overrides, delete_overrides, load_overrides, save_overrides
 from lib.config import BIBLE_BENCHMARKS
-from lib.benchmark_store import load_overrides, save_overrides, delete_overrides, apply_overrides
 
 router = APIRouter()
 
 
 class BenchmarkOverride(BaseModel):
-    key: str          # "Category|Label"
+    key: str  # "Category|Label"
     min_val: float | None = None
     max_val: float | None = None
 

@@ -13,16 +13,26 @@ Sign convention: positive impact = delta favors SPONSOR (e.g., lower EPC,
 higher incentive). Matches the walk's M1 - M2 delta direction: if M2 has
 higher EPC than M1, the impact is negative (worse for sponsor).
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 from lib.financial_constants import (
-    BIBLE_ELIG_FRAC, DEFAULT_YIELD_KWH_PER_WP, OPEX_NPV_FACTOR, OPEX_TERM_YEARS,
+    BIBLE_ELIG_FRAC,
+    DEFAULT_YIELD_KWH_PER_WP,
+    OPEX_NPV_FACTOR,
+    OPEX_TERM_YEARS,
 )
 from lib.rows import (
-    ROW_EPC_WRAPPED, ROW_LNTP, ROW_IX, ROW_CLOSING,
-    ROW_PPA_RATE, ROW_UPFRONT, ROW_ITC_PCT, ROW_ELIG_COSTS,
+    ROW_CLOSING,
+    ROW_ELIG_COSTS,
+    ROW_EPC_WRAPPED,
+    ROW_ITC_PCT,
+    ROW_IX,
+    ROW_LNTP,
+    ROW_PPA_RATE,
+    ROW_UPFRONT,
 )
 from lib.utils import safe_float
 
@@ -106,27 +116,30 @@ def _impact_itc_pct(m1: Any, m2: Any, data: dict) -> float | None:
 # incentive in M1 means M2 took it away → negative impact on M2 side).
 # CapEx rows invert: higher EPC in M1 means M2 is cheaper → M1 loses out.
 _IMPACT_FORMULAS: dict[int, dict] = {
-    ROW_EPC_WRAPPED:   {"fn": _impact_per_w,       "favor_m1_high": False},  # higher cost = worse
-    ROW_LNTP:          {"fn": _impact_per_w,       "favor_m1_high": False},
-    ROW_IX:            {"fn": _impact_per_w,       "favor_m1_high": False},
-    ROW_CLOSING:       {"fn": _impact_per_w,       "favor_m1_high": False},
-    ROW_UPFRONT:       {"fn": _impact_per_w,       "favor_m1_high": True},   # more incentive = better
-    ROW_PPA_RATE:      {"fn": _impact_ppa_rate,    "favor_m1_high": True},   # higher rate = more revenue
-    ROW_ITC_PCT:       {"fn": _impact_itc_pct,     "favor_m1_high": True},
+    ROW_EPC_WRAPPED: {"fn": _impact_per_w, "favor_m1_high": False},  # higher cost = worse
+    ROW_LNTP: {"fn": _impact_per_w, "favor_m1_high": False},
+    ROW_IX: {"fn": _impact_per_w, "favor_m1_high": False},
+    ROW_CLOSING: {"fn": _impact_per_w, "favor_m1_high": False},
+    ROW_UPFRONT: {"fn": _impact_per_w, "favor_m1_high": True},  # more incentive = better
+    ROW_PPA_RATE: {"fn": _impact_ppa_rate, "favor_m1_high": True},  # higher rate = more revenue
+    ROW_ITC_PCT: {"fn": _impact_itc_pct, "favor_m1_high": True},
     # OpEx family
-    225:               {"fn": _impact_om_per_mw_yr,"favor_m1_high": False},  # PV O&M Prev
-    226:               {"fn": _impact_om_per_mw_yr,"favor_m1_high": False},  # PV O&M Corr
-    228:               {"fn": _impact_om_per_mw_yr,"favor_m1_high": False},  # ESS O&M
-    230:               {"fn": _impact_om_per_mw_yr,"favor_m1_high": False},  # AM Fee
-    240:               {"fn": _impact_om_per_mw_yr,"favor_m1_high": False},  # Cust Mgmt
-    296:               {"fn": _impact_om_per_mw_yr,"favor_m1_high": False},  # P&C Insurance
-    298:               {"fn": _impact_om_per_mw_yr,"favor_m1_high": False},  # Catastrophic
-    302:               {"fn": _impact_om_per_mw_yr,"favor_m1_high": False},  # Internal AM
+    225: {"fn": _impact_om_per_mw_yr, "favor_m1_high": False},  # PV O&M Prev
+    226: {"fn": _impact_om_per_mw_yr, "favor_m1_high": False},  # PV O&M Corr
+    228: {"fn": _impact_om_per_mw_yr, "favor_m1_high": False},  # ESS O&M
+    230: {"fn": _impact_om_per_mw_yr, "favor_m1_high": False},  # AM Fee
+    240: {"fn": _impact_om_per_mw_yr, "favor_m1_high": False},  # Cust Mgmt
+    296: {"fn": _impact_om_per_mw_yr, "favor_m1_high": False},  # P&C Insurance
+    298: {"fn": _impact_om_per_mw_yr, "favor_m1_high": False},  # Catastrophic
+    302: {"fn": _impact_om_per_mw_yr, "favor_m1_high": False},  # Internal AM
 }
 
 
 def per_project_impact(
-    row: int, m1_val: Any, m2_val: Any, project_data: dict,
+    row: int,
+    m1_val: Any,
+    m2_val: Any,
+    project_data: dict,
 ) -> float | None:
     """Dollar impact of M1→M2 delta on sponsor proceeds for ONE project.
 
@@ -147,7 +160,9 @@ def per_project_impact(
 
 
 def portfolio_impact(
-    row: int, per_project_values: dict, m1_data_by_pnum: dict,
+    row: int,
+    per_project_values: dict,
+    m1_data_by_pnum: dict,
 ) -> float | None:
     """Sum per-project impacts across the matched portfolio.
 

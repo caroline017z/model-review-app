@@ -1,5 +1,5 @@
 """Unit tests for the audit engine's tolerance + status logic."""
-import pytest
+
 from lib.bible_audit import _exact_check, _range_check
 
 
@@ -101,7 +101,8 @@ class TestAuditProjectEndToEnd:
 
     def test_minimal_project_produces_findings(self):
         from lib.bible_audit import audit_project
-        from lib.rows import ROW_STATE, ROW_UTILITY, ROW_PROGRAM_A, ROW_EPC_WRAPPED
+        from lib.rows import ROW_EPC_WRAPPED, ROW_PROGRAM_A, ROW_STATE, ROW_UTILITY
+
         proj_data = {
             ROW_STATE: "IL",
             ROW_UTILITY: "Ameren",
@@ -120,6 +121,7 @@ class TestAuditProjectEndToEnd:
 
     def test_missing_state_still_works(self):
         from lib.bible_audit import audit_project
+
         proj_data = {}
         result = audit_project(proj_data)
         assert "rows" in result

@@ -1,7 +1,12 @@
 """Unit tests for the label-based row resolver."""
-import pytest
-from lib.data_loader import _labels_match, _normalize_label
-from lib.data_loader import template_fingerprint, validate_model_result, _CRITICAL_CANONICAL_ROWS
+
+from lib.data_loader import (
+    _CRITICAL_CANONICAL_ROWS,
+    _labels_match,
+    _normalize_label,
+    template_fingerprint,
+    validate_model_result,
+)
 
 
 class TestLabelsMatch:
@@ -140,7 +145,8 @@ class TestValidateModelResult:
         for c in list(_CRITICAL_CANONICAL_ROWS)[:5]:
             row_map[c] = None
         result = self._make_result(
-            {6: {"name": "Alpha", "data": {}}}, row_map,
+            {6: {"name": "Alpha", "data": {}}},
+            row_map,
         )
         v = validate_model_result(result)
         assert v["ok"] is False

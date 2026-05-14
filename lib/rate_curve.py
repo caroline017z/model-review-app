@@ -11,15 +11,17 @@ Confidence values:
   clamped_end          — COD is past the curve's last date; returns last rate
   None                 — no rate available (empty curve or no dateable keys)
 """
+
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 from lib.utils import safe_float
 
 
 def rate_at_cod(
-    rc_monthly: Mapping, data: Mapping,
+    rc_monthly: Mapping,
+    data: Mapping,
 ) -> tuple[float | None, str | None]:
     """Pick the Rate Curves rate at the project's COD period.
 

@@ -1,0 +1,55 @@
+# Version control
+.git
+.github
+.gitignore
+
+# Python build artifacts
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+*.egg-info
+build
+dist
+
+# Virtual envs (built fresh in the builder stage)
+.venv
+venv
+env
+
+# Node (built separately for the SPA)
+apps/web/node_modules
+apps/web/.next
+apps/web/out
+
+# Editor / IDE
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# Local data
+results.db
+benchmark_overrides.json
+.env
+.env.*
+.streamlit/secrets.toml
+
+# Workbooks (never bake into image)
+*.xlsm
+*.xlsx
+*.xls
+
+# Docs / planning
+docs
+
+# Legacy parked module — not in the runtime path
+legacy
+
+# Debug dumps
+__*.txt

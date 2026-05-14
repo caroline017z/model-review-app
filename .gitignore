@@ -30,3 +30,29 @@ results.db
 # OS noise
 .DS_Store
 Thumbs.db
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Debug dumps (legacy)
+__*.txt
+
+# Local-only state (not in repo)
+benchmark_overrides.json
+
+# Next.js
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/.turbo/
+
+# Misc envs
+.env.local
+.env.*.local

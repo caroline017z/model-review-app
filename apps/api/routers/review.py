@@ -1,4 +1,5 @@
 """Review endpoint — audit + build full payload for selected projects."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
@@ -44,7 +45,7 @@ def run_review(req: ReviewRequest):
             bible_label=req.bible_label,
         )
     except Exception as e:
-        raise HTTPException(500, f"Audit pipeline error: {e}")
+        raise HTTPException(500, f"Audit pipeline error: {e}") from e
 
     return {
         "projects": projects_list,

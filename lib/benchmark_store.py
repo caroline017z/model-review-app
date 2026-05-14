@@ -14,7 +14,7 @@ def load_overrides() -> dict:
     """Read overrides from the JSON file. Returns {} if file missing or invalid."""
     if _OVERRIDES_PATH.exists():
         try:
-            with open(_OVERRIDES_PATH, "r") as f:
+            with open(_OVERRIDES_PATH) as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
             return {}

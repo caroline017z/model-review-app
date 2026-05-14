@@ -3,22 +3,35 @@ _build_capital_stack, _build_cashflow, _build_sensitivity.
 
 These were zero-coverage in Sprint 4; this module closes that gap.
 """
+
 import json
-import pytest
+
 from lib.mockup_view import (
-    _build_capital_stack, _build_cashflow, _build_sensitivity,
-    build_payload, render_html,
-    BIBLE_EPC_PER_W, BIBLE_ITC_FRAC, BIBLE_ELIG_FRAC,
-    DEBT_FRACTION_OF_NET, TAX_EQUITY_MONETIZATION,
-    PANEL_USEFUL_LIFE_YEARS, OPEX_TERM_YEARS, MERCHANT_RATE_PER_MWH,
-    MERCHANT_OPEX_MARGIN, OPEX_NPV_FACTOR,
+    DEBT_FRACTION_OF_NET,
+    OPEX_TERM_YEARS,
+    TAX_EQUITY_MONETIZATION,
+    _build_capital_stack,
+    _build_cashflow,
+    _build_sensitivity,
+    build_payload,
+    render_html,
 )
 
 
 class TestCapitalStack:
     def _proj(self, **overrides):
-        base = {"data": {11: 5.0, 118: 1.65, 119: 0.10, 122: 0.05, 123: 0.06,
-                         216: 0.0, 597: 0.40, 602: 0.97}}
+        base = {
+            "data": {
+                11: 5.0,
+                118: 1.65,
+                119: 0.10,
+                122: 0.05,
+                123: 0.06,
+                216: 0.0,
+                597: 0.40,
+                602: 0.97,
+            }
+        }
         base["data"].update(overrides.get("data", {}))
         if "dscr_schedule" in overrides:
             base["dscr_schedule"] = overrides["dscr_schedule"]
@@ -32,19 +45,22 @@ class TestCapitalStack:
 
     def test_dscr_schedule_hint_surfaces(self):
         stack = _build_capital_stack(
-            self._proj(dscr_schedule={1: 1.35, 2: 1.32}), None,
+            self._proj(dscr_schedule={1: 1.35, 2: 1.32}),
+            None,
         )
         assert stack["assumptions"]["hasModelDscr"] is True
 
     def test_empty_dscr_schedule_not_flagged(self):
         stack = _build_capital_stack(
-            self._proj(dscr_schedule={1: 0, 2: 0}), None,
+            self._proj(dscr_schedule={1: 0, 2: 0}),
+            None,
         )
         assert stack["assumptions"]["hasModelDscr"] is False
 
     def test_zero_itc_means_zero_te_bar(self):
         stack = _build_capital_stack(
-            self._proj(data={597: 0.0}), None,
+            self._proj(data={597: 0.0}),
+            None,
         )
         # stack order: [sponsor, te, debt, incentive]
         assert stack["model"][1] == 0.0
@@ -66,8 +82,7 @@ class TestCapitalStack:
 
 class TestCashflow:
     def _proj(self, **data_overrides):
-        base_data = {11: 5.0, 118: 1.65, 157: 0.08, 158: 0.015,
-                     597: 0.40, 602: 0.97}
+        base_data = {11: 5.0, 118: 1.65, 157: 0.08, 158: 0.015, 597: 0.40, 602: 0.97}
         base_data.update(data_overrides)
         return {"data": base_data, "rate_comps": {}}
 
@@ -91,8 +106,10 @@ class TestCashflow:
 
     def test_itc_zero_means_only_macrs_in_y1(self):
         # Build proj directly since numeric row keys can't go through **kwargs.
-        proj = {"data": {11: 5.0, 118: 1.65, 157: 0.08, 158: 0.015,
-                         597: 0.0, 602: 0.97}, "rate_comps": {}}
+        proj = {
+            "data": {11: 5.0, 118: 1.65, 157: 0.08, 158: 0.015, 597: 0.0, 602: 0.97},
+            "rate_comps": {},
+        }
         cf = _build_cashflow(proj)
         # With ITC=0: basis = full capex, no ITC kicker.
         # Y1 tax = 0.20 * capex * 0.21 = ~$347 for 5MW × $1.65/W.
@@ -111,9 +128,10 @@ class TestCashflow:
 
     def test_primary_rate_fallback_from_rate_comps(self):
         # Row 157/158 absent → fall back to rate_comps[1]
-        proj = {"data": {11: 5.0, 118: 1.65, 597: 0.40, 602: 0.97},
-                "rate_comps": {1: {"energy_rate": 0.09, "escalator": 0.02,
-                                    "equity_on": True}}}
+        proj = {
+            "data": {11: 5.0, 118: 1.65, 597: 0.40, 602: 0.97},
+            "rate_comps": {1: {"energy_rate": 0.09, "escalator": 0.02, "equity_on": True}},
+        }
         cf = _build_cashflow(proj)
         # Y1 op CF should be positive with that rate.
         assert cf["opCF"][0] > 0
@@ -121,9 +139,20 @@ class TestCashflow:
 
 class TestSensitivity:
     def _proj(self):
-        return {"data": {11: 5.0, 118: 1.65, 119: 0.10, 157: 0.08, 158: 0.015,
-                         216: 0.20, 296: 3500, 597: 0.40, 602: 0.97},
-                "rate_comps": {}}
+        return {
+            "data": {
+                11: 5.0,
+                118: 1.65,
+                119: 0.10,
+                157: 0.08,
+                158: 0.015,
+                216: 0.20,
+                296: 3500,
+                597: 0.40,
+                602: 0.97,
+            },
+            "rate_comps": {},
+        }
 
     def test_returns_labels_lo_hi(self):
         t = _build_sensitivity(self._proj())
@@ -136,7 +165,7 @@ class TestSensitivity:
 
     def test_ranked_by_absolute_swing(self):
         t = _build_sensitivity(self._proj())
-        swings = [abs(hi - lo) for hi, lo in zip(t["hi"], t["lo"])]
+        swings = [abs(hi - lo) for hi, lo in zip(t["hi"], t["lo"], strict=True)]
         assert swings == sorted(swings, reverse=True)
 
     def test_epc_direction_is_negative_at_plus_10(self):
@@ -152,12 +181,15 @@ class TestSensitivity:
 
 class TestRenderHtmlIntegration:
     def test_inject_round_trip_produces_valid_json(self):
-        fake = {1: {"name": "Joel", "toggle": True,
-                    "data": {11: 4.85, 118: 1.22, 18: "IL"}}}
+        fake = {1: {"name": "Joel", "toggle": True, "data": {11: 4.85, 118: 1.22, 18: "IL"}}}
         html = render_html(fake, model_label="T")
         # Extract the injected JS block
         import re
-        m = re.search(r'let PORTFOLIO = (\{[\s\S]*?\});\s*let PROJECTS = (\[[\s\S]*?\]);\s*let WALK_AVAILABLE', html)
+
+        m = re.search(
+            r"let PORTFOLIO = (\{[\s\S]*?\});\s*let PROJECTS = (\[[\s\S]*?\]);\s*let WALK_AVAILABLE",
+            html,
+        )
         assert m, "Inject block not found"
         portfolio = json.loads(m.group(1))
         projects = json.loads(m.group(2))

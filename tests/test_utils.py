@@ -1,5 +1,6 @@
 """Tests for utils.py — safe_float and formatting edge cases."""
-from lib.utils import safe_float, fmt_row_val, fmt_delta
+
+from lib.utils import fmt_delta, fmt_row_val, safe_float
 
 
 class TestSafeFloat:

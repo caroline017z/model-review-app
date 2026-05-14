@@ -14,6 +14,7 @@ Output format matches existing 38DN Walk Summary files exactly:
   - MW-weighted SUMPRODUCT averages
   - Category-grouped variance drivers below
 """
+
 from __future__ import annotations
 
 import io
@@ -22,20 +23,30 @@ import re
 from typing import Any
 
 import openpyxl
-from openpyxl.styles import (
-    Alignment, Border, Font, PatternFill, Side,
-)
 from openpyxl.comments import Comment
+from openpyxl.styles import (
+    Alignment,
+    Border,
+    Font,
+    PatternFill,
+    Side,
+)
 from openpyxl.utils import get_column_letter
 
+from lib.bible_audit import audit_project, verdict_from_summary
 from lib.config import (
-    BIBLE_BENCHMARKS, INPUT_ROW_LABELS, INPUT_ROW_UNITS,
-    PCT_ROWS, DPW_ROWS, INT_ROWS, TEXT_ROWS, DATE_ROWS,
+    BIBLE_BENCHMARKS,
+    DATE_ROWS,
+    DPW_ROWS,
+    INPUT_ROW_LABELS,
+    INPUT_ROW_UNITS,
+    INT_ROWS,
+    PCT_ROWS,
+    TEXT_ROWS,
 )
 from lib.data_loader import get_projects
-from lib.rows import ROW_PROJECT_NUMBER, ROW_DC_MW, ROW_NPP, ROW_LEVERED_PT_IRR
-from lib.bible_audit import audit_project, verdict_from_summary
 from lib.impact import portfolio_impact
+from lib.rows import ROW_DC_MW, ROW_LEVERED_PT_IRR, ROW_NPP, ROW_PROJECT_NUMBER
 from lib.utils import canonicalize_name, canonicalize_pnum, safe_float
 
 logger = logging.getLogger(__name__)
@@ -78,17 +89,25 @@ def _values_differ(v1: Any, v2: Any, *, is_text: bool = False, tol: float = 1e-6
 # >> 100, it's almost certainly a unit mismatch — canonicalize both to the
 # displayed basis before diff-comparing to avoid false positives.
 _UNIT_MISMATCH_ROWS: dict[int, dict] = {
-    121: {"label": "Cust Acquisition",
-          "to_displayed": lambda v, y: v * y,                 # $/kWh → $/W
-          "displayed_unit": "$/W"},
-    240: {"label": "Cust Mgmt",
-          "to_displayed": lambda v, y: v * y * 1_000_000,     # $/kWh → $/MW/yr
-          "displayed_unit": "$/MW/yr"},
+    121: {
+        "label": "Cust Acquisition",
+        "to_displayed": lambda v, y: v * y,  # $/kWh → $/W
+        "displayed_unit": "$/W",
+    },
+    240: {
+        "label": "Cust Mgmt",
+        "to_displayed": lambda v, y: v * y * 1_000_000,  # $/kWh → $/MW/yr
+        "displayed_unit": "$/MW/yr",
+    },
 }
 
 
 def _reconcile_unit_sensitive(
-    row: int, v1: Any, v2: Any, m1_yield: float | None, m2_yield: float | None,
+    row: int,
+    v1: Any,
+    v2: Any,
+    m1_yield: float | None,
+    m2_yield: float | None,
 ) -> tuple[Any, Any, str | None]:
     """For rows where $/kWh vs $/W|$/MW/yr storage drift is known to happen,
     detect magnitude-based mismatch and canonicalize both sides to the
@@ -111,16 +130,21 @@ def _reconcile_unit_sensitive(
         y = m1_yield
         if y is None or y <= 0:
             return v1, v2, None
-        return spec["to_displayed"](f1, y), f2, (
-            f"M1 converted from $/kWh to {spec['displayed_unit']} (yield={y:.3f})"
+        return (
+            spec["to_displayed"](f1, y),
+            f2,
+            (f"M1 converted from $/kWh to {spec['displayed_unit']} (yield={y:.3f})"),
         )
     else:
         y = m2_yield
         if y is None or y <= 0:
             return v1, v2, None
-        return f1, spec["to_displayed"](f2, y), (
-            f"M2 converted from $/kWh to {spec['displayed_unit']} (yield={y:.3f})"
+        return (
+            f1,
+            spec["to_displayed"](f2, y),
+            (f"M2 converted from $/kWh to {spec['displayed_unit']} (yield={y:.3f})"),
         )
+
 
 # ---------------------------------------------------------------------------
 # Placeholder detection (template projects we don't treat as real portfolio)
@@ -130,16 +154,14 @@ _PLACEHOLDER_RE = re.compile(r"^\s*project\s+\d+\s*$", re.IGNORECASE)
 
 
 def _is_placeholder(name: str) -> bool:
-    return (
-        bool(_PLACEHOLDER_RE.match(name))
-        or name.strip().lower() in ("anchor", "sample", "")
-    )
+    return bool(_PLACEHOLDER_RE.match(name)) or name.strip().lower() in ("anchor", "sample", "")
 
 
 # ---------------------------------------------------------------------------
 # Project pairing & orphan helpers (used by build_walk_xlsx to populate the
 # Unmatched sheet with reason codes)
 # ---------------------------------------------------------------------------
+
 
 def _build_pnum_set(projects: dict) -> set[int]:
     """Integer Project # index for fast 'does this # exist in that model' checks."""
@@ -167,10 +189,10 @@ def _build_name_set(projects: dict) -> set[str]:
 
 def _orphan_reason(proj: dict, other_pnums: set[int], other_names: set[str]) -> str:
     """Classify why a project failed to pair. Reason codes:
-      missing_proj_num       — own proj_number is None/blank
-      proj_num_not_in_other  — has proj#, but no project in the other model has it
-      name_not_in_other      — proj# matches but name doesn't (unusual)
-      unknown                — pairing logic missed it for an unclassified reason
+    missing_proj_num       — own proj_number is None/blank
+    proj_num_not_in_other  — has proj#, but no project in the other model has it
+    name_not_in_other      — proj# matches but name doesn't (unusual)
+    unknown                — pairing logic missed it for an unclassified reason
     """
     data = proj.get("data") or {}
     pn = safe_float(data.get(ROW_PROJECT_NUMBER))
@@ -188,8 +210,9 @@ def _orphan_reason(proj: dict, other_pnums: set[int], other_names: set[str]) -> 
 # Rate Curves COD lookup (used by Pass 1c of diff_inputs)
 # ---------------------------------------------------------------------------
 
-from lib.rate_curve import rate_at_cod as _rate_at_cod  # noqa: E402 — re-export for inline call sites in this module
-
+from lib.rate_curve import (
+    rate_at_cod as _rate_at_cod,  # noqa: E402 — re-export for inline call sites in this module
+)
 
 # ---------------------------------------------------------------------------
 # Formatting constants (match reference Walk Summary files exactly)
@@ -202,9 +225,9 @@ YELLOW_FILL = PatternFill("solid", fgColor="FFFFCC")
 # Verdict fills — match Excel's conditional-formatting palette so they read
 # the same way reviewers expect (green=good, yellow=caution, red=bad).
 _VERDICT_FILLS = {
-    "CLEAN":            PatternFill("solid", fgColor="C6EFCE"),   # light green
-    "REVIEW":           PatternFill("solid", fgColor="FFEB9C"),   # light yellow
-    "REWORK REQUIRED":  PatternFill("solid", fgColor="FFC7CE"),   # light red
+    "CLEAN": PatternFill("solid", fgColor="C6EFCE"),  # light green
+    "REVIEW": PatternFill("solid", fgColor="FFEB9C"),  # light yellow
+    "REWORK REQUIRED": PatternFill("solid", fgColor="FFC7CE"),  # light red
 }
 
 WHITE_BOLD = Font(color="FFFFFF", bold=True, size=11)
@@ -233,7 +256,7 @@ LEFT = Alignment(horizontal="left", vertical="center")
 CENTER_CONT = Alignment(horizontal="centerContinuous", vertical="center")
 
 FMT_MW = "0.00"
-FMT_NPP = '0.000_);[Red]\\(0.000\\)'
+FMT_NPP = "0.000_);[Red]\\(0.000\\)"
 FMT_IRR = "0.00%"
 FMT_DELTA = '0.000_);[Red]\\(0.000\\);"-"'
 FMT_DPW = "#,##0.000"
@@ -245,29 +268,48 @@ _SKIP_ROWS = {2, 4, 7, 8, 10, 18, 19}
 
 # Labels to EXCLUDE from the walk variance section (covered elsewhere or outputs)
 _WALK_EXCLUDE_LABELS = {
-    "live appraisal model irr", "live appraisal irr",
-    "max fmv w/ constraint", "max fmv with constraint",
+    "live appraisal model irr",
+    "live appraisal irr",
+    "max fmv w/ constraint",
+    "max fmv with constraint",
     "minimum equity dscr multiple",
-    "npp ($)", "npp ($/w) - solve", "npp ($/w)",
+    "npp ($)",
+    "npp ($/w) - solve",
+    "npp ($/w)",
     "other upfront costs",
-    "project toggle (on/off)", "toggle (on/off)",
-    "step up dev fee - solve", "step up dev fee",
+    "project toggle (on/off)",
+    "toggle (on/off)",
+    "step up dev fee - solve",
+    "step up dev fee",
     "te pre-commitment amount for cl sizing",
     "tax equity insurance costs",
-    "total capex excl. financing costs", "total capex excl. financing",
-    "total capex incl. financing costs", "total capex incl. financing",
+    "total capex excl. financing costs",
+    "total capex excl. financing",
+    "total capex incl. financing costs",
+    "total capex incl. financing",
     "total itc",
-    "unconstrained (calculated) fmv", "unconstrained fmv",
-    "live levered pre-tax irr", "levered pre-tax irr",
-    "active fmv", "active fair market value",
-    "fmv step up", "fmv step-up", "step up cap",
-    "fmv wacc", "fmv wacc (target)",
+    "unconstrained (calculated) fmv",
+    "unconstrained fmv",
+    "live levered pre-tax irr",
+    "levered pre-tax irr",
+    "active fmv",
+    "active fair market value",
+    "fmv step up",
+    "fmv step-up",
+    "step up cap",
+    "fmv wacc",
+    "fmv wacc (target)",
 }
 
 # Category display order
 _CATEGORY_ORDER = [
-    "CapEx", "System Sizing", "Revenue",
-    "Incentives & Tax", "System Details", "OpEx", "Other",
+    "CapEx",
+    "System Sizing",
+    "Revenue",
+    "Incentives & Tax",
+    "System Details",
+    "OpEx",
+    "Other",
 ]
 
 
@@ -275,13 +317,14 @@ _CATEGORY_ORDER = [
 # Row categorization
 # ---------------------------------------------------------------------------
 
+
 def _build_category_map() -> dict[int, str]:
     """Invert BIBLE_BENCHMARKS to get {row_number: category_name}."""
     cat_map: dict[int, str] = {}
     for category, checks in BIBLE_BENCHMARKS.items():
         for _label, spec in checks.items():
             if "row" in spec:
-                cat_map[spec["row"]] = category
+                cat_map[int(spec["row"])] = category
     return cat_map
 
 
@@ -309,6 +352,7 @@ def _categorize_row(row: int) -> str:
 # ---------------------------------------------------------------------------
 # Project matching
 # ---------------------------------------------------------------------------
+
 
 def _build_pnum_index(projects: dict) -> dict[str, tuple[int, Any]]:
     """Project # → (col, raw_pnum) index keyed on canonicalize_pnum output.
@@ -373,7 +417,11 @@ def _pnum_display(raw: Any) -> Any:
 
 
 def _make_matched(
-    proj_number: Any, name: str, m1_col: int, m2_col: int, match_source: str,
+    proj_number: Any,
+    name: str,
+    m1_col: int,
+    m2_col: int,
+    match_source: str,
 ) -> dict:
     return {
         "proj_number": _pnum_display(proj_number),
@@ -385,7 +433,8 @@ def _make_matched(
 
 
 def match_projects(
-    m1_projects: dict, m2_projects: dict,
+    m1_projects: dict,
+    m2_projects: dict,
 ) -> list[dict]:
     """Match projects between two models.
 
@@ -422,13 +471,15 @@ def match_projects(
     for k in common_pos:
         m1_col, raw_pnum = m1_pos[k]
         m2_col, _ = m2_pos[k]
-        matched.append(_make_matched(
-            proj_number=raw_pnum,
-            name=str(m1_projects[m1_col].get("name") or "Unnamed").strip(),
-            m1_col=m1_col,
-            m2_col=m2_col,
-            match_source="positional",
-        ))
+        matched.append(
+            _make_matched(
+                proj_number=raw_pnum,
+                name=str(m1_projects[m1_col].get("name") or "Unnamed").strip(),
+                m1_col=m1_col,
+                m2_col=m2_col,
+                match_source="positional",
+            )
+        )
     if matched:
         logger.info(
             "Project # matching yielded 0 results; positional fallback matched %d projects.",
@@ -443,13 +494,15 @@ def match_projects(
     for i, canon in enumerate(common_names, start=1):
         m1_col = m1_names[canon]
         name = str(m1_projects[m1_col].get("name") or "").strip()
-        matched.append(_make_matched(
-            proj_number=i,
-            name=name,
-            m1_col=m1_col,
-            m2_col=m2_names[canon],
-            match_source="name",
-        ))
+        matched.append(
+            _make_matched(
+                proj_number=i,
+                name=name,
+                m1_col=m1_col,
+                m2_col=m2_names[canon],
+                match_source="name",
+            )
+        )
     if matched:
         logger.info(
             "Project # matching yielded 0 results; name-based fallback matched %d projects.",
@@ -461,6 +514,7 @@ def match_projects(
 # ---------------------------------------------------------------------------
 # Metrics extraction
 # ---------------------------------------------------------------------------
+
 
 def extract_metrics(
     matched: list[dict],
@@ -482,19 +536,23 @@ def extract_metrics(
             audit = audit_project(m1_data)
             m1_verdict = verdict_from_summary(audit.get("summary", {}))
         except Exception as exc:
-            logger.warning("audit_project failed for %r: %s — defaulting to REVIEW", m.get("name"), exc)
+            logger.warning(
+                "audit_project failed for %r: %s — defaulting to REVIEW", m.get("name"), exc
+            )
             m1_verdict = "REVIEW"
-        results.append({
-            "proj_number": m["proj_number"],
-            "name": m["name"],
-            "mwdc": safe_float(m1_data.get(ROW_DC_MW)) or 0,
-            "m1_npp": safe_float(m1_data.get(ROW_NPP)),
-            "m1_irr": safe_float(m1_data.get(ROW_LEVERED_PT_IRR)),
-            "m2_npp": safe_float(m2_data.get(ROW_NPP)),
-            "m2_irr": safe_float(m2_data.get(ROW_LEVERED_PT_IRR)),
-            "match_source": m.get("match_source", "proj_num"),
-            "m1_verdict": m1_verdict,
-        })
+        results.append(
+            {
+                "proj_number": m["proj_number"],
+                "name": m["name"],
+                "mwdc": safe_float(m1_data.get(ROW_DC_MW)) or 0,
+                "m1_npp": safe_float(m1_data.get(ROW_NPP)),
+                "m1_irr": safe_float(m1_data.get(ROW_LEVERED_PT_IRR)),
+                "m2_npp": safe_float(m2_data.get(ROW_NPP)),
+                "m2_irr": safe_float(m2_data.get(ROW_LEVERED_PT_IRR)),
+                "match_source": m.get("match_source", "proj_num"),
+                "m1_verdict": m1_verdict,
+            }
+        )
     return results
 
 
@@ -507,42 +565,46 @@ def extract_metrics(
 # VALUE: compared only when the RC is on (equity_on != 0) in BOTH models.
 # TOGGLE: always compared — scope of the revenue stream.
 _RC_SHAPE_FIELDS = [
-    ("name",           "Name",                 "text"),
-    ("custom_generic", "Custom/Generic",       "text"),
+    ("name", "Name", "text"),
+    ("custom_generic", "Custom/Generic", "text"),
 ]
 _RC_VALUE_FIELDS = [
-    ("energy_rate",    "Energy Rate",          "$/kWh"),
-    ("escalator",      "Escalator",            "%"),
-    ("start_date",     "Start Date",           "date"),
-    ("term",           "Term",                 "yrs"),
-    ("discount",       "Customer Discount",    "%"),
-    ("ucb_fee",        "UCB Fee",              "%"),
+    ("energy_rate", "Energy Rate", "$/kWh"),
+    ("escalator", "Escalator", "%"),
+    ("start_date", "Start Date", "date"),
+    ("term", "Term", "yrs"),
+    ("discount", "Customer Discount", "%"),
+    ("ucb_fee", "UCB Fee", "%"),
 ]
 _RC_TOGGLE_FIELDS = [
-    ("equity_on",      "Equity",               "toggle"),
-    ("debt_on",        "Debt",                 "toggle"),
-    ("appraisal_on",   "Appraisal",            "toggle"),
+    ("equity_on", "Equity", "toggle"),
+    ("debt_on", "Debt", "toggle"),
+    ("appraisal_on", "Appraisal", "toggle"),
 ]
 
 # Special (non-row-number) data keys that also represent walk-relevant inputs.
 _SPECIAL_KEYS: list[tuple[str, str, str, str]] = [
     # (data_key, label, unit, category)
-    ("_debt_match_equity",      "Debt Rate: match equity",      "toggle", "Financing"),
+    ("_debt_match_equity", "Debt Rate: match equity", "toggle", "Financing"),
     ("_appraisal_match_equity", "Appraisal Rate: match equity", "toggle", "Financing"),
-    ("_front_back_toggle",      "Front/Back Debt toggle",       "toggle", "Financing"),
-    ("_debt_sizing_method",     "Debt Sizing Method",           "text",   "Financing"),
+    ("_front_back_toggle", "Front/Back Debt toggle", "toggle", "Financing"),
+    ("_debt_sizing_method", "Debt Sizing Method", "text", "Financing"),
 ]
 
 
 def _rc_on_both_sides(rc1: dict, rc2: dict) -> bool:
     """RC value-field gate: both models must have equity_on truthy."""
+
     def _on(v):
         return bool(safe_float(v)) if not isinstance(v, bool) else v
+
     return _on(rc1.get("equity_on")) and _on(rc2.get("equity_on"))
 
 
 def _diff_canonical_rows(
-    matched: list[dict], m1_projects: dict, m2_projects: dict,
+    matched: list[dict],
+    m1_projects: dict,
+    m2_projects: dict,
     seen_labels: set[str],
     units_by_row: dict[int, str],
 ) -> list[dict]:
@@ -570,14 +632,21 @@ def _diff_canonical_rows(
                 m1_y = safe_float(m1_projects[m["m1_col"]]["data"].get(14))
                 m2_y = safe_float(m2_projects[m["m2_col"]]["data"].get(14))
                 m1_val, m2_val, note = _reconcile_unit_sensitive(
-                    row_num, m1_val, m2_val, m1_y, m2_y,
+                    row_num,
+                    m1_val,
+                    m2_val,
+                    m1_y,
+                    m2_y,
                 )
                 if note and row_unit_note is None:
                     row_unit_note = note
 
-            if not is_text:
-                if _equality_numeric(m1_val) is None and _equality_numeric(m2_val) is None:
-                    continue
+            if (
+                not is_text
+                and _equality_numeric(m1_val) is None
+                and _equality_numeric(m2_val) is None
+            ):
+                continue
 
             if _values_differ(m1_val, m2_val, is_text=is_text):
                 n_diff += 1
@@ -587,23 +656,27 @@ def _diff_canonical_rows(
             unit = units_by_row.get(row_num) or INPUT_ROW_UNITS.get(row_num, "")
             if row_unit_note and row_num in _UNIT_MISMATCH_ROWS:
                 unit = _UNIT_MISMATCH_ROWS[row_num]["displayed_unit"]
-            diffs.append({
-                "row": row_num,
-                "label": label,
-                "unit": unit,
-                "category": _categorize_row(row_num),
-                "values": per_project,
-                "n_diff": n_diff,
-                "n_total": len(per_project),
-                "source": "canonical",
-                **({"unit_note": row_unit_note} if row_unit_note else {}),
-            })
+            diffs.append(
+                {
+                    "row": row_num,
+                    "label": label,
+                    "unit": unit,
+                    "category": _categorize_row(row_num),
+                    "values": per_project,
+                    "n_diff": n_diff,
+                    "n_total": len(per_project),
+                    "source": "canonical",
+                    **({"unit_note": row_unit_note} if row_unit_note else {}),
+                }
+            )
         seen_labels.add(label.strip().lower())
     return diffs
 
 
 def _diff_rate_comps(
-    matched: list[dict], m1_projects: dict, m2_projects: dict,
+    matched: list[dict],
+    m1_projects: dict,
+    m2_projects: dict,
 ) -> list[dict]:
     """Pass 1a: per-component / per-field rate-component diffs for RC1-6.
 
@@ -630,21 +703,25 @@ def _diff_rate_comps(
                     n_diff += 1
                 per_project[m["proj_number"]] = (m1_val, m2_val)
             if n_diff > 0 and per_project:
-                diffs.append({
-                    "row": 0,
-                    "label": f"RC{rc_idx} {label_suffix}",
-                    "unit": unit,
-                    "category": "Revenue",
-                    "values": per_project,
-                    "n_diff": n_diff,
-                    "n_total": len(per_project),
-                    "source": "rate_comps",
-                })
+                diffs.append(
+                    {
+                        "row": 0,
+                        "label": f"RC{rc_idx} {label_suffix}",
+                        "unit": unit,
+                        "category": "Revenue",
+                        "values": per_project,
+                        "n_diff": n_diff,
+                        "n_total": len(per_project),
+                        "source": "rate_comps",
+                    }
+                )
     return diffs
 
 
 def _diff_rate_curves_cod(
-    matched: list[dict], m1_projects: dict, m2_projects: dict,
+    matched: list[dict],
+    m1_projects: dict,
+    m2_projects: dict,
 ) -> list[dict]:
     """Pass 1c: Rate Curves COD-period rate for Custom-Custom RC pairs.
 
@@ -681,22 +758,26 @@ def _diff_rate_curves_cod(
                 n_extrapolated += 1
             per_project[m["proj_number"]] = (m1_rate, m2_rate)
         if n_diff > 0 and per_project:
-            diffs.append({
-                "row": 0,
-                "label": f"RC{rc_idx} Rate Curve (COD)",
-                "unit": "$/kWh",
-                "category": "Revenue",
-                "values": per_project,
-                "n_diff": n_diff,
-                "n_total": len(per_project),
-                "source": "rate_curve",
-                **({"extrapolated_count": n_extrapolated} if n_extrapolated else {}),
-            })
+            diffs.append(
+                {
+                    "row": 0,
+                    "label": f"RC{rc_idx} Rate Curve (COD)",
+                    "unit": "$/kWh",
+                    "category": "Revenue",
+                    "values": per_project,
+                    "n_diff": n_diff,
+                    "n_total": len(per_project),
+                    "source": "rate_curve",
+                    **({"extrapolated_count": n_extrapolated} if n_extrapolated else {}),
+                }
+            )
     return diffs
 
 
 def _diff_special_keys(
-    matched: list[dict], m1_projects: dict, m2_projects: dict,
+    matched: list[dict],
+    m1_projects: dict,
+    m2_projects: dict,
 ) -> list[dict]:
     """Pass 1b: match toggles, debt sizing method, and DSCR schedule Y1-10.
 
@@ -716,11 +797,18 @@ def _diff_special_keys(
                 n_diff += 1
             per_project[m["proj_number"]] = (m1_val, m2_val)
         if n_diff > 0 and per_project:
-            diffs.append({
-                "row": 0, "label": label, "unit": unit, "category": category,
-                "values": per_project, "n_diff": n_diff, "n_total": len(per_project),
-                "source": "special",
-            })
+            diffs.append(
+                {
+                    "row": 0,
+                    "label": label,
+                    "unit": unit,
+                    "category": category,
+                    "values": per_project,
+                    "n_diff": n_diff,
+                    "n_total": len(per_project),
+                    "source": "special",
+                }
+            )
 
     # DSCR years 1-10 — practical debt-sizing horizon.
     for year in range(1, 11):
@@ -737,12 +825,18 @@ def _diff_special_keys(
                 n_diff += 1
             per_project[m["proj_number"]] = (m1_val, m2_val)
         if n_diff > 0 and per_project:
-            diffs.append({
-                "row": 0, "label": f"DSCR Y{year}", "unit": "x",
-                "category": "Financing",
-                "values": per_project, "n_diff": n_diff, "n_total": len(per_project),
-                "source": "special",
-            })
+            diffs.append(
+                {
+                    "row": 0,
+                    "label": f"DSCR Y{year}",
+                    "unit": "x",
+                    "category": "Financing",
+                    "values": per_project,
+                    "n_diff": n_diff,
+                    "n_total": len(per_project),
+                    "source": "special",
+                }
+            )
     return diffs
 
 
@@ -753,23 +847,44 @@ def _proptax_label_excluded(label_lower: str, m1_all: dict, m2_all: dict) -> boo
     if "property tax" not in label_lower:
         return False
     # Skip Y2+ entirely.
-    if any(x in label_lower for x in ["year 2", "year 3", "year 4", "year 5",
-                                       "yr 2", "yr 3", "yr 4", "yr 5",
-                                       "y2", "y3", "y4", "y5"]):
+    if any(
+        x in label_lower
+        for x in [
+            "year 2",
+            "year 3",
+            "year 4",
+            "year 5",
+            "yr 2",
+            "yr 3",
+            "yr 4",
+            "yr 5",
+            "y2",
+            "y3",
+            "y4",
+            "y5",
+        ]
+    ):
         return True
     if "toggle" in label_lower:
         return False
-    m1_toggle = m1_all.get("Custom Property Tax Schedule Toggle (On/Off)") or m1_all.get("Custom PropTax Toggle")
-    m2_toggle = m2_all.get("Custom Property Tax Schedule Toggle (On/Off)") or m2_all.get("Custom PropTax Toggle")
+    m1_toggle = m1_all.get("Custom Property Tax Schedule Toggle (On/Off)") or m1_all.get(
+        "Custom PropTax Toggle"
+    )
+    m2_toggle = m2_all.get("Custom Property Tax Schedule Toggle (On/Off)") or m2_all.get(
+        "Custom PropTax Toggle"
+    )
     toggle_on = any(
         str(t).strip().lower() in ("1", "on", "true", "yes") or (safe_float(t) or 0) != 0
-        for t in [m1_toggle, m2_toggle] if t is not None
+        for t in [m1_toggle, m2_toggle]
+        if t is not None
     )
     return not toggle_on
 
 
 def _diff_all_inputs_labels(
-    matched: list[dict], m1_projects: dict, m2_projects: dict,
+    matched: list[dict],
+    m1_projects: dict,
+    m2_projects: dict,
     seen_labels: set[str],
     units_by_label: dict[str, str],
 ) -> list[dict]:
@@ -809,16 +924,18 @@ def _diff_all_inputs_labels(
             per_project[m["proj_number"]] = (m1_val, m2_val)
 
         if n_diff > 0 and per_project:
-            diffs.append({
-                "row": 0,
-                "label": label,
-                "unit": units_by_label.get(label, ""),
-                "category": "Other",
-                "values": per_project,
-                "n_diff": n_diff,
-                "n_total": len(per_project),
-                "source": "label",
-            })
+            diffs.append(
+                {
+                    "row": 0,
+                    "label": label,
+                    "unit": units_by_label.get(label, ""),
+                    "category": "Other",
+                    "values": per_project,
+                    "n_diff": n_diff,
+                    "n_total": len(per_project),
+                    "source": "label",
+                }
+            )
     return diffs
 
 
@@ -879,8 +996,12 @@ def _case_cols(case_idx: int) -> tuple[int, int, int]:
 # Sheet writers — each populates one region. build_walk_xlsx orchestrates.
 # ---------------------------------------------------------------------------
 
+
 def _write_anchor_section(
-    ws, metrics: list[dict], case_labels: list[str], n_cases: int = 2,
+    ws,
+    metrics: list[dict],
+    case_labels: list[str],
+    n_cases: int = 2,
 ) -> int:
     """Write the top NPP/IRR table (header rows 3-6, data rows 7+, summary
     row). Returns the summary row number (caller uses it to anchor the
@@ -914,12 +1035,16 @@ def _write_anchor_section(
     # Row 5: case labels
     ws.merge_cells("E5:F5")
     c = ws.cell(row=5, column=5, value=case_labels[0])
-    c.font = BOLD_FONT; c.alignment = CENTER_WRAP; c.border = THIN_BOTTOM
+    c.font = BOLD_FONT
+    c.alignment = CENTER_WRAP
+    c.border = THIN_BOTTOM
     ws.cell(row=5, column=6).border = THIN_BOTTOM
     ws.cell(row=5, column=7).border = THIN_BOTTOM
     ws.merge_cells("H5:I5")
     c = ws.cell(row=5, column=8, value=case_labels[1])
-    c.font = BOLD_FONT; c.alignment = CENTER_WRAP; c.border = THIN_BOTTOM
+    c.font = BOLD_FONT
+    c.alignment = CENTER_WRAP
+    c.border = THIN_BOTTOM
     ws.cell(row=5, column=9).border = THIN_BOTTOM
 
     # Row 6: fixed headers + per-case NPP/IRR headers + delta
@@ -929,17 +1054,25 @@ def _write_anchor_section(
         cell.fill = GREY_FILL
         cell.border = THIN_BOTTOM
         cell.alignment = LEFT if col == 2 else CENTER
-    for npp_c, irr_c, lbl_npp, lbl_irr in [(5, 6, "NPP ($/W)", "IRR (%)"),
-                                           (8, 9, "NPP ($/W)", "IRR (%)")]:
+    for npp_c, irr_c, lbl_npp, lbl_irr in [
+        (5, 6, "NPP ($/W)", "IRR (%)"),
+        (8, 9, "NPP ($/W)", "IRR (%)"),
+    ]:
         cell = ws.cell(row=6, column=npp_c, value=lbl_npp)
-        cell.font = NORMAL_FONT; cell.fill = GREY_FILL
-        cell.border = HDR_NPP; cell.alignment = CENTER
+        cell.font = NORMAL_FONT
+        cell.fill = GREY_FILL
+        cell.border = HDR_NPP
+        cell.alignment = CENTER
         cell = ws.cell(row=6, column=irr_c, value=lbl_irr)
-        cell.font = NORMAL_FONT; cell.fill = GREY_FILL
-        cell.border = THIN_BOTTOM; cell.alignment = CENTER
+        cell.font = NORMAL_FONT
+        cell.fill = GREY_FILL
+        cell.border = THIN_BOTTOM
+        cell.alignment = CENTER
     cell = ws.cell(row=6, column=_DELTA_COL, value="\u2206 Base")
-    cell.font = BLUE_FONT; cell.fill = GREY_FILL
-    cell.border = HDR_DELTA; cell.alignment = CENTER
+    cell.font = BLUE_FONT
+    cell.fill = GREY_FILL
+    cell.border = HDR_DELTA
+    cell.alignment = CENTER
 
     # Data rows 7+
     data_start = 7
@@ -949,7 +1082,8 @@ def _write_anchor_section(
         is_last = pi == len(metrics) - 1
 
         cell = ws.cell(row=r, column=2, value=pm["name"])
-        cell.font = WHITE_BOLD; cell.fill = NAVY_FILL
+        cell.font = WHITE_BOLD
+        cell.fill = NAVY_FILL
         if is_last:
             cell.border = THIN_BOTTOM
         # Non-standard pairing? attach a hover-comment so reviewers can
@@ -963,7 +1097,8 @@ def _write_anchor_section(
             )
 
         cell = ws.cell(row=r, column=3, value=pm["mwdc"])
-        cell.number_format = FMT_MW; cell.alignment = CENTER
+        cell.number_format = FMT_MW
+        cell.alignment = CENTER
         if is_last:
             cell.border = THIN_BOTTOM
 
@@ -983,29 +1118,33 @@ def _write_anchor_section(
             npp_c, irr_c, delta_c = _case_cols(ci)
 
             cell = ws.cell(row=r, column=npp_c, value=npp_val)
-            cell.number_format = FMT_NPP; cell.alignment = CENTER
+            cell.number_format = FMT_NPP
+            cell.alignment = CENTER
             cell.border = THIN_BOTTOM_LEFT if is_last else THIN_LEFT
 
             cell = ws.cell(row=r, column=irr_c, value=irr_val)
-            cell.number_format = FMT_IRR; cell.alignment = CENTER
+            cell.number_format = FMT_IRR
+            cell.alignment = CENTER
             if is_last:
                 cell.border = THIN_BOTTOM
 
             # Delta (only for non-base cases). Δ direction = M1 - M2.
             if ci > 0:
                 npp_letter = get_column_letter(npp_c)
-                cell = ws.cell(row=r, column=delta_c,
-                               value=f"={base_npp_letter}{r}-{npp_letter}{r}")
-                cell.number_format = FMT_DELTA; cell.alignment = CENTER
+                cell = ws.cell(
+                    row=r, column=delta_c, value=f"={base_npp_letter}{r}-{npp_letter}{r}"
+                )
+                cell.number_format = FMT_DELTA
+                cell.alignment = CENTER
                 cell.border = THIN_BOTTOM_LEFT_RIGHT if is_last else THIN_LEFT_RIGHT
 
     # Summary row: MW-weighted averages via SUMPRODUCT.
     summary_r = data_start + len(metrics)
     last_data_r = data_start + len(metrics) - 1
     if metrics:
-        cell = ws.cell(row=summary_r, column=3,
-                       value=f"=SUM(C{data_start}:C{last_data_r})")
-        cell.number_format = FMT_MW; cell.alignment = CENTER
+        cell = ws.cell(row=summary_r, column=3, value=f"=SUM(C{data_start}:C{last_data_r})")
+        cell.number_format = FMT_MW
+        cell.alignment = CENTER
         for ci in range(n_cases):
             npp_c, irr_c, _ = _case_cols(ci)
             npp_l = get_column_letter(npp_c)
@@ -1015,17 +1154,19 @@ def _write_anchor_section(
                 f"$C${data_start}:$C${last_data_r})"
                 f"/SUM($C${data_start}:$C${last_data_r})"
             )
-            cell = ws.cell(row=summary_r, column=npp_c,
-                           value=mw_wgt_fmt.format(col=npp_l))
-            cell.number_format = FMT_NPP; cell.alignment = CENTER
-            cell = ws.cell(row=summary_r, column=irr_c,
-                           value=mw_wgt_fmt.format(col=irr_l))
-            cell.number_format = FMT_IRR; cell.alignment = CENTER
+            cell = ws.cell(row=summary_r, column=npp_c, value=mw_wgt_fmt.format(col=npp_l))
+            cell.number_format = FMT_NPP
+            cell.alignment = CENTER
+            cell = ws.cell(row=summary_r, column=irr_c, value=mw_wgt_fmt.format(col=irr_l))
+            cell.number_format = FMT_IRR
+            cell.alignment = CENTER
     return summary_r
 
 
 def _aggregate_variance_values(
-    v: dict, metrics: list[dict], total_mw: float,
+    v: dict,
+    metrics: list[dict],
+    total_mw: float,
 ) -> tuple[Any, Any, bool]:
     """For a single variance row, compute the display values across all
     matched projects: MW-weighted average for numerics, first-project for
@@ -1062,7 +1203,10 @@ def _aggregate_variance_values(
 
 
 def _write_variance_section(
-    ws, grouped: dict[str, list[dict]], metrics: list[dict], var_start: int,
+    ws,
+    grouped: dict[str, list[dict]],
+    metrics: list[dict],
+    var_start: int,
     m1_data_by_pnum: dict | None = None,
 ) -> int:
     """Write the 'Project Inputs' variance drivers block starting at
@@ -1073,7 +1217,8 @@ def _write_variance_section(
         callers that don't pass project data through).
     """
     cell = ws.cell(row=var_start, column=2, value="Project Inputs")
-    cell.font = NORMAL_FONT; cell.border = DOUBLE_BOTTOM
+    cell.font = NORMAL_FONT
+    cell.border = DOUBLE_BOTTOM
     for vc in range(3, _WALK_LAST_COL + 1):
         ws.cell(row=var_start, column=vc).border = DOUBLE_BOTTOM
 
@@ -1100,7 +1245,8 @@ def _write_variance_section(
         if not cat_vars:
             continue
         cell = ws.cell(row=cur_row, column=2, value=cat_name)
-        cell.font = BOLD_FONT; cell.border = DOUBLE_BOTTOM
+        cell.font = BOLD_FONT
+        cell.border = DOUBLE_BOTTOM
         cur_row += 1
 
         for v in sorted(cat_vars, key=lambda x: x["label"].lower()):
@@ -1110,7 +1256,11 @@ def _write_variance_section(
 
 
 def _write_variance_row(
-    ws, r: int, v: dict, metrics: list[dict], total_mw: float,
+    ws,
+    r: int,
+    v: dict,
+    metrics: list[dict],
+    total_mw: float,
     m1_data_by_pnum: dict | None,
 ) -> None:
     """Render a single variance row: label, unit, M1/Δ/M2 values, Notes,
@@ -1118,7 +1268,8 @@ def _write_variance_row(
     complexity threshold as columns get added tranche-over-tranche."""
     nfmt = _num_format(v["row"])
     cell = ws.cell(row=r, column=2, value=v["label"])
-    cell.font = NORMAL_FONT; cell.alignment = LEFT
+    cell.font = NORMAL_FONT
+    cell.alignment = LEFT
 
     if v["unit"]:
         cell = ws.cell(row=r, column=3, value=v["unit"])
@@ -1130,24 +1281,31 @@ def _write_variance_row(
     c_e = ws.cell(row=r, column=5, value=m1_display)
     if not is_text_val and m1_display is not None:
         c_e.number_format = nfmt
-    c_e.alignment = CENTER_CONT; c_e.border = THIN_BOX
+    c_e.alignment = CENTER_CONT
+    c_e.border = THIN_BOX
 
     if not is_text_val:
         delta_cell = ws.cell(row=r, column=7, value=f"=E{r}-H{r}")
         delta_cell.number_format = FMT_DELTA
-        delta_cell.alignment = CENTER; delta_cell.border = THIN_BOX
+        delta_cell.alignment = CENTER
+        delta_cell.border = THIN_BOX
 
     c_h = ws.cell(row=r, column=8, value=m2_display)
     if not is_text_val and m2_display is not None:
         c_h.number_format = nfmt
-    c_h.alignment = CENTER_CONT; c_h.border = THIN_BOX
+    c_h.alignment = CENTER_CONT
+    c_h.border = THIN_BOX
 
     if m1_display != m2_display:
         f1 = safe_float(m1_display)
         f2 = safe_float(m2_display)
-        if f1 is not None and f2 is not None and abs(f1 - f2) > 1e-6:
-            c_h.fill = YELLOW_FILL
-        elif is_text_val and str(m1_display or "") != str(m2_display or ""):
+        if (
+            f1 is not None
+            and f2 is not None
+            and abs(f1 - f2) > 1e-6
+            or is_text_val
+            and str(m1_display or "") != str(m2_display or "")
+        ):
             c_h.fill = YELLOW_FILL
 
     n_diff = v.get("n_diff", 0)
@@ -1176,42 +1334,47 @@ def _write_variance_row(
 
 
 _REASON_DETAIL = {
-    "missing_proj_num":     "This model has no Project # assigned (row 2 blank).",
-    "proj_num_not_in_other":"Project # exists here but the counterpart model has no matching Project #.",
-    "name_not_in_other":    "Project # exists but the project name doesn't match the counterpart.",
-    "unknown":              "Unable to classify — inspect both rows manually.",
+    "missing_proj_num": "This model has no Project # assigned (row 2 blank).",
+    "proj_num_not_in_other": "Project # exists here but the counterpart model has no matching Project #.",
+    "name_not_in_other": "Project # exists but the project name doesn't match the counterpart.",
+    "unknown": "Unable to classify — inspect both rows manually.",
 }
 
 
 def _write_unmatched_sheet(
-    wb, unmatched_m1: list, unmatched_m2: list, m1_label: str, m2_label: str,
+    wb,
+    unmatched_m1: list,
+    unmatched_m2: list,
+    m1_label: str,
+    m2_label: str,
 ) -> None:
     """Create the Unmatched sheet listing orphan projects from each side
     with reason codes. Called only when at least one orphan exists."""
     un = wb.create_sheet("Unmatched")
     un.sheet_view.showGridLines = False
-    for col_letter, width in zip("ABCDEF", (8, 32, 12, 10, 24, 44)):
+    for col_letter, width in zip("ABCDEF", (8, 32, 12, 10, 24, 44), strict=True):
         un.column_dimensions[col_letter].width = width
     headers = ["Side", "Project Name", "Project #", "MWdc", "Reason Code", "Detail"]
     for c, text in enumerate(headers, start=1):
         cell = un.cell(row=1, column=c, value=text)
-        cell.font = WHITE_BOLD; cell.fill = NAVY_FILL
+        cell.font = WHITE_BOLD
+        cell.fill = NAVY_FILL
         cell.alignment = CENTER
 
     r = 2
-    for side, projects in [(m1_label or "M1", unmatched_m1),
-                           (m2_label or "M2", unmatched_m2)]:
+    for side, projects in [(m1_label or "M1", unmatched_m1), (m2_label or "M2", unmatched_m2)]:
         for _col, proj, reason in projects:
             data = proj.get("data", {}) or {}
             un.cell(row=r, column=1, value=side).alignment = CENTER
             un.cell(row=r, column=2, value=str(proj.get("name") or "").strip()).alignment = LEFT
-            un.cell(row=r, column=3, value=safe_float(data.get(ROW_PROJECT_NUMBER))).alignment = CENTER
+            un.cell(
+                row=r, column=3, value=safe_float(data.get(ROW_PROJECT_NUMBER))
+            ).alignment = CENTER
             mwdc_cell = un.cell(row=r, column=4, value=safe_float(data.get(ROW_DC_MW)))
             mwdc_cell.number_format = FMT_MW
             mwdc_cell.alignment = CENTER
             un.cell(row=r, column=5, value=reason).alignment = CENTER
-            un.cell(row=r, column=6,
-                    value=_REASON_DETAIL.get(reason, reason)).alignment = LEFT
+            un.cell(row=r, column=6, value=_REASON_DETAIL.get(reason, reason)).alignment = LEFT
             r += 1
 
 
@@ -1228,6 +1391,7 @@ def _num_format(row: int) -> str:
 # ---------------------------------------------------------------------------
 # Excel generation
 # ---------------------------------------------------------------------------
+
 
 def build_walk_xlsx(
     m1_result: dict,
@@ -1259,10 +1423,13 @@ def build_walk_xlsx(
     # Apply the include filters. Union semantics: a project passes if its
     # proj_number OR its name is in the allowed set. This is what the review
     # panel sends when some rows have a valid project# and others don't.
-    canon_names = {canonicalize_name(n) for n in include_proj_names} if include_proj_names else set()
+    canon_names = (
+        {canonicalize_name(n) for n in include_proj_names} if include_proj_names else set()
+    )
     if include_proj_numbers is not None or include_proj_names is not None:
         matched = [
-            m for m in all_matched
+            m
+            for m in all_matched
             if (include_proj_numbers and m["proj_number"] in include_proj_numbers)
             or (canon_names and canonicalize_name(m["name"]) in canon_names)
         ]
@@ -1286,14 +1453,18 @@ def build_walk_xlsx(
     unmatched_m1 = [
         (col, p, _orphan_reason(p, m2_pnums, m2_names))
         for col, p in m1_projects.items()
-        if isinstance(p, dict) and col not in matched_m1_cols
-        and p.get("name") and not _is_placeholder(str(p.get("name") or ""))
+        if isinstance(p, dict)
+        and col not in matched_m1_cols
+        and p.get("name")
+        and not _is_placeholder(str(p.get("name") or ""))
     ]
     unmatched_m2 = [
         (col, p, _orphan_reason(p, m1_pnums, m1_names))
         for col, p in m2_projects.items()
-        if isinstance(p, dict) and col not in matched_m2_cols
-        and p.get("name") and not _is_placeholder(str(p.get("name") or ""))
+        if isinstance(p, dict)
+        and col not in matched_m2_cols
+        and p.get("name")
+        and not _is_placeholder(str(p.get("name") or ""))
     ]
 
     if not matched:
@@ -1324,22 +1495,23 @@ def build_walk_xlsx(
     summary_r = _write_anchor_section(ws, metrics, case_labels)
 
     # Build proj_number → M1 data dict for $impact computation.
-    m1_data_by_pnum = {
-        m["proj_number"]: m1_projects[m["m1_col"]].get("data", {})
-        for m in matched
-    }
+    m1_data_by_pnum = {m["proj_number"]: m1_projects[m["m1_col"]].get("data", {}) for m in matched}
 
     # Variance drivers block starts 3 rows below the anchor summary row.
     _write_variance_section(
-        ws, grouped, metrics, var_start=summary_r + 3,
+        ws,
+        grouped,
+        metrics,
+        var_start=summary_r + 3,
         m1_data_by_pnum=m1_data_by_pnum,
     )
 
     if _no_matches:
         cell = ws.cell(
-            row=3, column=2,
+            row=3,
+            column=2,
             value="No projects matched between models. Check that Project # "
-                  "(row 2) is populated in both models.",
+            "(row 2) is populated in both models.",
         )
         cell.font = Font(color="FF0000", bold=True, size=11)
 

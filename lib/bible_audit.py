@@ -22,19 +22,23 @@ Status legend:
     MISSING  — model cell blank where bible expects a value
     REVIEW   — bible references an external lookup (S-SFA, TBD); manual review
 """
-from lib.utils import safe_float
+
 from lib.bible_reference import (
-    CS_AVERAGE, CS_STATE_OVERRIDES, MARKET_BIBLE, lookup_market, SSFA, TBD,
+    CS_AVERAGE,
+    CS_STATE_OVERRIDES,
+    SSFA,
+    TBD,
+    lookup_market,
     normalize_state,
 )
-from lib.config import BIBLE_BENCHMARKS, PCT_ROWS, INPUT_ROW_UNITS
-from lib.rows import ROW_STATE, ROW_UTILITY, ROW_PROGRAM_A, ROW_PROGRAM_B
-
+from lib.config import BIBLE_BENCHMARKS, INPUT_ROW_UNITS, PCT_ROWS
+from lib.rows import ROW_PROGRAM_A, ROW_PROGRAM_B, ROW_STATE, ROW_UTILITY
+from lib.utils import safe_float
 
 # Tolerance defaults when CS_AVERAGE entry omits "tol"
-_DEFAULT_PCT_TOL    = 0.0      # exact match for percentages
-_DEFAULT_MONEY_TOL  = 0.0      # exact match for $ values
-_NUMERIC_EPSILON    = 1e-9
+_DEFAULT_PCT_TOL = 0.0  # exact match for percentages
+_DEFAULT_MONEY_TOL = 0.0  # exact match for $ values
+_NUMERIC_EPSILON = 1e-9
 
 
 def _exact_check(actual, expected, tol, unit="", row=None):
@@ -97,6 +101,7 @@ def _range_check(actual, spec):
 # Per-project audit
 # ---------------------------------------------------------------------------
 
+
 def audit_project(proj_data):
     """Audit one project. Returns {row: result_dict} keyed by model row.
 
@@ -111,8 +116,13 @@ def audit_project(proj_data):
     dc_mw = safe_float(proj_data.get(11)) or 0  # ROW_DC_MW = 11
     epc_override = None
     if dc_mw > 0 and dc_mw < 5:
-        epc_override = {"value": 1.75, "unit": "$/W", "tol": 0.10,
-                        "label": "PV EPC Cost", "note": "<5 MWdc: $1.75/W all-in"}
+        epc_override = {
+            "value": 1.75,
+            "unit": "$/W",
+            "tol": 0.10,
+            "label": "PV EPC Cost",
+            "note": "<5 MWdc: $1.75/W all-in",
+        }
 
     # ABP REC LIVE OVERRIDE -------------------------------------------------
     # If an "ABP REC" rate component is toggled on for the equity model,
@@ -162,9 +172,14 @@ def audit_project(proj_data):
         unit = spec.get("unit") or _unit_for(row)
         status, note = _exact_check(proj_data.get(row), expected, tol, unit, row=row)
         findings[row] = {
-            "status": status, "expected": expected, "actual": proj_data.get(row),
-            "tol": tol, "note": note, "source": "CS Average" + (f" [{state} override]" if override else ""),
-            "label": spec.get("label", ""), "unit": unit,
+            "status": status,
+            "expected": expected,
+            "actual": proj_data.get(row),
+            "tol": tol,
+            "note": note,
+            "source": "CS Average" + (f" [{state} override]" if override else ""),
+            "label": spec.get("label", ""),
+            "unit": unit,
         }
 
     # ---- 2. MARKET_BIBLE: per (state,utility,program) exact-match ----
@@ -186,23 +201,26 @@ def audit_project(proj_data):
             if k == 240 and _yield > 0:
                 a_float = safe_float(actual)
                 e_float = safe_float(expected)
-                if a_float is not None and e_float is not None:
-                    if a_float > 100 and e_float < 1:
-                        # Convert bible $/kWh to $/MW/yr:
-                        # $/kWh × yield(kWh/Wdc) × 1,000,000(W/MW) = $/MW/yr
-                        exp_for_check = e_float * _yield * 1_000_000
-                        tol = exp_for_check * 0.05  # 5% tolerance for rounding
-                        mkt_unit = "$/MW/yr"
+                if a_float is not None and e_float is not None and a_float > 100 and e_float < 1:
+                    # Convert bible $/kWh to $/MW/yr:
+                    # $/kWh × yield(kWh/Wdc) × 1,000,000(W/MW) = $/MW/yr
+                    exp_for_check = e_float * _yield * 1_000_000
+                    tol = exp_for_check * 0.05  # 5% tolerance for rounding
+                    mkt_unit = "$/MW/yr"
 
             status, note = _exact_check(actual, exp_for_check, tol, mkt_unit, row=k)
             # Store converted expected for display clarity
             if exp_for_check != expected:
                 expected = exp_for_check
             findings[k] = {
-                "status": status, "expected": expected, "actual": proj_data.get(k),
-                "tol": tol, "note": note,
+                "status": status,
+                "expected": expected,
+                "actual": proj_data.get(k),
+                "tol": tol,
+                "note": note,
                 "source": f"Market: {state}/{utility}/{program_used}{market_source_note}",
-                "label": "", "unit": mkt_unit,
+                "label": "",
+                "unit": mkt_unit,
             }
 
     # ---- 3. BIBLE_BENCHMARKS: range checks (CapEx, sizing, etc.) ----
@@ -212,14 +230,17 @@ def audit_project(proj_data):
         for label, spec in checks.items():
             if spec.get("derived"):
                 continue  # derived checks handled separately if needed
-            row = spec["row"]
+            row_val = spec["row"]
+            assert isinstance(row_val, int)
+            row = row_val
             status, note = _range_check(proj_data.get(row), spec)
             existing = findings.get(row)
             if existing:
                 # Merge: prefer OFF over OUT; promote MISSING to OUT if range fails
                 if existing["status"] == "OK" and status == "OUT":
                     existing["status"] = "OUT"
-                    existing["note"] = (existing.get("note") + "; " if existing.get("note") else "") + note
+                    prev_note = existing.get("note") or ""
+                    existing["note"] = (prev_note + "; " if prev_note else "") + note
                     existing["range"] = (spec["min"], spec["max"])
                 elif existing["status"] in ("MISSING", "REVIEW") and status != "OK":
                     existing["status"] = status
@@ -229,10 +250,15 @@ def audit_project(proj_data):
                     existing["range"] = (spec["min"], spec["max"])
             else:
                 findings[row] = {
-                    "status": status, "expected": None, "actual": proj_data.get(row),
-                    "tol": None, "note": note,
-                    "source": f"Range: {category}", "label": label,
-                    "unit": spec.get("unit") or _unit_for(row), "range": (spec["min"], spec["max"]),
+                    "status": status,
+                    "expected": None,
+                    "actual": proj_data.get(row),
+                    "tol": None,
+                    "note": note,
+                    "source": f"Range: {category}",
+                    "label": label,
+                    "unit": spec.get("unit") or _unit_for(row),
+                    "range": (spec["min"], spec["max"]),
                 }
 
     # ---- 4. GUIDEHOUSE DISCOUNT: rate-component-level audit ----
@@ -252,17 +278,23 @@ def audit_project(proj_data):
             status, note = "REVIEW", "No bible Guidehouse discount for this market"
         else:
             diff = abs(actual - expected_disc)
-            if diff <= 0.005:   # 0.5% tolerance
+            if diff <= 0.005:  # 0.5% tolerance
                 status, note = "OK", ""
             else:
                 sign = "+" if actual > expected_disc else "−"
                 status = "OFF"
-                note = f"{sign}{diff*100:.2f} pp vs bible {expected_disc*100:.2f}%"
-        guidehouse_audit.append({
-            "rate_idx": comp["idx"], "name": comp["name"],
-            "actual": actual, "expected": expected_disc,
-            "equity_on": comp["equity_on"], "status": status, "note": note,
-        })
+                note = f"{sign}{diff * 100:.2f} pp vs bible {expected_disc * 100:.2f}%"
+        guidehouse_audit.append(
+            {
+                "rate_idx": comp["idx"],
+                "name": comp["name"],
+                "actual": actual,
+                "expected": expected_disc,
+                "equity_on": comp["equity_on"],
+                "status": status,
+                "note": note,
+            }
+        )
 
     # ---- 5. WRAPPED EPC: surface the build for transparency ----
     wrapped_components = proj_data.get("_wrapped_epc_components") or []
@@ -270,7 +302,9 @@ def audit_project(proj_data):
 
     return {
         "rows": findings,
-        "state": state, "utility": utility, "program": program,
+        "state": state,
+        "utility": utility,
+        "program": program,
         "program_used": program_used,
         "abp_rec_live": abp_rec_live,
         "market_matched": market is not None,
@@ -324,11 +358,11 @@ def verdict_from_summary(summary: dict) -> str:
 
 # CSS class per status — applied to comparison-table <td>
 STATUS_CSS = {
-    "OK":      "",
-    "OFF":     "audit-off",       # red — exact mismatch
-    "OUT":     "audit-out",       # yellow — out of range
-    "MISSING": "audit-missing",   # grey — blank
-    "REVIEW":  "audit-review",    # blue — manual review (S-SFA / TBD)
+    "OK": "",
+    "OFF": "audit-off",  # red — exact mismatch
+    "OUT": "audit-out",  # yellow — out of range
+    "MISSING": "audit-missing",  # grey — blank
+    "REVIEW": "audit-review",  # blue — manual review (S-SFA / TBD)
 }
 
 
@@ -351,7 +385,7 @@ def status_tooltip(audit_result, row):
         return ""
     parts = [f"Status: {f['status']}"]
     if f.get("expected") is not None:
-        parts.append(f"Ref: {f['expected']} {f.get('unit','')}".strip())
+        parts.append(f"Ref: {f['expected']} {f.get('unit', '')}".strip())
     if f.get("range"):
         lo, hi = f["range"]
         parts.append(f"Range: {lo}–{hi}")

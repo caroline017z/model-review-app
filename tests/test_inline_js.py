@@ -13,10 +13,10 @@ against that by:
      - every function referenced in an addEventListener arrow has a
        matching `function name(` definition (cheap regex audit)
 """
+
 import re
 import shutil
 import subprocess
-from pathlib import Path
 
 import pytest
 
@@ -38,8 +38,17 @@ def _sample_html() -> str:
         6: {
             "name": "IL Joel",
             "toggle": True,
-            "data": {2: 1, 10: "US Solar", 11: 9.95, 18: "IL", 19: "Ameren",
-                     22: "ABP", 118: 1.32, 597: 0.40, 602: 0.97},
+            "data": {
+                2: 1,
+                10: "US Solar",
+                11: 9.95,
+                18: "IL",
+                19: "Ameren",
+                22: "ABP",
+                118: 1.32,
+                597: 0.40,
+                602: 0.97,
+            },
         }
     }
     return render_html(fake, model_label="Test")
@@ -61,11 +70,12 @@ class TestNodeSyntax:
         js_file.write_text(inline_js, encoding="utf-8")
         result = subprocess.run(
             [node, "--check", str(js_file)],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0, (
-            f"node --check failed:\nSTDERR:\n{result.stderr}\n"
-            f"STDOUT:\n{result.stdout}"
+            f"node --check failed:\nSTDERR:\n{result.stderr}\nSTDOUT:\n{result.stdout}"
         )
 
 
@@ -79,7 +89,7 @@ class TestStaticPatterns:
         assert m is None, (
             f"Found an orphan '}}' immediately after a '}})()'; this would "
             f"throw SyntaxError at parse time. Snippet:\n"
-            f"{inline_js[max(0,(m.start() if m else 0)-80):(m.end() if m else 0)+40]}"
+            f"{inline_js[max(0, (m.start() if m else 0) - 80) : (m.end() if m else 0) + 40]}"
         )
 
     def test_no_double_let_const_redeclare_at_top_level(self, inline_js):
@@ -89,6 +99,7 @@ class TestStaticPatterns:
         # Cheap heuristic: line-start `let NAME = …;` declarations.
         names = re.findall(r"^let\s+([A-Za-z_][A-Za-z0-9_]*)\s*=", inline_js, re.MULTILINE)
         from collections import Counter
+
         dupes = [n for n, c in Counter(names).items() if c > 1]
         assert not dupes, f"Duplicate top-level `let` declarations: {dupes}"
 

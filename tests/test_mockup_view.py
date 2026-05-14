@@ -1,10 +1,17 @@
 """Unit tests for the Python→HTML translation layer."""
+
 import json
+
 import pytest
+
 from lib.mockup_view import (
-    _as_fraction, _compute_impact, _roll_up, _safe_json,
-    render_html, build_payload,
-    BIBLE_EPC_PER_W, BIBLE_ELIG_FRAC,
+    BIBLE_ELIG_FRAC,
+    BIBLE_EPC_PER_W,
+    _as_fraction,
+    _compute_impact,
+    _roll_up,
+    _safe_json,
+    render_html,
 )
 
 
@@ -62,31 +69,27 @@ class TestComputeImpact:
 
     def test_epc_dollar_per_w_delta(self):
         # $/W unit: higher EPC = negative impact on sponsor.
-        info = {"unit": "$/W", "label": "PV EPC Cost",
-                "expected": 1.65, "actual": 1.80}
+        info = {"unit": "$/W", "label": "PV EPC Cost", "expected": 1.65, "actual": 1.80}
         impact = _compute_impact(info, self._data())
         # delta = +0.15, impact = -0.15 × dc_w = -$750k
         assert impact == pytest.approx(-750_000)
 
     def test_upfront_incentive_positive(self):
         # Higher upfront = upside (flip sign).
-        info = {"unit": "$/W", "label": "Upfront Incentive",
-                "expected": 0.80, "actual": 1.00}
+        info = {"unit": "$/W", "label": "Upfront Incentive", "expected": 0.80, "actual": 1.00}
         impact = _compute_impact(info, self._data())
         # delta = +0.20, revenue impact = +0.20 × dc_w = +$1M
         assert impact == pytest.approx(1_000_000)
 
     def test_itc_impact_anchored_to_bible_epc(self):
         # ITC 0% vs 40% — should use BIBLE_EPC_PER_W, not the model's EPC.
-        info = {"unit": "%", "label": "ITC Rate",
-                "expected": 0.40, "actual": 0.0}
+        info = {"unit": "%", "label": "ITC Rate", "expected": 0.40, "actual": 0.0}
         impact = _compute_impact(info, self._data(epc=1.22))
         expected = (0.0 - 0.40) * BIBLE_ELIG_FRAC * BIBLE_EPC_PER_W * 5_000_000
         assert impact == pytest.approx(expected, rel=1e-6)
 
     def test_eligible_costs_impact_anchored_to_bible_epc(self):
-        info = {"unit": "%", "label": "Eligible Costs %",
-                "expected": 0.97, "actual": 0.90}
+        info = {"unit": "%", "label": "Eligible Costs %", "expected": 0.97, "actual": 0.90}
         impact = _compute_impact(info, self._data(epc=1.22, itc=0.40))
         expected = (0.90 - 0.97) * 0.40 * BIBLE_EPC_PER_W * 5_000_000
         assert impact == pytest.approx(expected, rel=1e-6)
@@ -115,8 +118,11 @@ class TestRollUp:
 class TestRenderHtml:
     def test_inject_marker_round_trip(self):
         fake = {
-            1: {"name": "Joel", "toggle": True,
-                "data": {11: 4.85, 118: 1.22, 18: "IL", 19: "Ameren"}},
+            1: {
+                "name": "Joel",
+                "toggle": True,
+                "data": {11: 4.85, 118: 1.22, 18: "IL", 19: "Ameren"},
+            },
         }
         html = render_html(fake, model_label="Test")
         # Marker replaced; payload landed

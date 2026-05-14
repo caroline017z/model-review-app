@@ -1,9 +1,10 @@
 """In-memory model store with TTL expiry. Thread-safe."""
+
 from __future__ import annotations
 
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -21,10 +22,9 @@ class ModelStore:
         self._ttl = ttl
 
     def _evict_expired(self) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expired = [
-            k for k, v in self._data.items()
-            if (now - v["uploaded_at"]).total_seconds() > self._ttl
+            k for k, v in self._data.items() if (now - v["uploaded_at"]).total_seconds() > self._ttl
         ]
         for k in expired:
             del self._data[k]
@@ -40,7 +40,7 @@ class ModelStore:
             self._data[model_id] = {
                 "filename": filename,
                 "result": result,
-                "uploaded_at": datetime.now(timezone.utc),
+                "uploaded_at": datetime.now(UTC),
             }
             return model_id
 

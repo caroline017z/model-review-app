@@ -3,6 +3,7 @@
 Both walk_builder and mockup_view import from here; these tests pin the
 canonical behavior so the two consumers can't drift if either is touched.
 """
+
 from datetime import datetime
 
 import pytest
@@ -58,10 +59,17 @@ def test_no_cod_year_uses_earliest_curve_date():
     assert conf == "extrapolated_forward"
 
 
-@pytest.mark.parametrize("q_str,expected_month", [
-    ("Q1", 1), ("Q2", 4), ("Q3", 7), ("Q4", 10),
-    ("Q3 2026", 7), ("Q4 2027", 10),
-])
+@pytest.mark.parametrize(
+    "q_str,expected_month",
+    [
+        ("Q1", 1),
+        ("Q2", 4),
+        ("Q3", 7),
+        ("Q4", 10),
+        ("Q3 2026", 7),
+        ("Q4 2027", 10),
+    ],
+)
 def test_quarter_string_parses_correctly(q_str, expected_month):
     curve = {datetime(2026, expected_month, 1): 0.20}
     rate, conf = rate_at_cod(curve, {15: 2026, 587: q_str})
@@ -80,7 +88,8 @@ def test_quarter_int_form_parses_correctly():
 def test_consumers_use_same_module():
     """Both walk_builder and mockup_view re-export the same callable —
     pin equality so a future copy-paste regression fails fast."""
-    from lib.walk_builder import _rate_at_cod as wb_fn
     from lib.mockup_view import _rate_at_cod as mv_fn
+    from lib.walk_builder import _rate_at_cod as wb_fn
+
     assert wb_fn is rate_at_cod
     assert mv_fn is rate_at_cod

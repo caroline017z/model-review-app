@@ -1,8 +1,9 @@
 """38DN Pricing Model Review — FastAPI Backend."""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from apps.api.routers import models, review, walk, benchmarks, export
+from apps.api.routers import benchmarks, export, models, review, walk
 
 app = FastAPI(
     title="38DN Pricing Model Review API",

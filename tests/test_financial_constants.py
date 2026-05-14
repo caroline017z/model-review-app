@@ -4,19 +4,21 @@ SAME object referenced by both consumers (lib.impact and lib.mockup_view).
 This test would have caught the Tranche 2 drift where impact.py shipped
 1.35 for DEFAULT_YIELD_KWH_PER_WP while mockup_view.py used 1.55.
 """
+
 import pytest
 
-from lib import financial_constants
-from lib import impact
-from lib import mockup_view
+from lib import financial_constants, impact, mockup_view
 
 
-@pytest.mark.parametrize("name", [
-    "DEFAULT_YIELD_KWH_PER_WP",
-    "OPEX_NPV_FACTOR",
-    "OPEX_TERM_YEARS",
-    "BIBLE_ELIG_FRAC",
-])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "DEFAULT_YIELD_KWH_PER_WP",
+        "OPEX_NPV_FACTOR",
+        "OPEX_TERM_YEARS",
+        "BIBLE_ELIG_FRAC",
+    ],
+)
 def test_constants_resolve_to_same_value_in_consumers(name):
     canonical = getattr(financial_constants, name)
     assert getattr(impact, name) == canonical, (
