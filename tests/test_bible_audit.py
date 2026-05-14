@@ -125,3 +125,122 @@ class TestAuditProjectEndToEnd:
         assert "rows" in result
         # Should not crash, but most things will be MISSING
         assert result["summary"]["MISSING"] >= 0
+
+
+class TestRCCoverageAudit:
+    """RC1-RC6 three-model active/term audit.
+
+    Belfast 1 carried two model busts that the audit must catch:
+      - RC5 active on equity when nominally dormant for community solar
+      - RC1 term = 25yr against system life = 30yr (5yr revenue gap)
+    Combined ~$0.90/W phantom NPP accretion. These tests pin the audit
+    to those flag conditions plus the three-model active-state divergence
+    case (override block governs when Match toggle is OFF).
+    """
+
+    def _build_belfast_like_proj(self):
+        """Synthetic proj_data reproducing Belfast 1's RC config bust."""
+        from lib.rows import (
+            ROW_STATE, ROW_UTILITY, ROW_PROGRAM_A, ROW_EPC_WRAPPED, ROW_SYSTEM_LIFE,
+        )
+        return {
+            ROW_STATE: "MD",
+            ROW_UTILITY: "Delmarva",
+            ROW_PROGRAM_A: "Community",
+            ROW_EPC_WRAPPED: 1.65,
+            ROW_SYSTEM_LIFE: 30,
+            "_debt_match_equity": "Yes",
+            "_appraisal_match_equity": "Yes",
+            "_rate_comps": {
+                1: {
+                    "name": "GH25 Energy", "custom_generic": "Generic",
+                    "energy_rate": 0.085, "term": 25,  # BUST: 25 vs 30 system life
+                    "discount": 0.225,
+                    "equity_on": 1.0, "debt_on": 1.0, "appraisal_on": 1.0,
+                },
+                2: {
+                    "name": "Contracted REC", "custom_generic": "Generic",
+                    "energy_rate": 0.020, "term": 30, "discount": 0.0,
+                    "equity_on": 1.0, "debt_on": 1.0, "appraisal_on": 1.0,
+                },
+                4: {
+                    "name": "GH25 Appraisal", "custom_generic": "Generic",
+                    "energy_rate": 0.100, "term": 30, "discount": 0.0,
+                    "equity_on": 0.0, "debt_on": 0.0, "appraisal_on": 1.0,
+                },
+                5: {
+                    "name": "Phantom RC5", "custom_generic": "Generic",
+                    "energy_rate": 0.05, "term": 30, "discount": 0.0,
+                    "equity_on": 1.0, "debt_on": 1.0, "appraisal_on": 1.0,
+                },
+            },
+        }
+
+    def test_term_shortfall_flags_off(self):
+        """RC1 active with term 25yr vs 30yr system life → OFF."""
+        from lib.bible_audit import audit_project
+        result = audit_project(self._build_belfast_like_proj())
+        rc1 = next(r for r in result["rc_coverage"] if r["idx"] == 1)
+        assert rc1["status"] == "OFF"
+        assert any("shorter than system life" in i for i in rc1["issues"])
+
+    def test_dormant_rc5_active_flags_review(self):
+        """RC5 active on equity → REVIEW (atypical but not always a bust)."""
+        from lib.bible_audit import audit_project
+        result = audit_project(self._build_belfast_like_proj())
+        rc5 = next(r for r in result["rc_coverage"] if r["idx"] == 5)
+        # RC5 is also active on debt/appraisal in the synthetic input — no
+        # active-state divergence, so it lands at REVIEW from the dormant-slot
+        # check, not OFF.
+        assert rc5["status"] == "REVIEW"
+        assert any("atypical" in i for i in rc5["issues"])
+
+    def test_clean_project_passes_audit(self):
+        """RC1 with full 30yr term + no phantom RC5 → OK on RC1."""
+        from lib.bible_audit import audit_project
+        proj = self._build_belfast_like_proj()
+        proj["_rate_comps"][1]["term"] = 30
+        del proj["_rate_comps"][5]
+        result = audit_project(proj)
+        rc1 = next(r for r in result["rc_coverage"] if r["idx"] == 1)
+        assert rc1["status"] == "OK"
+        assert rc1["issues"] == []
+
+    def test_active_state_divergence_flags_when_match_off(self):
+        """Debt RC active diverges from equity AND Match=OFF → OFF."""
+        from lib.bible_audit import audit_project
+        proj = self._build_belfast_like_proj()
+        proj["_debt_match_equity"] = "No"
+        # RC1 active on equity but off on debt with Match=No → divergence
+        proj["_rate_comps"][1]["debt_on"] = 0.0
+        proj["_rate_comps"][1]["term"] = 30  # silence the unrelated term flag
+        del proj["_rate_comps"][5]            # silence the unrelated RC5 review
+        result = audit_project(proj)
+        rc1 = next(r for r in result["rc_coverage"] if r["idx"] == 1)
+        assert rc1["status"] == "OFF"
+        assert any("Debt active" in i and "Equity active" in i for i in rc1["issues"])
+
+    def test_active_state_divergence_silent_when_match_on(self):
+        """Match=Yes → debt/appraisal toggles dormant → no divergence flag."""
+        from lib.bible_audit import audit_project
+        proj = self._build_belfast_like_proj()
+        proj["_debt_match_equity"] = "Yes"
+        proj["_rate_comps"][1]["debt_on"] = 0.0  # would diverge if Match=No
+        proj["_rate_comps"][1]["term"] = 30
+        del proj["_rate_comps"][5]
+        result = audit_project(proj)
+        rc1 = next(r for r in result["rc_coverage"] if r["idx"] == 1)
+        # Term clean + RC5 absent + Match=Yes suppresses divergence → OK
+        assert rc1["status"] == "OK"
+
+    def test_match_toggles_surfaced_in_result(self):
+        from lib.bible_audit import audit_project
+        result = audit_project(self._build_belfast_like_proj())
+        toggles = result["rc_match_toggles"]
+        assert toggles["debt_match_equity"] is True
+        assert toggles["appraisal_match_equity"] is True
+
+    def test_missing_rate_comps_returns_empty_coverage(self):
+        from lib.bible_audit import audit_project
+        result = audit_project({})
+        assert result["rc_coverage"] == []

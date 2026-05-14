@@ -28,13 +28,136 @@ from lib.bible_reference import (
     normalize_state,
 )
 from lib.config import BIBLE_BENCHMARKS, PCT_ROWS, INPUT_ROW_UNITS
-from lib.rows import ROW_STATE, ROW_UTILITY, ROW_PROGRAM_A, ROW_PROGRAM_B
+from lib.rows import ROW_STATE, ROW_UTILITY, ROW_PROGRAM_A, ROW_PROGRAM_B, ROW_SYSTEM_LIFE
 
 
 # Tolerance defaults when CS_AVERAGE entry omits "tol"
 _DEFAULT_PCT_TOL    = 0.0      # exact match for percentages
 _DEFAULT_MONEY_TOL  = 0.0      # exact match for $ values
 _NUMERIC_EPSILON    = 1e-9
+
+# RC coverage audit — RC indices that are typically dormant on community-solar
+# deals. Active RC5/RC6 are the documented Belfast bust pattern; flag for
+# manual confirmation rather than silently passing.
+_RC_USUALLY_DORMANT = {5, 6}
+# Term-shortfall flagging: how much shorter than system life an RC can run
+# before we flag. 0.5 yr so a 29.5-yr RC against 30-yr system life is OK
+# (rounding/accounting noise) but Belfast's RC1=25 vs 30 trips it.
+_RC_TERM_SHORTFALL_YEARS = 0.5
+
+
+def _toggle_on(val):
+    """Normalize a 1/0/Yes/No/None/string toggle to bool. 0 / None / blank /
+    "No" / "Off" → False; truthy numeric or affirmative string → True."""
+    if val is None:
+        return False
+    if isinstance(val, (int, float)):
+        return abs(float(val)) > _NUMERIC_EPSILON
+    s = str(val).strip().lower()
+    if not s:
+        return False
+    if s in {"no", "off", "false", "0", "n"}:
+        return False
+    if s in {"yes", "on", "true", "1", "y"}:
+        return True
+    f = safe_float(val)
+    if f is not None:
+        return abs(f) > _NUMERIC_EPSILON
+    return True  # unknown non-blank string — over-flag rather than miss
+
+
+def _audit_rc_coverage(rate_comps, debt_match_raw, appraisal_match_raw, system_life_raw):
+    """Three-model RC coverage audit. Returns list of per-RC finding dicts.
+
+    Catches the Belfast bust pattern: RC5 active when nominally dormant, RC1
+    term truncated below system life, and RC active-state diverging between
+    the equity model and the debt/appraisal-side override blocks when their
+    Match-to-Equity master toggles are off.
+
+    Each finding has shape:
+        {idx, name, equity_on, debt_on, appraisal_on, term,
+         status: OK|REVIEW|OFF|MISSING, issues: [str, ...]}
+    """
+    debt_match = _toggle_on(debt_match_raw)
+    appraisal_match = _toggle_on(appraisal_match_raw)
+    system_life = safe_float(system_life_raw)
+
+    findings = []
+    for idx in sorted(rate_comps or {}):
+        comp = rate_comps[idx] or {}
+        name = comp.get("name")
+        equity_on = _toggle_on(comp.get("equity_on"))
+        debt_on = _toggle_on(comp.get("debt_on"))
+        appraisal_on = _toggle_on(comp.get("appraisal_on"))
+        term = safe_float(comp.get("term"))
+        energy_rate = safe_float(comp.get("energy_rate"))
+        any_active = equity_on or debt_on or appraisal_on
+        # Skip components that are fully off AND have no name/rate populated —
+        # these are dormant template slots, not findings worth surfacing.
+        if not any_active and not name and energy_rate in (None, 0):
+            continue
+
+        issues = []
+
+        # Active-state mismatch across the three models. Only meaningful when
+        # the corresponding Match-to-Equity master toggle is OFF: when ON, the
+        # debt/appraisal model mirrors equity and the per-RC toggles in the
+        # override block are dormant.
+        if not debt_match and equity_on != debt_on:
+            issues.append(
+                f"Debt active={debt_on} != Equity active={equity_on} "
+                "(Match Debt Revenue to Equity is OFF — override block governs)"
+            )
+        if not appraisal_match and equity_on != appraisal_on:
+            issues.append(
+                f"Appraisal active={appraisal_on} != Equity active={equity_on} "
+                "(Match Appraisal to Equity is OFF — override block governs)"
+            )
+
+        # Term shorter than system life on an active RC. Belfast 1 had RC1
+        # term=25 against a 30-year system life — silent revenue gap.
+        if equity_on and term is not None and system_life is not None:
+            if term + _RC_TERM_SHORTFALL_YEARS < system_life:
+                shortfall = system_life - term
+                issues.append(
+                    f"Term {term:g}yr is {shortfall:g}yr shorter than system life "
+                    f"{system_life:g}yr — revenue gap"
+                )
+
+        # Active RC with a slot that's normally dormant (RC5/RC6 on community
+        # solar). Surfaced as REVIEW, not OFF — some deals legitimately use
+        # them, but Belfast 1's RC5 was a documented bust.
+        review_only = []
+        if equity_on and idx in _RC_USUALLY_DORMANT:
+            review_only.append(
+                f"RC{idx} active on equity — atypical; confirm intended"
+            )
+
+        # Active equity RC missing name or rate is a data-quality flag.
+        if equity_on and not name:
+            issues.append("Active on equity but rate component name is blank")
+        if equity_on and energy_rate in (None,) and (comp.get("custom_generic") or "").strip().lower() != "custom":
+            # Generic-rate RC active but no rate-at-COD — likely incomplete.
+            issues.append("Active on equity (Generic mode) but Energy Rate at COD is blank")
+
+        if issues:
+            status = "OFF"
+        elif review_only:
+            status = "REVIEW"
+        else:
+            status = "OK"
+        findings.append({
+            "idx": idx,
+            "name": (str(name).strip() if name else ""),
+            "equity_on": equity_on,
+            "debt_on": debt_on,
+            "appraisal_on": appraisal_on,
+            "term": term,
+            "system_life": system_life,
+            "status": status,
+            "issues": issues + review_only,
+        })
+    return findings
 
 
 def _exact_check(actual, expected, tol, unit="", row=None):
@@ -268,6 +391,19 @@ def audit_project(proj_data):
     wrapped_components = proj_data.get("_wrapped_epc_components") or []
     wrapped_total = proj_data.get("_wrapped_epc_total")
 
+    # ---- 6. RC COVERAGE: three-model active-state + term audit ----
+    # Catches the Belfast 1 bust pattern (phantom RC5 ON + RC1 term=25yr vs
+    # 30yr system life, combined ~$0.90/W of phantom NPP accretion). For each
+    # RC1-RC6, three-way compares equity/debt/appraisal active toggles when
+    # the relevant Match-to-Equity master toggle is OFF, and flags term
+    # lengths shorter than system life. See docs/rate_component_audit.md.
+    rc_coverage = _audit_rc_coverage(
+        proj_data.get("_rate_comps") or {},
+        proj_data.get("_debt_match_equity"),
+        proj_data.get("_appraisal_match_equity"),
+        proj_data.get(ROW_SYSTEM_LIFE),
+    )
+
     return {
         "rows": findings,
         "state": state, "utility": utility, "program": program,
@@ -279,6 +415,13 @@ def audit_project(proj_data):
             "components": wrapped_components,
             "total": wrapped_total,
             "raw_epc": proj_data.get("_raw_epc_118"),
+        },
+        "rc_coverage": rc_coverage,
+        "rc_match_toggles": {
+            "debt_match_equity": _toggle_on(proj_data.get("_debt_match_equity")),
+            "appraisal_match_equity": _toggle_on(proj_data.get("_appraisal_match_equity")),
+            "debt_match_raw": proj_data.get("_debt_match_equity"),
+            "appraisal_match_raw": proj_data.get("_appraisal_match_equity"),
         },
         "summary": _summarize(findings),
     }

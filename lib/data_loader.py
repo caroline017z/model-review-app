@@ -624,6 +624,13 @@ def load_pricing_model(file):
         data["_abp_rec_components"]    = rate_scan["abp_rec"]
         data["_abp_rec_live"]          = rate_scan["abp_rec_live"]
 
+        # Surface the full per-RC sub-block (name, toggles across equity/debt/
+        # appraisal, term, energy_rate, discount) so the RC coverage audit
+        # in bible_audit can three-way-check active state, term length, and
+        # match-toggle status. Belfast 1 carried RC5 ON + RC1 term=25yr (vs
+        # 30yr system life); the audit relies on this surface to catch it.
+        data["_rate_comps"] = rate_comps
+
         clean_name = " | ".join(line.strip() for line in str(name_cell).strip().splitlines() if line.strip())
         projects[col] = {
             "name": clean_name, "toggle": is_on,
