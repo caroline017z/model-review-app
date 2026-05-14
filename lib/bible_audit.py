@@ -29,6 +29,7 @@ from __future__ import annotations
 from typing import Any
 
 from lib.audit import AuditEngine, default_rules
+from lib.audit.bible import Bible
 from lib.audit.checks import exact_check as _exact_check  # noqa: F401 — kept for tests/back-compat
 from lib.audit.checks import range_check as _range_check  # noqa: F401 — kept for tests/back-compat
 
@@ -37,7 +38,7 @@ from lib.audit.checks import range_check as _range_check  # noqa: F401 — kept 
 _engine = AuditEngine(default_rules())
 
 
-def audit_project(proj_data: dict) -> dict[str, Any]:
+def audit_project(proj_data: dict, bible: Bible | None = None) -> dict[str, Any]:
     """Audit one project against the bible.
 
     Args
@@ -47,6 +48,9 @@ def audit_project(proj_data: dict) -> dict[str, Any]:
         May include side metadata at string keys (`_units_by_row`,
         `_guidehouse_components`, `_abp_rec_live`, …) as written by
         `lib.data_loader`.
+    bible: Bible | None
+        Vintage to audit against. Defaults to the bundled Q1'26 record
+        (byte-identical to the pre-Phase-4 audit pipeline).
 
     Returns
     -------
@@ -54,15 +58,15 @@ def audit_project(proj_data: dict) -> dict[str, Any]:
     `program_used`, `abp_rec_live`, `market_matched`, `guidehouse`,
     `wrapped_epc`, `summary`.
     """
-    return _engine.run(proj_data)
+    return _engine.run(proj_data, bible)
 
 
-def audit_projects(projects: dict) -> dict[Any, dict[str, Any]]:
+def audit_projects(projects: dict, bible: Bible | None = None) -> dict[Any, dict[str, Any]]:
     """Audit a dict of projects. Returns `{col: audit_result}`."""
     results = {}
     for col, proj in projects.items():
         data = proj["data"] if isinstance(proj, dict) and "data" in proj else proj
-        results[col] = audit_project(data)
+        results[col] = audit_project(data, bible)
     return results
 
 

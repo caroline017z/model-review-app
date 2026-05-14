@@ -19,14 +19,13 @@ from typing import cast
 from lib.audit.checks import DEFAULT_MONEY_TOL, exact_check
 from lib.audit.context import AuditContext
 from lib.audit.engine import AuditResult, AuditRule
-from lib.bible_reference import CS_AVERAGE
 
 
 class CSAverageRule(AuditRule):
     name = "cs-average"
 
     def apply(self, ctx: AuditContext, result: AuditResult) -> None:
-        for row, spec in CS_AVERAGE.items():
+        for row, spec in ctx.bible.cs_average.items():
             # Size-dependent EPC override for small projects (<5 MWdc)
             if row == 118 and ctx.epc_override:
                 spec = ctx.epc_override

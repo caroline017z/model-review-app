@@ -22,14 +22,13 @@ from __future__ import annotations
 from lib.audit.checks import range_check
 from lib.audit.context import AuditContext
 from lib.audit.engine import AuditResult, AuditRule
-from lib.config import BIBLE_BENCHMARKS
 
 
 class RangeCheckRule(AuditRule):
     name = "range-check"
 
     def apply(self, ctx: AuditContext, result: AuditResult) -> None:
-        for category, checks in BIBLE_BENCHMARKS.items():
+        for category, checks in ctx.bible.bible_benchmarks.items():
             for label, spec in checks.items():
                 if spec.get("derived"):
                     continue  # derived checks handled separately if needed

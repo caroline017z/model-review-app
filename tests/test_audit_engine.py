@@ -8,6 +8,7 @@ specific business rules that motivated each rule's bespoke logic.
 
 from __future__ import annotations
 
+from lib.audit.bible import Bible
 from lib.audit.context import AuditContext
 from lib.audit.engine import AuditResult
 from lib.audit.rules.cs_average import CSAverageRule
@@ -15,6 +16,10 @@ from lib.audit.rules.guidehouse import GuidehouseRule
 from lib.audit.rules.market_bible import MarketBibleRule
 from lib.audit.rules.range_check import RangeCheckRule
 from lib.audit.rules.wrapped_epc import WrappedEPCRule
+
+# Shared bundled bible — most rule tests don't care about vintage,
+# they just need the canonical Q1'26 values to compare against.
+BUNDLED_BIBLE = Bible.bundled_q1_2026()
 
 
 def _ctx(
@@ -31,10 +36,12 @@ def _ctx(
     proj_data: dict | None = None,
     model_units: dict[int, str] | None = None,
     yield_kwh_per_wp: float = 1.55,
+    bible: Bible | None = None,
 ) -> AuditContext:
     """Hand-built context for rule unit tests."""
     return AuditContext(
         proj_data=proj_data or {},
+        bible=bible if bible is not None else BUNDLED_BIBLE,
         state=state,
         utility=utility,
         program=program,
@@ -354,7 +361,7 @@ class TestAuditContextFactory:
             19: "Ameren",
             "_abp_rec_live": True,
         }
-        ctx = AuditContext.from_proj_data(proj_data)
+        ctx = AuditContext.from_proj_data(proj_data, BUNDLED_BIBLE)
         assert ctx.program_used == "ABP"
         assert "ABP REC live" in ctx.market_source_note
 
@@ -363,20 +370,20 @@ class TestAuditContextFactory:
         proj_data = {
             18: "MD",
             19: "BGE",
-            22: "Permanent",   # ROW_PROGRAM_A
+            22: "Permanent",  # ROW_PROGRAM_A
             "_abp_rec_live": True,
         }
-        ctx = AuditContext.from_proj_data(proj_data)
+        ctx = AuditContext.from_proj_data(proj_data, BUNDLED_BIBLE)
         assert ctx.program_used == "Permanent"
         assert ctx.market_source_note == ""
 
     def test_small_project_gets_epc_override(self):
         proj_data = {11: 3.0, 18: "IL", 19: "Ameren"}
-        ctx = AuditContext.from_proj_data(proj_data)
+        ctx = AuditContext.from_proj_data(proj_data, BUNDLED_BIBLE)
         assert ctx.epc_override is not None
         assert ctx.epc_override["value"] == 1.75
 
     def test_large_project_no_override(self):
         proj_data = {11: 7.0, 18: "IL", 19: "Ameren"}
-        ctx = AuditContext.from_proj_data(proj_data)
+        ctx = AuditContext.from_proj_data(proj_data, BUNDLED_BIBLE)
         assert ctx.epc_override is None
