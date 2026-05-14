@@ -2,9 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, "phase-*"]
   pull_request:
-    branches: [master]
+    # Run on PRs to any base — feature branches stack, and each PR should
+    # get its own CI signal regardless of where it's targeted.
   workflow_dispatch:
 
 # Cancel in-progress runs when a new commit lands on the same branch / PR.
@@ -19,8 +20,10 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout
+      - name: Checkout (with LFS for golden fixtures)
         uses: actions/checkout@v5
+        with:
+          lfs: true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
