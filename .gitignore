@@ -23,6 +23,11 @@ env/
 # Working files — never commit uploaded/local models or outputs
 *.xlsm
 *.xlsx
+# … but DO allow anonymized golden-test fixtures (tracked via Git LFS)
+!tests/golden/fixtures/*.xlsm
+# Raw unprocessed fixtures stay local-only
+tests/golden/fixtures/raw/
+
 results.db
 *.sqlite
 *.sqlite-journal

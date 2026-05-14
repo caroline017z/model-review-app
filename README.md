@@ -120,9 +120,31 @@ uv run pytest tests/
 uv run bandit -c pyproject.toml -r lib apps --severity-level medium
 ```
 
-253 tests, ~2 seconds wall time. CI runs all of the above on every push.
+253 unit tests (~2s) + 9 golden-fixture tests (~38s, gated on Git LFS).
+CI runs all of the above on every push.
 
-Run pre-commit hooks locally:
+### Golden-fixture regression suite
+
+`tests/golden/` locks the JSON output of `load_pricing_model`, `audit_projects`,
+and `build_payload` against committed snapshots. Any drift fails CI until
+explicitly accepted by regenerating snapshots. Three anonymized .xlsm
+fixtures cover IL ABP, IL PV-only, and MD/BGE markets.
+
+```powershell
+# Pull fixtures (one-time after clone)
+git lfs pull
+
+# Refresh snapshots after an intentional refactor
+uv run python tests/golden/snapshotter.py --write
+
+# Diff against current snapshots without writing
+uv run python tests/golden/snapshotter.py
+```
+
+The suite is the safety net for Phase 3 (audit-engine refactor) and Phase 4
+(Bible loader replacement) per `docs/upgrade-plan.md`.
+
+### Pre-commit hooks
 
 ```powershell
 uv run pre-commit install     # one-time

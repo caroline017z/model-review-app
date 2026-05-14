@@ -1,0 +1,19 @@
+# Git LFS — large binary fixtures live here
+tests/golden/fixtures/*.xlsm filter=lfs diff=lfs merge=lfs -text
+
+# Line endings
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+Dockerfile text eol=lf
+
+# Binary
+*.xlsm binary
+*.xlsx binary
+*.png binary
+*.ico binary

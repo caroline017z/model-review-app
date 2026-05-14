@@ -1,0 +1,7010 @@
+{
+  "fixture": "fixture_md_bge.xlsm",
+  "portfolio": {
+    "bibleLabel": "Q1 '26",
+    "constants": {
+      "calibrationSponsorFraction": 0.45,
+      "haircutImpactPerPct": 0.014,
+      "irrPctPerCent": 0.18,
+      "opexNpvFactor": 0.55,
+      "opexTermYears": 25
+    },
+    "count": 10,
+    "heatmap": {
+      "fields": [
+        "EPC",
+        "LNTP",
+        "C&L",
+        "ITC",
+        "Elig Cost",
+        "Upfront",
+        "Insurance",
+        "O&M",
+        "AM Fee"
+      ],
+      "projects": [
+        "Project A1",
+        "Project A2",
+        "Project A3",
+        "Project A4",
+        "Project A5",
+        "Project A6",
+        "Project A7",
+        "IL FoxEast-2",
+        "IL FoxWest-1",
+        "IL FoxWest-2"
+      ],
+      "z": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "loadedDate": "May 14, 2026",
+    "missing": 24,
+    "modelName": "fixture_md_bge",
+    "off": 13,
+    "out": 2,
+    "pending": 10,
+    "review": 0,
+    "reviewed": 0,
+    "reviewer": "Golden Test",
+    "totalMw": 41.0
+  },
+  "projects": [
+    {
+      "cashflow": {
+        "opCF": [
+          277,
+          275,
+          272,
+          270,
+          268,
+          266,
+          264,
+          261,
+          259,
+          257,
+          254,
+          252,
+          250,
+          248,
+          245,
+          243,
+          241,
+          238,
+          236,
+          234,
+          231,
+          229,
+          226,
+          224,
+          222
+        ],
+        "taxBn": [
+          1430,
+          251,
+          151,
+          90,
+          90,
+          45,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "terminal": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          236
+        ]
+      },
+      "developer": "Developer A",
+      "equityK": 17,
+      "findings": [
+        {
+          "bible": "3,500",
+          "delta": -506.8,
+          "deltaUnit": "$/MW-dc/yr",
+          "field": "P&C Insurance",
+          "impact": 17421,
+          "model": "2,993",
+          "short": "P&C Insurance",
+          "source": "CS Average",
+          "status": "OFF"
+        },
+        {
+          "bible": "13.00%",
+          "delta": 0.02,
+          "deltaUnit": "%",
+          "field": "Row 161",
+          "impact": null,
+          "model": "15.00%",
+          "short": "Row 161",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "OFF"
+        },
+        {
+          "bible": "0.007",
+          "delta": null,
+          "deltaUnit": "$/MW",
+          "field": "Row 240",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 240",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "\u2014",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Cust Acquisition ($/W)",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Cust Acquisiti",
+          "source": "Range: CapEx",
+          "status": "MISSING"
+        }
+      ],
+      "fullMapping": [
+        {
+          "category": "CapEx",
+          "rows": [
+            {
+              "actual": 1.75,
+              "expected": 1.75,
+              "label": "PV EPC Cost",
+              "range": [
+                1.55,
+                1.75
+              ],
+              "row": 118,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.1,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "PV LNTP Cost",
+              "range": [
+                0.08,
+                0.12
+              ],
+              "row": 119,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.02,
+              "unit": "$/W"
+            },
+            {
+              "actual": null,
+              "expected": null,
+              "label": "Cust Acquisition ($/W)",
+              "range": [
+                0.0,
+                0.2
+              ],
+              "row": 121,
+              "source": "Range: CapEx",
+              "status": "MISSING",
+              "tol": null,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.06,
+              "expected": 0.06,
+              "label": "Closing and Legal",
+              "range": [
+                0.05,
+                0.075
+              ],
+              "row": 123,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.015,
+              "unit": "$/W"
+            }
+          ]
+        },
+        {
+          "category": "System Sizing",
+          "rows": [
+            {
+              "actual": 2.5,
+              "expected": null,
+              "label": "Size MWDC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 11,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWdc"
+            },
+            {
+              "actual": 2,
+              "expected": null,
+              "label": "Size MWAC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 12,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWac"
+            },
+            {
+              "actual": 1.5,
+              "expected": null,
+              "label": "Energy Yield (kWh/MWp)",
+              "range": [
+                1.2,
+                2.0
+              ],
+              "row": 14,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "kWh/MWp"
+            }
+          ]
+        },
+        {
+          "category": "Revenue",
+          "rows": [
+            {
+              "actual": 1,
+              "expected": null,
+              "label": "Revenue Lag (months)",
+              "range": [
+                0,
+                3
+              ],
+              "row": 143,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "months"
+            },
+            {
+              "actual": 25,
+              "expected": null,
+              "label": "Rate Term (yrs)",
+              "range": [
+                15,
+                40
+              ],
+              "row": 160,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            },
+            {
+              "actual": 0.15,
+              "expected": 0.13,
+              "label": "Rate Discount",
+              "range": null,
+              "row": 161,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OFF",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.01,
+              "expected": 0.01,
+              "label": "Rate UCB Fee",
+              "range": null,
+              "row": 162,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "Incentives & Tax",
+          "rows": [
+            {
+              "actual": 0,
+              "expected": 0.0,
+              "label": "Upfront Incentive",
+              "range": [
+                0.0,
+                1.0
+              ],
+              "row": 216,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.97,
+              "expected": 0.97,
+              "label": "Eligible Costs %",
+              "range": [
+                0.8,
+                1.0
+              ],
+              "row": 602,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.03,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "OpEx",
+          "rows": [
+            {
+              "actual": 4750,
+              "expected": 4750,
+              "label": "PV O&M Preventative",
+              "range": null,
+              "row": 225,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 250,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 2000,
+              "expected": 2000,
+              "label": "PV O&M Corrective",
+              "range": null,
+              "row": 226,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 100,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "PV O&M Esc",
+              "range": null,
+              "row": 227,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 3000,
+              "expected": 3000,
+              "label": "AM Fee (financing)",
+              "range": null,
+              "row": 230,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "AM Esc",
+              "range": null,
+              "row": 231,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": null,
+              "expected": 0.00717,
+              "label": "Customer Mgmt Cost",
+              "range": null,
+              "row": 240,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/MW"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "Customer Mgmt Esc",
+              "range": null,
+              "row": 241,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.025,
+              "expected": 0.025,
+              "label": "Decom Annual Premium",
+              "range": null,
+              "row": 286,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "% of bond"
+            },
+            {
+              "actual": 2993.2,
+              "expected": 3500,
+              "label": "P&C Insurance",
+              "range": null,
+              "row": 296,
+              "source": "CS Average",
+              "status": "OFF",
+              "tol": 0,
+              "unit": "$/MW-dc/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "P&C Insurance Esc",
+              "range": null,
+              "row": 297,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 2500,
+              "expected": 2500,
+              "label": "Internal AM Costs",
+              "range": null,
+              "row": 302,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            }
+          ]
+        },
+        {
+          "category": "System Details",
+          "rows": [
+            {
+              "actual": 2027,
+              "expected": null,
+              "label": "COD Year",
+              "range": [
+                2025,
+                2030
+              ],
+              "row": 15,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "year"
+            },
+            {
+              "actual": 30,
+              "expected": null,
+              "label": "System Life (yrs)",
+              "range": [
+                20,
+                40
+              ],
+              "row": 16,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            }
+          ]
+        }
+      ],
+      "irrPct": 0.17,
+      "kpis": {
+        "activeFmv": "\u2014",
+        "dc": "2.50",
+        "dcSub": "0.00 MW AC",
+        "epc": "$1.75",
+        "epcOff": false,
+        "epcSub": "",
+        "irr": "\u2014",
+        "irrLabel": "Appraisal IRR",
+        "irrSub": "",
+        "itc": "30%",
+        "itcOff": false,
+        "itcSub": "",
+        "levIrr": "\u2014",
+        "npp": "$1.36",
+        "nppSub": ""
+      },
+      "leverageScale": 1.33,
+      "name": "Project A1",
+      "nppPerW": 0.007,
+      "program": "Community",
+      "projNumber": 1,
+      "propertyTax": {
+        "customToggle": false,
+        "escalator": "\u2014",
+        "yr1": null,
+        "yr1Display": "\u2014"
+      },
+      "rateComp1": {
+        "bibleDiscount": 13.0,
+        "bibleDiscountDisplay": "13.0%",
+        "custDiscount": 0.0,
+        "custDiscountDisplay": "0.0%",
+        "discountMatch": null,
+        "equityOn": false,
+        "ghHaircut": null,
+        "ghHaircutDisplay": "\u2014",
+        "isCustom": false,
+        "name": "\u2014",
+        "rate": null,
+        "rateConfidence": null,
+        "rateDisplay": "\u2014",
+        "rateSource": "Project Inputs"
+      },
+      "references": {
+        "bible": [
+          {
+            "k": "EPC ($/W) <5MW",
+            "s": "Tol \u00b1$0.100",
+            "v": "$1.750/W"
+          },
+          {
+            "k": "LNTP ($/W)",
+            "s": "Tol \u00b1$0.020",
+            "v": "$0.100/W"
+          },
+          {
+            "k": "Closing & Legal ($/W)",
+            "s": "Tol \u00b1$0.015",
+            "v": "$0.060/W"
+          },
+          {
+            "k": "Eligible Costs %",
+            "s": "Tol \u00b13.0%",
+            "v": "97.00%"
+          }
+        ],
+        "bibleHeader": "Q1 '26 Pricing Reference",
+        "market": [
+          {
+            "k": "Upfront Incentive ($/W)",
+            "s": "",
+            "v": "$0.000/W"
+          },
+          {
+            "k": "REC Rate",
+            "s": "5-yr",
+            "v": "Y1-5: 43/33/31/26/21; Y6-10: 18"
+          },
+          {
+            "k": "Post-REC Rate",
+            "s": "30-yr",
+            "v": "$3.00/MWh"
+          },
+          {
+            "k": "Customer Discount",
+            "s": "Applied to rate curve",
+            "v": "13.0%"
+          }
+        ],
+        "marketHeader": "Market \u2014 MD/DE BGE Community",
+        "marketMatched": true,
+        "opex": [
+          {
+            "k": "Insurance ($/MW-yr)",
+            "s": "Exact match",
+            "v": "3,500"
+          },
+          {
+            "k": "Cust Mgmt ($/kWh)",
+            "s": "Market-specific",
+            "v": "$0.0072/kWh"
+          },
+          {
+            "k": "Cust Acquisition (blended)",
+            "s": "",
+            "v": "$0.0701/kWh"
+          }
+        ]
+      },
+      "sponsorFraction": 0.339,
+      "stack": {
+        "assumptions": {
+          "debtFraction": 0.55,
+          "hasModelDscr": true,
+          "teMonetization": 0.85
+        },
+        "bible": [
+          0.561,
+          0.613,
+          0.686,
+          0.0
+        ],
+        "illustrative": true,
+        "model": [
+          0.688,
+          0.502,
+          0.84,
+          0.0
+        ]
+      },
+      "state": "MD/DE",
+      "sub": "fixture_md_bge \u00b7 MD/DE BGE \u00b7 Community",
+      "tornado": {
+        "hi": [
+          -0.175,
+          0.051,
+          -0.018,
+          -0.01,
+          -0.004
+        ],
+        "labels": [
+          "EPC $/W",
+          "ITC %",
+          "OpEx $/MW-yr",
+          "LNTP $/W",
+          "Insurance $/MW-yr"
+        ],
+        "lo": [
+          0.175,
+          -0.051,
+          0.018,
+          0.01,
+          0.004
+        ]
+      },
+      "utility": "BGE",
+      "variance": {
+        "colors": [
+          "off"
+        ],
+        "labels": [
+          "P&C Insurance"
+        ],
+        "txt": [
+          "$17k"
+        ],
+        "x": [
+          17.4
+        ]
+      },
+      "verdict": "REWORK REQUIRED",
+      "wrappedEpcComponents": [
+        {
+          "label": "PV EPC Cost",
+          "value": 1.65
+        },
+        {
+          "label": "PV Contingency",
+          "value": 0.05
+        },
+        {
+          "label": "PV LNTP Cost",
+          "value": 0.1
+        },
+        {
+          "label": "Safe Harbor Costs",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "cashflow": {
+        "opCF": [
+          277,
+          275,
+          272,
+          270,
+          268,
+          266,
+          264,
+          261,
+          259,
+          257,
+          254,
+          252,
+          250,
+          248,
+          245,
+          243,
+          241,
+          238,
+          236,
+          234,
+          231,
+          229,
+          226,
+          224,
+          222
+        ],
+        "taxBn": [
+          1430,
+          251,
+          151,
+          90,
+          90,
+          45,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "terminal": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          236
+        ]
+      },
+      "developer": "Developer A",
+      "equityK": 17,
+      "findings": [
+        {
+          "bible": "3,500",
+          "delta": -506.8,
+          "deltaUnit": "$/MW-dc/yr",
+          "field": "P&C Insurance",
+          "impact": 17421,
+          "model": "2,993",
+          "short": "P&C Insurance",
+          "source": "CS Average",
+          "status": "OFF"
+        },
+        {
+          "bible": "13.00%",
+          "delta": 0.02,
+          "deltaUnit": "%",
+          "field": "Row 161",
+          "impact": null,
+          "model": "15.00%",
+          "short": "Row 161",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "OFF"
+        },
+        {
+          "bible": "0.007",
+          "delta": null,
+          "deltaUnit": "$/MW",
+          "field": "Row 240",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 240",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "\u2014",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Cust Acquisition ($/W)",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Cust Acquisiti",
+          "source": "Range: CapEx",
+          "status": "MISSING"
+        }
+      ],
+      "fullMapping": [
+        {
+          "category": "CapEx",
+          "rows": [
+            {
+              "actual": 1.75,
+              "expected": 1.75,
+              "label": "PV EPC Cost",
+              "range": [
+                1.55,
+                1.75
+              ],
+              "row": 118,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.1,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "PV LNTP Cost",
+              "range": [
+                0.08,
+                0.12
+              ],
+              "row": 119,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.02,
+              "unit": "$/W"
+            },
+            {
+              "actual": null,
+              "expected": null,
+              "label": "Cust Acquisition ($/W)",
+              "range": [
+                0.0,
+                0.2
+              ],
+              "row": 121,
+              "source": "Range: CapEx",
+              "status": "MISSING",
+              "tol": null,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.06,
+              "expected": 0.06,
+              "label": "Closing and Legal",
+              "range": [
+                0.05,
+                0.075
+              ],
+              "row": 123,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.015,
+              "unit": "$/W"
+            }
+          ]
+        },
+        {
+          "category": "System Sizing",
+          "rows": [
+            {
+              "actual": 2.5,
+              "expected": null,
+              "label": "Size MWDC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 11,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWdc"
+            },
+            {
+              "actual": 2,
+              "expected": null,
+              "label": "Size MWAC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 12,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWac"
+            },
+            {
+              "actual": 1.5,
+              "expected": null,
+              "label": "Energy Yield (kWh/MWp)",
+              "range": [
+                1.2,
+                2.0
+              ],
+              "row": 14,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "kWh/MWp"
+            }
+          ]
+        },
+        {
+          "category": "Revenue",
+          "rows": [
+            {
+              "actual": 1,
+              "expected": null,
+              "label": "Revenue Lag (months)",
+              "range": [
+                0,
+                3
+              ],
+              "row": 143,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "months"
+            },
+            {
+              "actual": 25,
+              "expected": null,
+              "label": "Rate Term (yrs)",
+              "range": [
+                15,
+                40
+              ],
+              "row": 160,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            },
+            {
+              "actual": 0.15,
+              "expected": 0.13,
+              "label": "Rate Discount",
+              "range": null,
+              "row": 161,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OFF",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.01,
+              "expected": 0.01,
+              "label": "Rate UCB Fee",
+              "range": null,
+              "row": 162,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "Incentives & Tax",
+          "rows": [
+            {
+              "actual": 0,
+              "expected": 0.0,
+              "label": "Upfront Incentive",
+              "range": [
+                0.0,
+                1.0
+              ],
+              "row": 216,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.97,
+              "expected": 0.97,
+              "label": "Eligible Costs %",
+              "range": [
+                0.8,
+                1.0
+              ],
+              "row": 602,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.03,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "OpEx",
+          "rows": [
+            {
+              "actual": 4750,
+              "expected": 4750,
+              "label": "PV O&M Preventative",
+              "range": null,
+              "row": 225,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 250,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 2000,
+              "expected": 2000,
+              "label": "PV O&M Corrective",
+              "range": null,
+              "row": 226,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 100,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "PV O&M Esc",
+              "range": null,
+              "row": 227,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 3000,
+              "expected": 3000,
+              "label": "AM Fee (financing)",
+              "range": null,
+              "row": 230,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "AM Esc",
+              "range": null,
+              "row": 231,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": null,
+              "expected": 0.00717,
+              "label": "Customer Mgmt Cost",
+              "range": null,
+              "row": 240,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/MW"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "Customer Mgmt Esc",
+              "range": null,
+              "row": 241,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.025,
+              "expected": 0.025,
+              "label": "Decom Annual Premium",
+              "range": null,
+              "row": 286,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "% of bond"
+            },
+            {
+              "actual": 2993.2,
+              "expected": 3500,
+              "label": "P&C Insurance",
+              "range": null,
+              "row": 296,
+              "source": "CS Average",
+              "status": "OFF",
+              "tol": 0,
+              "unit": "$/MW-dc/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "P&C Insurance Esc",
+              "range": null,
+              "row": 297,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 2500,
+              "expected": 2500,
+              "label": "Internal AM Costs",
+              "range": null,
+              "row": 302,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            }
+          ]
+        },
+        {
+          "category": "System Details",
+          "rows": [
+            {
+              "actual": 2027,
+              "expected": null,
+              "label": "COD Year",
+              "range": [
+                2025,
+                2030
+              ],
+              "row": 15,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "year"
+            },
+            {
+              "actual": 30,
+              "expected": null,
+              "label": "System Life (yrs)",
+              "range": [
+                20,
+                40
+              ],
+              "row": 16,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            }
+          ]
+        }
+      ],
+      "irrPct": 0.17,
+      "kpis": {
+        "activeFmv": "\u2014",
+        "dc": "2.50",
+        "dcSub": "0.00 MW AC",
+        "epc": "$1.75",
+        "epcOff": false,
+        "epcSub": "",
+        "irr": "\u2014",
+        "irrLabel": "Appraisal IRR",
+        "irrSub": "",
+        "itc": "30%",
+        "itcOff": false,
+        "itcSub": "",
+        "levIrr": "\u2014",
+        "npp": "$1.10",
+        "nppSub": ""
+      },
+      "leverageScale": 1.33,
+      "name": "Project A2",
+      "nppPerW": 0.007,
+      "program": "Community",
+      "projNumber": null,
+      "propertyTax": {
+        "customToggle": false,
+        "escalator": "\u2014",
+        "yr1": null,
+        "yr1Display": "\u2014"
+      },
+      "rateComp1": {
+        "bibleDiscount": 13.0,
+        "bibleDiscountDisplay": "13.0%",
+        "custDiscount": 0.0,
+        "custDiscountDisplay": "0.0%",
+        "discountMatch": null,
+        "equityOn": false,
+        "ghHaircut": null,
+        "ghHaircutDisplay": "\u2014",
+        "isCustom": false,
+        "name": "\u2014",
+        "rate": null,
+        "rateConfidence": null,
+        "rateDisplay": "\u2014",
+        "rateSource": "Project Inputs"
+      },
+      "references": {
+        "bible": [
+          {
+            "k": "EPC ($/W) <5MW",
+            "s": "Tol \u00b1$0.100",
+            "v": "$1.750/W"
+          },
+          {
+            "k": "LNTP ($/W)",
+            "s": "Tol \u00b1$0.020",
+            "v": "$0.100/W"
+          },
+          {
+            "k": "Closing & Legal ($/W)",
+            "s": "Tol \u00b1$0.015",
+            "v": "$0.060/W"
+          },
+          {
+            "k": "Eligible Costs %",
+            "s": "Tol \u00b13.0%",
+            "v": "97.00%"
+          }
+        ],
+        "bibleHeader": "Q1 '26 Pricing Reference",
+        "market": [
+          {
+            "k": "Upfront Incentive ($/W)",
+            "s": "",
+            "v": "$0.000/W"
+          },
+          {
+            "k": "REC Rate",
+            "s": "5-yr",
+            "v": "Y1-5: 43/33/31/26/21; Y6-10: 18"
+          },
+          {
+            "k": "Post-REC Rate",
+            "s": "30-yr",
+            "v": "$3.00/MWh"
+          },
+          {
+            "k": "Customer Discount",
+            "s": "Applied to rate curve",
+            "v": "13.0%"
+          }
+        ],
+        "marketHeader": "Market \u2014 MD/DE BGE Community",
+        "marketMatched": true,
+        "opex": [
+          {
+            "k": "Insurance ($/MW-yr)",
+            "s": "Exact match",
+            "v": "3,500"
+          },
+          {
+            "k": "Cust Mgmt ($/kWh)",
+            "s": "Market-specific",
+            "v": "$0.0072/kWh"
+          },
+          {
+            "k": "Cust Acquisition (blended)",
+            "s": "",
+            "v": "$0.0701/kWh"
+          }
+        ]
+      },
+      "sponsorFraction": 0.339,
+      "stack": {
+        "assumptions": {
+          "debtFraction": 0.55,
+          "hasModelDscr": true,
+          "teMonetization": 0.85
+        },
+        "bible": [
+          0.561,
+          0.613,
+          0.686,
+          0.0
+        ],
+        "illustrative": true,
+        "model": [
+          0.688,
+          0.502,
+          0.84,
+          0.0
+        ]
+      },
+      "state": "MD/DE",
+      "sub": "fixture_md_bge \u00b7 MD/DE BGE \u00b7 Community",
+      "tornado": {
+        "hi": [
+          -0.175,
+          0.051,
+          -0.018,
+          -0.01,
+          -0.004
+        ],
+        "labels": [
+          "EPC $/W",
+          "ITC %",
+          "OpEx $/MW-yr",
+          "LNTP $/W",
+          "Insurance $/MW-yr"
+        ],
+        "lo": [
+          0.175,
+          -0.051,
+          0.018,
+          0.01,
+          0.004
+        ]
+      },
+      "utility": "BGE",
+      "variance": {
+        "colors": [
+          "off"
+        ],
+        "labels": [
+          "P&C Insurance"
+        ],
+        "txt": [
+          "$17k"
+        ],
+        "x": [
+          17.4
+        ]
+      },
+      "verdict": "REWORK REQUIRED",
+      "wrappedEpcComponents": [
+        {
+          "label": "PV EPC Cost",
+          "value": 1.65
+        },
+        {
+          "label": "PV Contingency",
+          "value": 0.05
+        },
+        {
+          "label": "PV LNTP Cost",
+          "value": 0.1
+        },
+        {
+          "label": "Safe Harbor Costs",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "cashflow": {
+        "opCF": [
+          277,
+          275,
+          272,
+          270,
+          268,
+          266,
+          264,
+          261,
+          259,
+          257,
+          254,
+          252,
+          250,
+          248,
+          245,
+          243,
+          241,
+          238,
+          236,
+          234,
+          231,
+          229,
+          226,
+          224,
+          222
+        ],
+        "taxBn": [
+          1430,
+          251,
+          151,
+          90,
+          90,
+          45,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "terminal": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          236
+        ]
+      },
+      "developer": "Developer A",
+      "equityK": 17,
+      "findings": [
+        {
+          "bible": "3,500",
+          "delta": -506.8,
+          "deltaUnit": "$/MW-dc/yr",
+          "field": "P&C Insurance",
+          "impact": 17421,
+          "model": "2,993",
+          "short": "P&C Insurance",
+          "source": "CS Average",
+          "status": "OFF"
+        },
+        {
+          "bible": "13.00%",
+          "delta": 0.02,
+          "deltaUnit": "%",
+          "field": "Row 161",
+          "impact": null,
+          "model": "15.00%",
+          "short": "Row 161",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "OFF"
+        },
+        {
+          "bible": "0.007",
+          "delta": null,
+          "deltaUnit": "$/MW",
+          "field": "Row 240",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 240",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "\u2014",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Cust Acquisition ($/W)",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Cust Acquisiti",
+          "source": "Range: CapEx",
+          "status": "MISSING"
+        }
+      ],
+      "fullMapping": [
+        {
+          "category": "CapEx",
+          "rows": [
+            {
+              "actual": 1.75,
+              "expected": 1.75,
+              "label": "PV EPC Cost",
+              "range": [
+                1.55,
+                1.75
+              ],
+              "row": 118,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.1,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "PV LNTP Cost",
+              "range": [
+                0.08,
+                0.12
+              ],
+              "row": 119,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.02,
+              "unit": "$/W"
+            },
+            {
+              "actual": null,
+              "expected": null,
+              "label": "Cust Acquisition ($/W)",
+              "range": [
+                0.0,
+                0.2
+              ],
+              "row": 121,
+              "source": "Range: CapEx",
+              "status": "MISSING",
+              "tol": null,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.06,
+              "expected": 0.06,
+              "label": "Closing and Legal",
+              "range": [
+                0.05,
+                0.075
+              ],
+              "row": 123,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.015,
+              "unit": "$/W"
+            }
+          ]
+        },
+        {
+          "category": "System Sizing",
+          "rows": [
+            {
+              "actual": 2.5,
+              "expected": null,
+              "label": "Size MWDC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 11,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWdc"
+            },
+            {
+              "actual": 2,
+              "expected": null,
+              "label": "Size MWAC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 12,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWac"
+            },
+            {
+              "actual": 1.5,
+              "expected": null,
+              "label": "Energy Yield (kWh/MWp)",
+              "range": [
+                1.2,
+                2.0
+              ],
+              "row": 14,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "kWh/MWp"
+            }
+          ]
+        },
+        {
+          "category": "Revenue",
+          "rows": [
+            {
+              "actual": 1,
+              "expected": null,
+              "label": "Revenue Lag (months)",
+              "range": [
+                0,
+                3
+              ],
+              "row": 143,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "months"
+            },
+            {
+              "actual": 25,
+              "expected": null,
+              "label": "Rate Term (yrs)",
+              "range": [
+                15,
+                40
+              ],
+              "row": 160,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            },
+            {
+              "actual": 0.15,
+              "expected": 0.13,
+              "label": "Rate Discount",
+              "range": null,
+              "row": 161,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OFF",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.01,
+              "expected": 0.01,
+              "label": "Rate UCB Fee",
+              "range": null,
+              "row": 162,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "Incentives & Tax",
+          "rows": [
+            {
+              "actual": 0,
+              "expected": 0.0,
+              "label": "Upfront Incentive",
+              "range": [
+                0.0,
+                1.0
+              ],
+              "row": 216,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.97,
+              "expected": 0.97,
+              "label": "Eligible Costs %",
+              "range": [
+                0.8,
+                1.0
+              ],
+              "row": 602,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.03,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "OpEx",
+          "rows": [
+            {
+              "actual": 4750,
+              "expected": 4750,
+              "label": "PV O&M Preventative",
+              "range": null,
+              "row": 225,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 250,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 2000,
+              "expected": 2000,
+              "label": "PV O&M Corrective",
+              "range": null,
+              "row": 226,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 100,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "PV O&M Esc",
+              "range": null,
+              "row": 227,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 3000,
+              "expected": 3000,
+              "label": "AM Fee (financing)",
+              "range": null,
+              "row": 230,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "AM Esc",
+              "range": null,
+              "row": 231,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": null,
+              "expected": 0.00717,
+              "label": "Customer Mgmt Cost",
+              "range": null,
+              "row": 240,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/MW"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "Customer Mgmt Esc",
+              "range": null,
+              "row": 241,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.025,
+              "expected": 0.025,
+              "label": "Decom Annual Premium",
+              "range": null,
+              "row": 286,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "% of bond"
+            },
+            {
+              "actual": 2993.2,
+              "expected": 3500,
+              "label": "P&C Insurance",
+              "range": null,
+              "row": 296,
+              "source": "CS Average",
+              "status": "OFF",
+              "tol": 0,
+              "unit": "$/MW-dc/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "P&C Insurance Esc",
+              "range": null,
+              "row": 297,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 2500,
+              "expected": 2500,
+              "label": "Internal AM Costs",
+              "range": null,
+              "row": 302,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            }
+          ]
+        },
+        {
+          "category": "System Details",
+          "rows": [
+            {
+              "actual": 2027,
+              "expected": null,
+              "label": "COD Year",
+              "range": [
+                2025,
+                2030
+              ],
+              "row": 15,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "year"
+            },
+            {
+              "actual": 30,
+              "expected": null,
+              "label": "System Life (yrs)",
+              "range": [
+                20,
+                40
+              ],
+              "row": 16,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            }
+          ]
+        }
+      ],
+      "irrPct": 0.17,
+      "kpis": {
+        "activeFmv": "\u2014",
+        "dc": "2.50",
+        "dcSub": "0.00 MW AC",
+        "epc": "$1.75",
+        "epcOff": false,
+        "epcSub": "",
+        "irr": "\u2014",
+        "irrLabel": "Appraisal IRR",
+        "irrSub": "",
+        "itc": "30%",
+        "itcOff": false,
+        "itcSub": "",
+        "levIrr": "\u2014",
+        "npp": "$1.10",
+        "nppSub": ""
+      },
+      "leverageScale": 1.33,
+      "name": "Project A3",
+      "nppPerW": 0.007,
+      "program": "Community",
+      "projNumber": null,
+      "propertyTax": {
+        "customToggle": false,
+        "escalator": "\u2014",
+        "yr1": null,
+        "yr1Display": "\u2014"
+      },
+      "rateComp1": {
+        "bibleDiscount": 13.0,
+        "bibleDiscountDisplay": "13.0%",
+        "custDiscount": 0.0,
+        "custDiscountDisplay": "0.0%",
+        "discountMatch": null,
+        "equityOn": false,
+        "ghHaircut": null,
+        "ghHaircutDisplay": "\u2014",
+        "isCustom": false,
+        "name": "\u2014",
+        "rate": null,
+        "rateConfidence": null,
+        "rateDisplay": "\u2014",
+        "rateSource": "Project Inputs"
+      },
+      "references": {
+        "bible": [
+          {
+            "k": "EPC ($/W) <5MW",
+            "s": "Tol \u00b1$0.100",
+            "v": "$1.750/W"
+          },
+          {
+            "k": "LNTP ($/W)",
+            "s": "Tol \u00b1$0.020",
+            "v": "$0.100/W"
+          },
+          {
+            "k": "Closing & Legal ($/W)",
+            "s": "Tol \u00b1$0.015",
+            "v": "$0.060/W"
+          },
+          {
+            "k": "Eligible Costs %",
+            "s": "Tol \u00b13.0%",
+            "v": "97.00%"
+          }
+        ],
+        "bibleHeader": "Q1 '26 Pricing Reference",
+        "market": [
+          {
+            "k": "Upfront Incentive ($/W)",
+            "s": "",
+            "v": "$0.000/W"
+          },
+          {
+            "k": "REC Rate",
+            "s": "5-yr",
+            "v": "Y1-5: 43/33/31/26/21; Y6-10: 18"
+          },
+          {
+            "k": "Post-REC Rate",
+            "s": "30-yr",
+            "v": "$3.00/MWh"
+          },
+          {
+            "k": "Customer Discount",
+            "s": "Applied to rate curve",
+            "v": "13.0%"
+          }
+        ],
+        "marketHeader": "Market \u2014 MD/DE BGE Community",
+        "marketMatched": true,
+        "opex": [
+          {
+            "k": "Insurance ($/MW-yr)",
+            "s": "Exact match",
+            "v": "3,500"
+          },
+          {
+            "k": "Cust Mgmt ($/kWh)",
+            "s": "Market-specific",
+            "v": "$0.0072/kWh"
+          },
+          {
+            "k": "Cust Acquisition (blended)",
+            "s": "",
+            "v": "$0.0701/kWh"
+          }
+        ]
+      },
+      "sponsorFraction": 0.339,
+      "stack": {
+        "assumptions": {
+          "debtFraction": 0.55,
+          "hasModelDscr": true,
+          "teMonetization": 0.85
+        },
+        "bible": [
+          0.561,
+          0.613,
+          0.686,
+          0.0
+        ],
+        "illustrative": true,
+        "model": [
+          0.688,
+          0.502,
+          0.84,
+          0.0
+        ]
+      },
+      "state": "MD/DE",
+      "sub": "fixture_md_bge \u00b7 MD/DE BGE \u00b7 Community",
+      "tornado": {
+        "hi": [
+          -0.175,
+          0.051,
+          -0.018,
+          -0.01,
+          -0.004
+        ],
+        "labels": [
+          "EPC $/W",
+          "ITC %",
+          "OpEx $/MW-yr",
+          "LNTP $/W",
+          "Insurance $/MW-yr"
+        ],
+        "lo": [
+          0.175,
+          -0.051,
+          0.018,
+          0.01,
+          0.004
+        ]
+      },
+      "utility": "BGE",
+      "variance": {
+        "colors": [
+          "off"
+        ],
+        "labels": [
+          "P&C Insurance"
+        ],
+        "txt": [
+          "$17k"
+        ],
+        "x": [
+          17.4
+        ]
+      },
+      "verdict": "REWORK REQUIRED",
+      "wrappedEpcComponents": [
+        {
+          "label": "PV EPC Cost",
+          "value": 1.65
+        },
+        {
+          "label": "PV Contingency",
+          "value": 0.05
+        },
+        {
+          "label": "PV LNTP Cost",
+          "value": 0.1
+        },
+        {
+          "label": "Safe Harbor Costs",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "cashflow": {
+        "opCF": [
+          277,
+          275,
+          272,
+          270,
+          268,
+          266,
+          264,
+          261,
+          259,
+          257,
+          254,
+          252,
+          250,
+          248,
+          245,
+          243,
+          241,
+          238,
+          236,
+          234,
+          231,
+          229,
+          226,
+          224,
+          222
+        ],
+        "taxBn": [
+          1430,
+          251,
+          151,
+          90,
+          90,
+          45,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "terminal": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          236
+        ]
+      },
+      "developer": "Developer A",
+      "equityK": 17,
+      "findings": [
+        {
+          "bible": "3,500",
+          "delta": -506.8,
+          "deltaUnit": "$/MW-dc/yr",
+          "field": "P&C Insurance",
+          "impact": 17421,
+          "model": "2,993",
+          "short": "P&C Insurance",
+          "source": "CS Average",
+          "status": "OFF"
+        },
+        {
+          "bible": "13.00%",
+          "delta": 0.02,
+          "deltaUnit": "%",
+          "field": "Row 161",
+          "impact": null,
+          "model": "15.00%",
+          "short": "Row 161",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "OFF"
+        },
+        {
+          "bible": "0.007",
+          "delta": null,
+          "deltaUnit": "$/MW",
+          "field": "Row 240",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 240",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "\u2014",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Cust Acquisition ($/W)",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Cust Acquisiti",
+          "source": "Range: CapEx",
+          "status": "MISSING"
+        }
+      ],
+      "fullMapping": [
+        {
+          "category": "CapEx",
+          "rows": [
+            {
+              "actual": 1.75,
+              "expected": 1.75,
+              "label": "PV EPC Cost",
+              "range": [
+                1.55,
+                1.75
+              ],
+              "row": 118,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.1,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "PV LNTP Cost",
+              "range": [
+                0.08,
+                0.12
+              ],
+              "row": 119,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.02,
+              "unit": "$/W"
+            },
+            {
+              "actual": null,
+              "expected": null,
+              "label": "Cust Acquisition ($/W)",
+              "range": [
+                0.0,
+                0.2
+              ],
+              "row": 121,
+              "source": "Range: CapEx",
+              "status": "MISSING",
+              "tol": null,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.06,
+              "expected": 0.06,
+              "label": "Closing and Legal",
+              "range": [
+                0.05,
+                0.075
+              ],
+              "row": 123,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.015,
+              "unit": "$/W"
+            }
+          ]
+        },
+        {
+          "category": "System Sizing",
+          "rows": [
+            {
+              "actual": 2.5,
+              "expected": null,
+              "label": "Size MWDC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 11,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWdc"
+            },
+            {
+              "actual": 2,
+              "expected": null,
+              "label": "Size MWAC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 12,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWac"
+            },
+            {
+              "actual": 1.5,
+              "expected": null,
+              "label": "Energy Yield (kWh/MWp)",
+              "range": [
+                1.2,
+                2.0
+              ],
+              "row": 14,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "kWh/MWp"
+            }
+          ]
+        },
+        {
+          "category": "Revenue",
+          "rows": [
+            {
+              "actual": 1,
+              "expected": null,
+              "label": "Revenue Lag (months)",
+              "range": [
+                0,
+                3
+              ],
+              "row": 143,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "months"
+            },
+            {
+              "actual": 25,
+              "expected": null,
+              "label": "Rate Term (yrs)",
+              "range": [
+                15,
+                40
+              ],
+              "row": 160,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            },
+            {
+              "actual": 0.15,
+              "expected": 0.13,
+              "label": "Rate Discount",
+              "range": null,
+              "row": 161,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OFF",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.01,
+              "expected": 0.01,
+              "label": "Rate UCB Fee",
+              "range": null,
+              "row": 162,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "Incentives & Tax",
+          "rows": [
+            {
+              "actual": 0,
+              "expected": 0.0,
+              "label": "Upfront Incentive",
+              "range": [
+                0.0,
+                1.0
+              ],
+              "row": 216,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.97,
+              "expected": 0.97,
+              "label": "Eligible Costs %",
+              "range": [
+                0.8,
+                1.0
+              ],
+              "row": 602,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.03,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "OpEx",
+          "rows": [
+            {
+              "actual": 4750,
+              "expected": 4750,
+              "label": "PV O&M Preventative",
+              "range": null,
+              "row": 225,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 250,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 2000,
+              "expected": 2000,
+              "label": "PV O&M Corrective",
+              "range": null,
+              "row": 226,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 100,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "PV O&M Esc",
+              "range": null,
+              "row": 227,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 3000,
+              "expected": 3000,
+              "label": "AM Fee (financing)",
+              "range": null,
+              "row": 230,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "AM Esc",
+              "range": null,
+              "row": 231,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": null,
+              "expected": 0.00717,
+              "label": "Customer Mgmt Cost",
+              "range": null,
+              "row": 240,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/MW"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "Customer Mgmt Esc",
+              "range": null,
+              "row": 241,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.025,
+              "expected": 0.025,
+              "label": "Decom Annual Premium",
+              "range": null,
+              "row": 286,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "% of bond"
+            },
+            {
+              "actual": 2993.2,
+              "expected": 3500,
+              "label": "P&C Insurance",
+              "range": null,
+              "row": 296,
+              "source": "CS Average",
+              "status": "OFF",
+              "tol": 0,
+              "unit": "$/MW-dc/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "P&C Insurance Esc",
+              "range": null,
+              "row": 297,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 2500,
+              "expected": 2500,
+              "label": "Internal AM Costs",
+              "range": null,
+              "row": 302,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            }
+          ]
+        },
+        {
+          "category": "System Details",
+          "rows": [
+            {
+              "actual": 2027,
+              "expected": null,
+              "label": "COD Year",
+              "range": [
+                2025,
+                2030
+              ],
+              "row": 15,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "year"
+            },
+            {
+              "actual": 30,
+              "expected": null,
+              "label": "System Life (yrs)",
+              "range": [
+                20,
+                40
+              ],
+              "row": 16,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            }
+          ]
+        }
+      ],
+      "irrPct": 0.17,
+      "kpis": {
+        "activeFmv": "\u2014",
+        "dc": "2.50",
+        "dcSub": "0.00 MW AC",
+        "epc": "$1.75",
+        "epcOff": false,
+        "epcSub": "",
+        "irr": "\u2014",
+        "irrLabel": "Appraisal IRR",
+        "irrSub": "",
+        "itc": "30%",
+        "itcOff": false,
+        "itcSub": "",
+        "levIrr": "\u2014",
+        "npp": "$1.10",
+        "nppSub": ""
+      },
+      "leverageScale": 1.33,
+      "name": "Project A4",
+      "nppPerW": 0.007,
+      "program": "Community",
+      "projNumber": null,
+      "propertyTax": {
+        "customToggle": false,
+        "escalator": "\u2014",
+        "yr1": null,
+        "yr1Display": "\u2014"
+      },
+      "rateComp1": {
+        "bibleDiscount": 13.0,
+        "bibleDiscountDisplay": "13.0%",
+        "custDiscount": 0.0,
+        "custDiscountDisplay": "0.0%",
+        "discountMatch": null,
+        "equityOn": false,
+        "ghHaircut": null,
+        "ghHaircutDisplay": "\u2014",
+        "isCustom": false,
+        "name": "\u2014",
+        "rate": null,
+        "rateConfidence": null,
+        "rateDisplay": "\u2014",
+        "rateSource": "Project Inputs"
+      },
+      "references": {
+        "bible": [
+          {
+            "k": "EPC ($/W) <5MW",
+            "s": "Tol \u00b1$0.100",
+            "v": "$1.750/W"
+          },
+          {
+            "k": "LNTP ($/W)",
+            "s": "Tol \u00b1$0.020",
+            "v": "$0.100/W"
+          },
+          {
+            "k": "Closing & Legal ($/W)",
+            "s": "Tol \u00b1$0.015",
+            "v": "$0.060/W"
+          },
+          {
+            "k": "Eligible Costs %",
+            "s": "Tol \u00b13.0%",
+            "v": "97.00%"
+          }
+        ],
+        "bibleHeader": "Q1 '26 Pricing Reference",
+        "market": [
+          {
+            "k": "Upfront Incentive ($/W)",
+            "s": "",
+            "v": "$0.000/W"
+          },
+          {
+            "k": "REC Rate",
+            "s": "5-yr",
+            "v": "Y1-5: 43/33/31/26/21; Y6-10: 18"
+          },
+          {
+            "k": "Post-REC Rate",
+            "s": "30-yr",
+            "v": "$3.00/MWh"
+          },
+          {
+            "k": "Customer Discount",
+            "s": "Applied to rate curve",
+            "v": "13.0%"
+          }
+        ],
+        "marketHeader": "Market \u2014 MD/DE BGE Community",
+        "marketMatched": true,
+        "opex": [
+          {
+            "k": "Insurance ($/MW-yr)",
+            "s": "Exact match",
+            "v": "3,500"
+          },
+          {
+            "k": "Cust Mgmt ($/kWh)",
+            "s": "Market-specific",
+            "v": "$0.0072/kWh"
+          },
+          {
+            "k": "Cust Acquisition (blended)",
+            "s": "",
+            "v": "$0.0701/kWh"
+          }
+        ]
+      },
+      "sponsorFraction": 0.339,
+      "stack": {
+        "assumptions": {
+          "debtFraction": 0.55,
+          "hasModelDscr": true,
+          "teMonetization": 0.85
+        },
+        "bible": [
+          0.561,
+          0.613,
+          0.686,
+          0.0
+        ],
+        "illustrative": true,
+        "model": [
+          0.688,
+          0.502,
+          0.84,
+          0.0
+        ]
+      },
+      "state": "MD/DE",
+      "sub": "fixture_md_bge \u00b7 MD/DE BGE \u00b7 Community",
+      "tornado": {
+        "hi": [
+          -0.175,
+          0.051,
+          -0.018,
+          -0.01,
+          -0.004
+        ],
+        "labels": [
+          "EPC $/W",
+          "ITC %",
+          "OpEx $/MW-yr",
+          "LNTP $/W",
+          "Insurance $/MW-yr"
+        ],
+        "lo": [
+          0.175,
+          -0.051,
+          0.018,
+          0.01,
+          0.004
+        ]
+      },
+      "utility": "BGE",
+      "variance": {
+        "colors": [
+          "off"
+        ],
+        "labels": [
+          "P&C Insurance"
+        ],
+        "txt": [
+          "$17k"
+        ],
+        "x": [
+          17.4
+        ]
+      },
+      "verdict": "REWORK REQUIRED",
+      "wrappedEpcComponents": [
+        {
+          "label": "PV EPC Cost",
+          "value": 1.65
+        },
+        {
+          "label": "PV Contingency",
+          "value": 0.05
+        },
+        {
+          "label": "PV LNTP Cost",
+          "value": 0.1
+        },
+        {
+          "label": "Safe Harbor Costs",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "cashflow": {
+        "opCF": [
+          225,
+          223,
+          221,
+          219,
+          218,
+          216,
+          214,
+          212,
+          210,
+          208,
+          207,
+          205,
+          203,
+          201,
+          199,
+          197,
+          195,
+          193,
+          192,
+          190,
+          188,
+          186,
+          184,
+          182,
+          180
+        ],
+        "taxBn": [
+          1584,
+          203,
+          122,
+          73,
+          73,
+          37,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "terminal": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          192
+        ]
+      },
+      "developer": "Developer A",
+      "equityK": -188,
+      "findings": [
+        {
+          "bible": "$1.750/W",
+          "delta": 0.1,
+          "deltaUnit": "$/W",
+          "field": "PV EPC Cost",
+          "impact": -203000,
+          "model": "$1.850/W",
+          "short": "PV EPC Cost",
+          "source": "CS Average",
+          "status": "OUT"
+        },
+        {
+          "bible": "3,500",
+          "delta": -524.1379,
+          "deltaUnit": "$/MW-dc/yr",
+          "field": "P&C Insurance",
+          "impact": 14630,
+          "model": "2,976",
+          "short": "P&C Insurance",
+          "source": "CS Average",
+          "status": "OFF"
+        },
+        {
+          "bible": "13.00%",
+          "delta": 0.02,
+          "deltaUnit": "%",
+          "field": "Row 161",
+          "impact": null,
+          "model": "15.00%",
+          "short": "Row 161",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "OFF"
+        },
+        {
+          "bible": "0.007",
+          "delta": null,
+          "deltaUnit": "$/MW",
+          "field": "Row 240",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 240",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "\u2014",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Cust Acquisition ($/W)",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Cust Acquisiti",
+          "source": "Range: CapEx",
+          "status": "MISSING"
+        }
+      ],
+      "fullMapping": [
+        {
+          "category": "CapEx",
+          "rows": [
+            {
+              "actual": 1.85,
+              "expected": 1.75,
+              "label": "PV EPC Cost",
+              "range": [
+                1.55,
+                1.75
+              ],
+              "row": 118,
+              "source": "CS Average",
+              "status": "OUT",
+              "tol": 0.1,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "PV LNTP Cost",
+              "range": [
+                0.08,
+                0.12
+              ],
+              "row": 119,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.02,
+              "unit": "$/W"
+            },
+            {
+              "actual": null,
+              "expected": null,
+              "label": "Cust Acquisition ($/W)",
+              "range": [
+                0.0,
+                0.2
+              ],
+              "row": 121,
+              "source": "Range: CapEx",
+              "status": "MISSING",
+              "tol": null,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.06,
+              "expected": 0.06,
+              "label": "Closing and Legal",
+              "range": [
+                0.05,
+                0.075
+              ],
+              "row": 123,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.015,
+              "unit": "$/W"
+            }
+          ]
+        },
+        {
+          "category": "System Sizing",
+          "rows": [
+            {
+              "actual": 2.03,
+              "expected": null,
+              "label": "Size MWDC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 11,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWdc"
+            },
+            {
+              "actual": 2,
+              "expected": null,
+              "label": "Size MWAC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 12,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWac"
+            },
+            {
+              "actual": 1.43,
+              "expected": null,
+              "label": "Energy Yield (kWh/MWp)",
+              "range": [
+                1.2,
+                2.0
+              ],
+              "row": 14,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "kWh/MWp"
+            }
+          ]
+        },
+        {
+          "category": "Revenue",
+          "rows": [
+            {
+              "actual": 1,
+              "expected": null,
+              "label": "Revenue Lag (months)",
+              "range": [
+                0,
+                3
+              ],
+              "row": 143,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "months"
+            },
+            {
+              "actual": 25,
+              "expected": null,
+              "label": "Rate Term (yrs)",
+              "range": [
+                15,
+                40
+              ],
+              "row": 160,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            },
+            {
+              "actual": 0.15,
+              "expected": 0.13,
+              "label": "Rate Discount",
+              "range": null,
+              "row": 161,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OFF",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.01,
+              "expected": 0.01,
+              "label": "Rate UCB Fee",
+              "range": null,
+              "row": 162,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "Incentives & Tax",
+          "rows": [
+            {
+              "actual": 0,
+              "expected": 0.0,
+              "label": "Upfront Incentive",
+              "range": [
+                0.0,
+                1.0
+              ],
+              "row": 216,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.97,
+              "expected": 0.97,
+              "label": "Eligible Costs %",
+              "range": [
+                0.8,
+                1.0
+              ],
+              "row": 602,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.03,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "OpEx",
+          "rows": [
+            {
+              "actual": 4750,
+              "expected": 4750,
+              "label": "PV O&M Preventative",
+              "range": null,
+              "row": 225,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 250,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 2000,
+              "expected": 2000,
+              "label": "PV O&M Corrective",
+              "range": null,
+              "row": 226,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 100,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "PV O&M Esc",
+              "range": null,
+              "row": 227,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 3000,
+              "expected": 3000,
+              "label": "AM Fee (financing)",
+              "range": null,
+              "row": 230,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "AM Esc",
+              "range": null,
+              "row": 231,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": null,
+              "expected": 0.00717,
+              "label": "Customer Mgmt Cost",
+              "range": null,
+              "row": 240,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/MW"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "Customer Mgmt Esc",
+              "range": null,
+              "row": 241,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.025,
+              "expected": 0.025,
+              "label": "Decom Annual Premium",
+              "range": null,
+              "row": 286,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "% of bond"
+            },
+            {
+              "actual": 2975.862069,
+              "expected": 3500,
+              "label": "P&C Insurance",
+              "range": null,
+              "row": 296,
+              "source": "CS Average",
+              "status": "OFF",
+              "tol": 0,
+              "unit": "$/MW-dc/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "P&C Insurance Esc",
+              "range": null,
+              "row": 297,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 2500,
+              "expected": 2500,
+              "label": "Internal AM Costs",
+              "range": null,
+              "row": 302,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            }
+          ]
+        },
+        {
+          "category": "System Details",
+          "rows": [
+            {
+              "actual": 2026,
+              "expected": null,
+              "label": "COD Year",
+              "range": [
+                2025,
+                2030
+              ],
+              "row": 15,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "year"
+            },
+            {
+              "actual": 25,
+              "expected": null,
+              "label": "System Life (yrs)",
+              "range": [
+                20,
+                40
+              ],
+              "row": 16,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            }
+          ]
+        }
+      ],
+      "irrPct": -2.49,
+      "kpis": {
+        "activeFmv": "\u2014",
+        "dc": "2.03",
+        "dcSub": "0.00 MW AC",
+        "epc": "$1.85",
+        "epcOff": false,
+        "epcSub": "",
+        "irr": "\u2014",
+        "irrLabel": "Appraisal IRR",
+        "irrSub": "",
+        "itc": "40%",
+        "itcOff": false,
+        "itcSub": "",
+        "levIrr": "\u2014",
+        "npp": "$0.56",
+        "nppSub": ""
+      },
+      "leverageScale": 1.49,
+      "name": "Project A5",
+      "nppPerW": -0.093,
+      "program": "Community",
+      "projNumber": null,
+      "propertyTax": {
+        "customToggle": false,
+        "escalator": "\u2014",
+        "yr1": null,
+        "yr1Display": "\u2014"
+      },
+      "rateComp1": {
+        "bibleDiscount": 13.0,
+        "bibleDiscountDisplay": "13.0%",
+        "custDiscount": 0.0,
+        "custDiscountDisplay": "0.0%",
+        "discountMatch": null,
+        "equityOn": false,
+        "ghHaircut": null,
+        "ghHaircutDisplay": "\u2014",
+        "isCustom": false,
+        "name": "\u2014",
+        "rate": null,
+        "rateConfidence": null,
+        "rateDisplay": "\u2014",
+        "rateSource": "Project Inputs"
+      },
+      "references": {
+        "bible": [
+          {
+            "k": "EPC ($/W) <5MW",
+            "s": "Tol \u00b1$0.100",
+            "v": "$1.750/W"
+          },
+          {
+            "k": "LNTP ($/W)",
+            "s": "Tol \u00b1$0.020",
+            "v": "$0.100/W"
+          },
+          {
+            "k": "Closing & Legal ($/W)",
+            "s": "Tol \u00b1$0.015",
+            "v": "$0.060/W"
+          },
+          {
+            "k": "Eligible Costs %",
+            "s": "Tol \u00b13.0%",
+            "v": "97.00%"
+          }
+        ],
+        "bibleHeader": "Q1 '26 Pricing Reference",
+        "market": [
+          {
+            "k": "Upfront Incentive ($/W)",
+            "s": "",
+            "v": "$0.000/W"
+          },
+          {
+            "k": "REC Rate",
+            "s": "5-yr",
+            "v": "Y1-5: 43/33/31/26/21; Y6-10: 18"
+          },
+          {
+            "k": "Post-REC Rate",
+            "s": "30-yr",
+            "v": "$3.00/MWh"
+          },
+          {
+            "k": "Customer Discount",
+            "s": "Applied to rate curve",
+            "v": "13.0%"
+          }
+        ],
+        "marketHeader": "Market \u2014 MD/DE BGE Community",
+        "marketMatched": true,
+        "opex": [
+          {
+            "k": "Insurance ($/MW-yr)",
+            "s": "Exact match",
+            "v": "3,500"
+          },
+          {
+            "k": "Cust Mgmt ($/kWh)",
+            "s": "Market-specific",
+            "v": "$0.0072/kWh"
+          },
+          {
+            "k": "Cust Acquisition (blended)",
+            "s": "",
+            "v": "$0.0701/kWh"
+          }
+        ]
+      },
+      "sponsorFraction": 0.302,
+      "stack": {
+        "assumptions": {
+          "debtFraction": 0.55,
+          "hasModelDscr": true,
+          "teMonetization": 0.85
+        },
+        "bible": [
+          0.561,
+          0.613,
+          0.686,
+          0.0
+        ],
+        "illustrative": true,
+        "model": [
+          0.718,
+          0.785,
+          0.877,
+          0.0
+        ]
+      },
+      "state": "MD/DE",
+      "sub": "fixture_md_bge \u00b7 MD/DE BGE \u00b7 Community",
+      "tornado": {
+        "hi": [
+          -0.185,
+          0.072,
+          -0.018,
+          -0.01,
+          -0.004
+        ],
+        "labels": [
+          "EPC $/W",
+          "ITC %",
+          "OpEx $/MW-yr",
+          "LNTP $/W",
+          "Insurance $/MW-yr"
+        ],
+        "lo": [
+          0.185,
+          -0.072,
+          0.018,
+          0.01,
+          0.004
+        ]
+      },
+      "utility": "BGE",
+      "variance": {
+        "colors": [
+          "out",
+          "off"
+        ],
+        "labels": [
+          "PV EPC Cost",
+          "P&C Insurance"
+        ],
+        "txt": [
+          "($203k)",
+          "$15k"
+        ],
+        "x": [
+          -203.0,
+          14.6
+        ]
+      },
+      "verdict": "REWORK REQUIRED",
+      "wrappedEpcComponents": [
+        {
+          "label": "PV EPC Cost",
+          "value": 1.75
+        },
+        {
+          "label": "PV Contingency",
+          "value": 0.05
+        },
+        {
+          "label": "PV LNTP Cost",
+          "value": 0.1
+        },
+        {
+          "label": "Safe Harbor Costs",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "cashflow": {
+        "opCF": [
+          111,
+          110,
+          109,
+          108,
+          107,
+          106,
+          105,
+          105,
+          104,
+          103,
+          102,
+          101,
+          100,
+          99,
+          98,
+          97,
+          96,
+          95,
+          94,
+          93,
+          92,
+          92,
+          91,
+          90,
+          89
+        ],
+        "taxBn": [
+          780,
+          100,
+          60,
+          36,
+          36,
+          18,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "terminal": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          94
+        ]
+      },
+      "developer": "Developer A",
+      "equityK": -93,
+      "findings": [
+        {
+          "bible": "$1.750/W",
+          "delta": 0.1,
+          "deltaUnit": "$/W",
+          "field": "PV EPC Cost",
+          "impact": -100000,
+          "model": "$1.850/W",
+          "short": "PV EPC Cost",
+          "source": "CS Average",
+          "status": "OUT"
+        },
+        {
+          "bible": "3,500",
+          "delta": -524.0,
+          "deltaUnit": "$/MW-dc/yr",
+          "field": "P&C Insurance",
+          "impact": 7205,
+          "model": "2,976",
+          "short": "P&C Insurance",
+          "source": "CS Average",
+          "status": "OFF"
+        },
+        {
+          "bible": "13.00%",
+          "delta": 0.02,
+          "deltaUnit": "%",
+          "field": "Row 161",
+          "impact": null,
+          "model": "15.00%",
+          "short": "Row 161",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "OFF"
+        },
+        {
+          "bible": "0.007",
+          "delta": null,
+          "deltaUnit": "$/MW",
+          "field": "Row 240",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 240",
+          "source": "Market: MD/DE/BGE/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "\u2014",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Cust Acquisition ($/W)",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Cust Acquisiti",
+          "source": "Range: CapEx",
+          "status": "MISSING"
+        }
+      ],
+      "fullMapping": [
+        {
+          "category": "CapEx",
+          "rows": [
+            {
+              "actual": 1.85,
+              "expected": 1.75,
+              "label": "PV EPC Cost",
+              "range": [
+                1.55,
+                1.75
+              ],
+              "row": 118,
+              "source": "CS Average",
+              "status": "OUT",
+              "tol": 0.1,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "PV LNTP Cost",
+              "range": [
+                0.08,
+                0.12
+              ],
+              "row": 119,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.02,
+              "unit": "$/W"
+            },
+            {
+              "actual": null,
+              "expected": null,
+              "label": "Cust Acquisition ($/W)",
+              "range": [
+                0.0,
+                0.2
+              ],
+              "row": 121,
+              "source": "Range: CapEx",
+              "status": "MISSING",
+              "tol": null,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.06,
+              "expected": 0.06,
+              "label": "Closing and Legal",
+              "range": [
+                0.05,
+                0.075
+              ],
+              "row": 123,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.015,
+              "unit": "$/W"
+            }
+          ]
+        },
+        {
+          "category": "System Sizing",
+          "rows": [
+            {
+              "actual": 1,
+              "expected": null,
+              "label": "Size MWDC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 11,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWdc"
+            },
+            {
+              "actual": 0.988,
+              "expected": null,
+              "label": "Size MWAC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 12,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWac"
+            },
+            {
+              "actual": 1.43,
+              "expected": null,
+              "label": "Energy Yield (kWh/MWp)",
+              "range": [
+                1.2,
+                2.0
+              ],
+              "row": 14,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "kWh/MWp"
+            }
+          ]
+        },
+        {
+          "category": "Revenue",
+          "rows": [
+            {
+              "actual": 1,
+              "expected": null,
+              "label": "Revenue Lag (months)",
+              "range": [
+                0,
+                3
+              ],
+              "row": 143,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "months"
+            },
+            {
+              "actual": 25,
+              "expected": null,
+              "label": "Rate Term (yrs)",
+              "range": [
+                15,
+                40
+              ],
+              "row": 160,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            },
+            {
+              "actual": 0.15,
+              "expected": 0.13,
+              "label": "Rate Discount",
+              "range": null,
+              "row": 161,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OFF",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.01,
+              "expected": 0.01,
+              "label": "Rate UCB Fee",
+              "range": null,
+              "row": 162,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "Incentives & Tax",
+          "rows": [
+            {
+              "actual": 0,
+              "expected": 0.0,
+              "label": "Upfront Incentive",
+              "range": [
+                0.0,
+                1.0
+              ],
+              "row": 216,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.97,
+              "expected": 0.97,
+              "label": "Eligible Costs %",
+              "range": [
+                0.8,
+                1.0
+              ],
+              "row": 602,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.03,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "OpEx",
+          "rows": [
+            {
+              "actual": 4750,
+              "expected": 4750,
+              "label": "PV O&M Preventative",
+              "range": null,
+              "row": 225,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 250,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 2000,
+              "expected": 2000,
+              "label": "PV O&M Corrective",
+              "range": null,
+              "row": 226,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 100,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "PV O&M Esc",
+              "range": null,
+              "row": 227,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 3000,
+              "expected": 3000,
+              "label": "AM Fee (financing)",
+              "range": null,
+              "row": 230,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "AM Esc",
+              "range": null,
+              "row": 231,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": null,
+              "expected": 0.00717,
+              "label": "Customer Mgmt Cost",
+              "range": null,
+              "row": 240,
+              "source": "Market: MD/DE/BGE/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/MW"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "Customer Mgmt Esc",
+              "range": null,
+              "row": 241,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.025,
+              "expected": 0.025,
+              "label": "Decom Annual Premium",
+              "range": null,
+              "row": 286,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "% of bond"
+            },
+            {
+              "actual": 2976,
+              "expected": 3500,
+              "label": "P&C Insurance",
+              "range": null,
+              "row": 296,
+              "source": "CS Average",
+              "status": "OFF",
+              "tol": 0,
+              "unit": "$/MW-dc/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "P&C Insurance Esc",
+              "range": null,
+              "row": 297,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 2500,
+              "expected": 2500,
+              "label": "Internal AM Costs",
+              "range": null,
+              "row": 302,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            }
+          ]
+        },
+        {
+          "category": "System Details",
+          "rows": [
+            {
+              "actual": 2026,
+              "expected": null,
+              "label": "COD Year",
+              "range": [
+                2025,
+                2030
+              ],
+              "row": 15,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "year"
+            },
+            {
+              "actual": 25,
+              "expected": null,
+              "label": "System Life (yrs)",
+              "range": [
+                20,
+                40
+              ],
+              "row": 16,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            }
+          ]
+        }
+      ],
+      "irrPct": -2.49,
+      "kpis": {
+        "activeFmv": "\u2014",
+        "dc": "1.00",
+        "dcSub": "0.00 MW AC",
+        "epc": "$1.85",
+        "epcOff": false,
+        "epcSub": "",
+        "irr": "\u2014",
+        "irrLabel": "Appraisal IRR",
+        "irrSub": "",
+        "itc": "40%",
+        "itcOff": false,
+        "itcSub": "",
+        "levIrr": "\u2014",
+        "npp": "$0.67",
+        "nppSub": ""
+      },
+      "leverageScale": 1.49,
+      "name": "Project A6",
+      "nppPerW": -0.093,
+      "program": "Community",
+      "projNumber": null,
+      "propertyTax": {
+        "customToggle": false,
+        "escalator": "\u2014",
+        "yr1": null,
+        "yr1Display": "\u2014"
+      },
+      "rateComp1": {
+        "bibleDiscount": 13.0,
+        "bibleDiscountDisplay": "13.0%",
+        "custDiscount": 0.0,
+        "custDiscountDisplay": "0.0%",
+        "discountMatch": null,
+        "equityOn": false,
+        "ghHaircut": null,
+        "ghHaircutDisplay": "\u2014",
+        "isCustom": false,
+        "name": "\u2014",
+        "rate": null,
+        "rateConfidence": null,
+        "rateDisplay": "\u2014",
+        "rateSource": "Project Inputs"
+      },
+      "references": {
+        "bible": [
+          {
+            "k": "EPC ($/W) <5MW",
+            "s": "Tol \u00b1$0.100",
+            "v": "$1.750/W"
+          },
+          {
+            "k": "LNTP ($/W)",
+            "s": "Tol \u00b1$0.020",
+            "v": "$0.100/W"
+          },
+          {
+            "k": "Closing & Legal ($/W)",
+            "s": "Tol \u00b1$0.015",
+            "v": "$0.060/W"
+          },
+          {
+            "k": "Eligible Costs %",
+            "s": "Tol \u00b13.0%",
+            "v": "97.00%"
+          }
+        ],
+        "bibleHeader": "Q1 '26 Pricing Reference",
+        "market": [
+          {
+            "k": "Upfront Incentive ($/W)",
+            "s": "",
+            "v": "$0.000/W"
+          },
+          {
+            "k": "REC Rate",
+            "s": "5-yr",
+            "v": "Y1-5: 43/33/31/26/21; Y6-10: 18"
+          },
+          {
+            "k": "Post-REC Rate",
+            "s": "30-yr",
+            "v": "$3.00/MWh"
+          },
+          {
+            "k": "Customer Discount",
+            "s": "Applied to rate curve",
+            "v": "13.0%"
+          }
+        ],
+        "marketHeader": "Market \u2014 MD/DE BGE Community",
+        "marketMatched": true,
+        "opex": [
+          {
+            "k": "Insurance ($/MW-yr)",
+            "s": "Exact match",
+            "v": "3,500"
+          },
+          {
+            "k": "Cust Mgmt ($/kWh)",
+            "s": "Market-specific",
+            "v": "$0.0072/kWh"
+          },
+          {
+            "k": "Cust Acquisition (blended)",
+            "s": "",
+            "v": "$0.0701/kWh"
+          }
+        ]
+      },
+      "sponsorFraction": 0.302,
+      "stack": {
+        "assumptions": {
+          "debtFraction": 0.55,
+          "hasModelDscr": true,
+          "teMonetization": 0.85
+        },
+        "bible": [
+          0.561,
+          0.613,
+          0.686,
+          0.0
+        ],
+        "illustrative": true,
+        "model": [
+          0.682,
+          0.745,
+          0.833,
+          0.0
+        ]
+      },
+      "state": "MD/DE",
+      "sub": "fixture_md_bge \u00b7 MD/DE BGE \u00b7 Community",
+      "tornado": {
+        "hi": [
+          -0.185,
+          0.072,
+          -0.018,
+          -0.01,
+          -0.004
+        ],
+        "labels": [
+          "EPC $/W",
+          "ITC %",
+          "OpEx $/MW-yr",
+          "LNTP $/W",
+          "Insurance $/MW-yr"
+        ],
+        "lo": [
+          0.185,
+          -0.072,
+          0.018,
+          0.01,
+          0.004
+        ]
+      },
+      "utility": "BGE",
+      "variance": {
+        "colors": [
+          "out",
+          "off"
+        ],
+        "labels": [
+          "PV EPC Cost",
+          "P&C Insurance"
+        ],
+        "txt": [
+          "($100k)",
+          "$7k"
+        ],
+        "x": [
+          -100.0,
+          7.2
+        ]
+      },
+      "verdict": "REWORK REQUIRED",
+      "wrappedEpcComponents": [
+        {
+          "label": "PV EPC Cost",
+          "value": 1.75
+        },
+        {
+          "label": "PV Contingency",
+          "value": 0.05
+        },
+        {
+          "label": "PV LNTP Cost",
+          "value": 0.1
+        },
+        {
+          "label": "Safe Harbor Costs",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "cashflow": {
+        "opCF": [
+          775,
+          769,
+          763,
+          757,
+          750,
+          744,
+          738,
+          732,
+          725,
+          719,
+          713,
+          706,
+          700,
+          693,
+          687,
+          680,
+          674,
+          667,
+          661,
+          654,
+          647,
+          641,
+          634,
+          627,
+          620
+        ],
+        "taxBn": [
+          4004,
+          703,
+          422,
+          253,
+          253,
+          127,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "terminal": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          661
+        ]
+      },
+      "developer": "Developer A",
+      "equityK": 1750,
+      "findings": [
+        {
+          "bible": "$0.250/W",
+          "delta": -0.25,
+          "deltaUnit": "$/W",
+          "field": "Row 216",
+          "impact": 1750000,
+          "model": "$0.000/W",
+          "short": "Row 216",
+          "source": "Market: IL/Comed/Community",
+          "status": "OFF"
+        },
+        {
+          "bible": "10.00%",
+          "delta": null,
+          "deltaUnit": "%",
+          "field": "Row 161",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 161",
+          "source": "Market: IL/Comed/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "0.005",
+          "delta": null,
+          "deltaUnit": "$/MW",
+          "field": "Row 240",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 240",
+          "source": "Market: IL/Comed/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "\u2014",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Cust Acquisition ($/W)",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Cust Acquisiti",
+          "source": "Range: CapEx",
+          "status": "MISSING"
+        }
+      ],
+      "fullMapping": [
+        {
+          "category": "CapEx",
+          "rows": [
+            {
+              "actual": 1.75,
+              "expected": 1.65,
+              "label": "PV EPC Cost",
+              "range": [
+                1.55,
+                1.75
+              ],
+              "row": 118,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.1,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "PV LNTP Cost",
+              "range": [
+                0.08,
+                0.12
+              ],
+              "row": 119,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.02,
+              "unit": "$/W"
+            },
+            {
+              "actual": null,
+              "expected": null,
+              "label": "Cust Acquisition ($/W)",
+              "range": [
+                0.0,
+                0.2
+              ],
+              "row": 121,
+              "source": "Range: CapEx",
+              "status": "MISSING",
+              "tol": null,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.06,
+              "expected": 0.06,
+              "label": "Closing and Legal",
+              "range": [
+                0.05,
+                0.075
+              ],
+              "row": 123,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.015,
+              "unit": "$/W"
+            }
+          ]
+        },
+        {
+          "category": "System Sizing",
+          "rows": [
+            {
+              "actual": 7,
+              "expected": null,
+              "label": "Size MWDC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 11,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWdc"
+            },
+            {
+              "actual": 5,
+              "expected": null,
+              "label": "Size MWAC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 12,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWac"
+            },
+            {
+              "actual": 1.55,
+              "expected": null,
+              "label": "Energy Yield (kWh/MWp)",
+              "range": [
+                1.2,
+                2.0
+              ],
+              "row": 14,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "kWh/MWp"
+            }
+          ]
+        },
+        {
+          "category": "Revenue",
+          "rows": [
+            {
+              "actual": 1,
+              "expected": null,
+              "label": "Revenue Lag (months)",
+              "range": [
+                0,
+                3
+              ],
+              "row": 143,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "months"
+            },
+            {
+              "actual": 40,
+              "expected": null,
+              "label": "Rate Term (yrs)",
+              "range": [
+                15,
+                40
+              ],
+              "row": 160,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            },
+            {
+              "actual": null,
+              "expected": 0.1,
+              "label": "Rate Discount",
+              "range": null,
+              "row": 161,
+              "source": "Market: IL/Comed/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.01,
+              "expected": 0.01,
+              "label": "Rate UCB Fee",
+              "range": null,
+              "row": 162,
+              "source": "Market: IL/Comed/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "Incentives & Tax",
+          "rows": [
+            {
+              "actual": 0,
+              "expected": 0.25,
+              "label": "Upfront Incentive",
+              "range": [
+                0.0,
+                1.0
+              ],
+              "row": 216,
+              "source": "Market: IL/Comed/Community",
+              "status": "OFF",
+              "tol": 0.0,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.97,
+              "expected": 0.97,
+              "label": "Eligible Costs %",
+              "range": [
+                0.8,
+                1.0
+              ],
+              "row": 602,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.03,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "OpEx",
+          "rows": [
+            {
+              "actual": 4750,
+              "expected": 4750,
+              "label": "PV O&M Preventative",
+              "range": null,
+              "row": 225,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 250,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 2000,
+              "expected": 2000,
+              "label": "PV O&M Corrective",
+              "range": null,
+              "row": 226,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 100,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "PV O&M Esc",
+              "range": null,
+              "row": 227,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 3000,
+              "expected": 3000,
+              "label": "AM Fee (financing)",
+              "range": null,
+              "row": 230,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "AM Esc",
+              "range": null,
+              "row": 231,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": null,
+              "expected": 0.00478,
+              "label": "Customer Mgmt Cost",
+              "range": null,
+              "row": 240,
+              "source": "Market: IL/Comed/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/MW"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "Customer Mgmt Esc",
+              "range": null,
+              "row": 241,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.025,
+              "expected": 0.025,
+              "label": "Decom Annual Premium",
+              "range": null,
+              "row": 286,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "% of bond"
+            },
+            {
+              "actual": 4815,
+              "expected": 4815,
+              "label": "P&C Insurance",
+              "range": null,
+              "row": 296,
+              "source": "CS Average [IL override]",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW-dc/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "P&C Insurance Esc",
+              "range": null,
+              "row": 297,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 2500,
+              "expected": 2500,
+              "label": "Internal AM Costs",
+              "range": null,
+              "row": 302,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            }
+          ]
+        },
+        {
+          "category": "System Details",
+          "rows": [
+            {
+              "actual": 2027,
+              "expected": null,
+              "label": "COD Year",
+              "range": [
+                2025,
+                2030
+              ],
+              "row": 15,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "year"
+            },
+            {
+              "actual": 35,
+              "expected": null,
+              "label": "System Life (yrs)",
+              "range": [
+                20,
+                40
+              ],
+              "row": 16,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            }
+          ]
+        }
+      ],
+      "irrPct": 5.98,
+      "kpis": {
+        "activeFmv": "\u2014",
+        "dc": "7.00",
+        "dcSub": "0.01 MW AC",
+        "epc": "$1.75",
+        "epcOff": false,
+        "epcSub": "",
+        "irr": "\u2014",
+        "irrLabel": "Appraisal IRR",
+        "irrSub": "",
+        "itc": "30%",
+        "itcOff": false,
+        "itcSub": "",
+        "levIrr": "\u2014",
+        "npp": "$0.33",
+        "nppSub": ""
+      },
+      "leverageScale": 1.33,
+      "name": "Project A7",
+      "nppPerW": 0.25,
+      "program": "Community",
+      "projNumber": null,
+      "propertyTax": {
+        "customToggle": false,
+        "escalator": "\u2014",
+        "yr1": null,
+        "yr1Display": "\u2014"
+      },
+      "rateComp1": {
+        "bibleDiscount": 10.0,
+        "bibleDiscountDisplay": "10.0%",
+        "custDiscount": 0.0,
+        "custDiscountDisplay": "0.0%",
+        "discountMatch": null,
+        "equityOn": false,
+        "ghHaircut": null,
+        "ghHaircutDisplay": "\u2014",
+        "isCustom": false,
+        "name": "\u2014",
+        "rate": null,
+        "rateConfidence": null,
+        "rateDisplay": "\u2014",
+        "rateSource": "Project Inputs"
+      },
+      "references": {
+        "bible": [
+          {
+            "k": "EPC ($/W) \u22655MW",
+            "s": "Tol \u00b1$0.100",
+            "v": "$1.650/W"
+          },
+          {
+            "k": "LNTP ($/W)",
+            "s": "Tol \u00b1$0.020",
+            "v": "$0.100/W"
+          },
+          {
+            "k": "Closing & Legal ($/W)",
+            "s": "Tol \u00b1$0.015",
+            "v": "$0.060/W"
+          },
+          {
+            "k": "Eligible Costs %",
+            "s": "Tol \u00b13.0%",
+            "v": "97.00%"
+          }
+        ],
+        "bibleHeader": "Q1 '26 Pricing Reference",
+        "market": [
+          {
+            "k": "Upfront Incentive ($/W)",
+            "s": "Smart Inverter Rebate",
+            "v": "$0.250/W"
+          },
+          {
+            "k": "REC Rate",
+            "s": "20-yr",
+            "v": "Project Dependent"
+          },
+          {
+            "k": "Post-REC Rate",
+            "s": "20-yr",
+            "v": "$3.00/MWh"
+          },
+          {
+            "k": "Customer Discount",
+            "s": "Applied to rate curve",
+            "v": "10.0%"
+          }
+        ],
+        "marketHeader": "Market \u2014 IL Comed Community",
+        "marketMatched": true,
+        "opex": [
+          {
+            "k": "Insurance ($/MW-yr)",
+            "s": "Exact match",
+            "v": "4,815"
+          },
+          {
+            "k": "Cust Mgmt ($/kWh)",
+            "s": "Market-specific",
+            "v": "$0.0048/kWh"
+          },
+          {
+            "k": "Cust Acquisition (blended)",
+            "s": "",
+            "v": "$0.0334/kWh"
+          }
+        ]
+      },
+      "sponsorFraction": 0.339,
+      "stack": {
+        "assumptions": {
+          "debtFraction": 0.55,
+          "hasModelDscr": true,
+          "teMonetization": 0.85
+        },
+        "bible": [
+          0.448,
+          0.613,
+          0.548,
+          0.25
+        ],
+        "illustrative": true,
+        "model": [
+          0.799,
+          0.584,
+          0.977,
+          0.0
+        ]
+      },
+      "state": "IL",
+      "sub": "fixture_md_bge \u00b7 IL Comed \u00b7 Community",
+      "tornado": {
+        "hi": [
+          -0.175,
+          0.051,
+          -0.018,
+          -0.01,
+          -0.007
+        ],
+        "labels": [
+          "EPC $/W",
+          "ITC %",
+          "OpEx $/MW-yr",
+          "LNTP $/W",
+          "Insurance $/MW-yr"
+        ],
+        "lo": [
+          0.175,
+          -0.051,
+          0.018,
+          0.01,
+          0.007
+        ]
+      },
+      "utility": "Comed",
+      "variance": {
+        "colors": [
+          "off"
+        ],
+        "labels": [
+          "Row 216"
+        ],
+        "txt": [
+          "$1.75M"
+        ],
+        "x": [
+          1750.0
+        ]
+      },
+      "verdict": "REVIEW",
+      "wrappedEpcComponents": [
+        {
+          "label": "PV EPC Cost",
+          "value": 1.65
+        },
+        {
+          "label": "PV Module Cost",
+          "value": 0.0
+        },
+        {
+          "label": "PV Contingency",
+          "value": 0.05
+        },
+        {
+          "label": "PV LNTP Cost",
+          "value": 0.1
+        },
+        {
+          "label": "Safe Harbor Costs",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "cashflow": {
+        "opCF": [
+          775,
+          769,
+          763,
+          757,
+          750,
+          744,
+          738,
+          732,
+          725,
+          719,
+          713,
+          706,
+          700,
+          693,
+          687,
+          680,
+          674,
+          667,
+          661,
+          654,
+          647,
+          641,
+          634,
+          627,
+          620
+        ],
+        "taxBn": [
+          5168,
+          663,
+          398,
+          239,
+          239,
+          119,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "terminal": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          661
+        ]
+      },
+      "developer": "Developer A",
+      "equityK": 0,
+      "findings": [
+        {
+          "bible": "$0.250/W",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Row 216",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 216",
+          "source": "Market: IL/Comed/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "0.005",
+          "delta": null,
+          "deltaUnit": "$/MW",
+          "field": "Row 240",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 240",
+          "source": "Market: IL/Comed/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "\u2014",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Cust Acquisition ($/W)",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Cust Acquisiti",
+          "source": "Range: CapEx",
+          "status": "MISSING"
+        }
+      ],
+      "fullMapping": [
+        {
+          "category": "CapEx",
+          "rows": [
+            {
+              "actual": 1.75,
+              "expected": 1.65,
+              "label": "PV EPC Cost",
+              "range": [
+                1.55,
+                1.75
+              ],
+              "row": 118,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.1,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "PV LNTP Cost",
+              "range": [
+                0.08,
+                0.12
+              ],
+              "row": 119,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.02,
+              "unit": "$/W"
+            },
+            {
+              "actual": null,
+              "expected": null,
+              "label": "Cust Acquisition ($/W)",
+              "range": [
+                0.0,
+                0.2
+              ],
+              "row": 121,
+              "source": "Range: CapEx",
+              "status": "MISSING",
+              "tol": null,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.06,
+              "expected": 0.06,
+              "label": "Closing and Legal",
+              "range": [
+                0.05,
+                0.075
+              ],
+              "row": 123,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.015,
+              "unit": "$/W"
+            }
+          ]
+        },
+        {
+          "category": "System Sizing",
+          "rows": [
+            {
+              "actual": 7,
+              "expected": null,
+              "label": "Size MWDC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 11,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWdc"
+            },
+            {
+              "actual": 5,
+              "expected": null,
+              "label": "Size MWAC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 12,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWac"
+            },
+            {
+              "actual": 1.55,
+              "expected": null,
+              "label": "Energy Yield (kWh/MWp)",
+              "range": [
+                1.2,
+                2.0
+              ],
+              "row": 14,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "kWh/MWp"
+            }
+          ]
+        },
+        {
+          "category": "Revenue",
+          "rows": [
+            {
+              "actual": 1,
+              "expected": null,
+              "label": "Revenue Lag (months)",
+              "range": [
+                0,
+                3
+              ],
+              "row": 143,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "months"
+            },
+            {
+              "actual": 40,
+              "expected": null,
+              "label": "Rate Term (yrs)",
+              "range": [
+                15,
+                40
+              ],
+              "row": 160,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "Rate Discount",
+              "range": null,
+              "row": 161,
+              "source": "Market: IL/Comed/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.01,
+              "expected": 0.01,
+              "label": "Rate UCB Fee",
+              "range": null,
+              "row": 162,
+              "source": "Market: IL/Comed/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "Incentives & Tax",
+          "rows": [
+            {
+              "actual": null,
+              "expected": 0.25,
+              "label": "Upfront Incentive",
+              "range": [
+                0.0,
+                1.0
+              ],
+              "row": 216,
+              "source": "Market: IL/Comed/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.97,
+              "expected": 0.97,
+              "label": "Eligible Costs %",
+              "range": [
+                0.8,
+                1.0
+              ],
+              "row": 602,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.03,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "OpEx",
+          "rows": [
+            {
+              "actual": 4750,
+              "expected": 4750,
+              "label": "PV O&M Preventative",
+              "range": null,
+              "row": 225,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 250,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 2000,
+              "expected": 2000,
+              "label": "PV O&M Corrective",
+              "range": null,
+              "row": 226,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 100,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "PV O&M Esc",
+              "range": null,
+              "row": 227,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 3000,
+              "expected": 3000,
+              "label": "AM Fee (financing)",
+              "range": null,
+              "row": 230,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "AM Esc",
+              "range": null,
+              "row": 231,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": null,
+              "expected": 0.00478,
+              "label": "Customer Mgmt Cost",
+              "range": null,
+              "row": 240,
+              "source": "Market: IL/Comed/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/MW"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "Customer Mgmt Esc",
+              "range": null,
+              "row": 241,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.025,
+              "expected": 0.025,
+              "label": "Decom Annual Premium",
+              "range": null,
+              "row": 286,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "% of bond"
+            },
+            {
+              "actual": 4815,
+              "expected": 4815,
+              "label": "P&C Insurance",
+              "range": null,
+              "row": 296,
+              "source": "CS Average [IL override]",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW-dc/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "P&C Insurance Esc",
+              "range": null,
+              "row": 297,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 2500,
+              "expected": 2500,
+              "label": "Internal AM Costs",
+              "range": null,
+              "row": 302,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            }
+          ]
+        },
+        {
+          "category": "System Details",
+          "rows": [
+            {
+              "actual": 2027,
+              "expected": null,
+              "label": "COD Year",
+              "range": [
+                2025,
+                2030
+              ],
+              "row": 15,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "year"
+            },
+            {
+              "actual": 35,
+              "expected": null,
+              "label": "System Life (yrs)",
+              "range": [
+                20,
+                40
+              ],
+              "row": 16,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            }
+          ]
+        }
+      ],
+      "irrPct": 0.0,
+      "kpis": {
+        "activeFmv": "\u2014",
+        "dc": "7.00",
+        "dcSub": "0.01 MW AC",
+        "epc": "$1.75",
+        "epcOff": false,
+        "epcSub": "",
+        "irr": "\u2014",
+        "irrLabel": "Appraisal IRR",
+        "irrSub": "",
+        "itc": "40%",
+        "itcOff": false,
+        "itcSub": "",
+        "levIrr": "\u2014",
+        "npp": "$0.13",
+        "nppSub": ""
+      },
+      "leverageScale": 1.49,
+      "name": "IL FoxEast-2",
+      "nppPerW": 0.0,
+      "program": "Community",
+      "projNumber": null,
+      "propertyTax": {
+        "customToggle": false,
+        "escalator": "\u2014",
+        "yr1": null,
+        "yr1Display": "\u2014"
+      },
+      "rateComp1": {
+        "bibleDiscount": 10.0,
+        "bibleDiscountDisplay": "10.0%",
+        "custDiscount": 0.0,
+        "custDiscountDisplay": "0.0%",
+        "discountMatch": null,
+        "equityOn": false,
+        "ghHaircut": null,
+        "ghHaircutDisplay": "\u2014",
+        "isCustom": false,
+        "name": "\u2014",
+        "rate": null,
+        "rateConfidence": null,
+        "rateDisplay": "\u2014",
+        "rateSource": "Project Inputs"
+      },
+      "references": {
+        "bible": [
+          {
+            "k": "EPC ($/W) \u22655MW",
+            "s": "Tol \u00b1$0.100",
+            "v": "$1.650/W"
+          },
+          {
+            "k": "LNTP ($/W)",
+            "s": "Tol \u00b1$0.020",
+            "v": "$0.100/W"
+          },
+          {
+            "k": "Closing & Legal ($/W)",
+            "s": "Tol \u00b1$0.015",
+            "v": "$0.060/W"
+          },
+          {
+            "k": "Eligible Costs %",
+            "s": "Tol \u00b13.0%",
+            "v": "97.00%"
+          }
+        ],
+        "bibleHeader": "Q1 '26 Pricing Reference",
+        "market": [
+          {
+            "k": "Upfront Incentive ($/W)",
+            "s": "Smart Inverter Rebate",
+            "v": "$0.250/W"
+          },
+          {
+            "k": "REC Rate",
+            "s": "20-yr",
+            "v": "Project Dependent"
+          },
+          {
+            "k": "Post-REC Rate",
+            "s": "20-yr",
+            "v": "$3.00/MWh"
+          },
+          {
+            "k": "Customer Discount",
+            "s": "Applied to rate curve",
+            "v": "10.0%"
+          }
+        ],
+        "marketHeader": "Market \u2014 IL Comed Community",
+        "marketMatched": true,
+        "opex": [
+          {
+            "k": "Insurance ($/MW-yr)",
+            "s": "Exact match",
+            "v": "4,815"
+          },
+          {
+            "k": "Cust Mgmt ($/kWh)",
+            "s": "Market-specific",
+            "v": "$0.0048/kWh"
+          },
+          {
+            "k": "Cust Acquisition (blended)",
+            "s": "",
+            "v": "$0.0334/kWh"
+          }
+        ]
+      },
+      "sponsorFraction": 0.302,
+      "stack": {
+        "assumptions": {
+          "debtFraction": 0.55,
+          "hasModelDscr": true,
+          "teMonetization": 0.85
+        },
+        "bible": [
+          0.448,
+          0.613,
+          0.548,
+          0.25
+        ],
+        "illustrative": true,
+        "model": [
+          0.712,
+          0.778,
+          0.87,
+          0.0
+        ]
+      },
+      "state": "IL",
+      "sub": "fixture_md_bge \u00b7 IL Comed \u00b7 Community",
+      "tornado": {
+        "hi": [
+          -0.175,
+          0.068,
+          -0.018,
+          -0.01,
+          -0.007
+        ],
+        "labels": [
+          "EPC $/W",
+          "ITC %",
+          "OpEx $/MW-yr",
+          "LNTP $/W",
+          "Insurance $/MW-yr"
+        ],
+        "lo": [
+          0.175,
+          -0.068,
+          0.018,
+          0.01,
+          0.007
+        ]
+      },
+      "utility": "Comed",
+      "variance": {
+        "colors": [
+          "miss",
+          "miss",
+          "miss"
+        ],
+        "labels": [
+          "Row 216",
+          "Row 240",
+          "Cust Acquisiti"
+        ],
+        "txt": [
+          "MISSING",
+          "MISSING",
+          "MISSING"
+        ],
+        "x": [
+          0,
+          0,
+          0
+        ]
+      },
+      "verdict": "REVIEW",
+      "wrappedEpcComponents": [
+        {
+          "label": "PV EPC Cost",
+          "value": 1.65
+        },
+        {
+          "label": "PV Module Cost",
+          "value": 0.0
+        },
+        {
+          "label": "PV Contingency",
+          "value": 0.05
+        },
+        {
+          "label": "PV LNTP Cost",
+          "value": 0.1
+        },
+        {
+          "label": "Safe Harbor Costs",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "cashflow": {
+        "opCF": [
+          775,
+          769,
+          763,
+          757,
+          750,
+          744,
+          738,
+          732,
+          725,
+          719,
+          713,
+          706,
+          700,
+          693,
+          687,
+          680,
+          674,
+          667,
+          661,
+          654,
+          647,
+          641,
+          634,
+          627,
+          620
+        ],
+        "taxBn": [
+          5168,
+          663,
+          398,
+          239,
+          239,
+          119,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "terminal": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          661
+        ]
+      },
+      "developer": "Developer A",
+      "equityK": 0,
+      "findings": [
+        {
+          "bible": "$0.250/W",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Row 216",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 216",
+          "source": "Market: IL/Comed/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "0.005",
+          "delta": null,
+          "deltaUnit": "$/MW",
+          "field": "Row 240",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 240",
+          "source": "Market: IL/Comed/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "\u2014",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Cust Acquisition ($/W)",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Cust Acquisiti",
+          "source": "Range: CapEx",
+          "status": "MISSING"
+        }
+      ],
+      "fullMapping": [
+        {
+          "category": "CapEx",
+          "rows": [
+            {
+              "actual": 1.75,
+              "expected": 1.65,
+              "label": "PV EPC Cost",
+              "range": [
+                1.55,
+                1.75
+              ],
+              "row": 118,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.1,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "PV LNTP Cost",
+              "range": [
+                0.08,
+                0.12
+              ],
+              "row": 119,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.02,
+              "unit": "$/W"
+            },
+            {
+              "actual": null,
+              "expected": null,
+              "label": "Cust Acquisition ($/W)",
+              "range": [
+                0.0,
+                0.2
+              ],
+              "row": 121,
+              "source": "Range: CapEx",
+              "status": "MISSING",
+              "tol": null,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.06,
+              "expected": 0.06,
+              "label": "Closing and Legal",
+              "range": [
+                0.05,
+                0.075
+              ],
+              "row": 123,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.015,
+              "unit": "$/W"
+            }
+          ]
+        },
+        {
+          "category": "System Sizing",
+          "rows": [
+            {
+              "actual": 7,
+              "expected": null,
+              "label": "Size MWDC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 11,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWdc"
+            },
+            {
+              "actual": 5,
+              "expected": null,
+              "label": "Size MWAC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 12,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWac"
+            },
+            {
+              "actual": 1.55,
+              "expected": null,
+              "label": "Energy Yield (kWh/MWp)",
+              "range": [
+                1.2,
+                2.0
+              ],
+              "row": 14,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "kWh/MWp"
+            }
+          ]
+        },
+        {
+          "category": "Revenue",
+          "rows": [
+            {
+              "actual": 1,
+              "expected": null,
+              "label": "Revenue Lag (months)",
+              "range": [
+                0,
+                3
+              ],
+              "row": 143,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "months"
+            },
+            {
+              "actual": 40,
+              "expected": null,
+              "label": "Rate Term (yrs)",
+              "range": [
+                15,
+                40
+              ],
+              "row": 160,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "Rate Discount",
+              "range": null,
+              "row": 161,
+              "source": "Market: IL/Comed/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.01,
+              "expected": 0.01,
+              "label": "Rate UCB Fee",
+              "range": null,
+              "row": 162,
+              "source": "Market: IL/Comed/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "Incentives & Tax",
+          "rows": [
+            {
+              "actual": null,
+              "expected": 0.25,
+              "label": "Upfront Incentive",
+              "range": [
+                0.0,
+                1.0
+              ],
+              "row": 216,
+              "source": "Market: IL/Comed/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.97,
+              "expected": 0.97,
+              "label": "Eligible Costs %",
+              "range": [
+                0.8,
+                1.0
+              ],
+              "row": 602,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.03,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "OpEx",
+          "rows": [
+            {
+              "actual": 4750,
+              "expected": 4750,
+              "label": "PV O&M Preventative",
+              "range": null,
+              "row": 225,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 250,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 2000,
+              "expected": 2000,
+              "label": "PV O&M Corrective",
+              "range": null,
+              "row": 226,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 100,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "PV O&M Esc",
+              "range": null,
+              "row": 227,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 3000,
+              "expected": 3000,
+              "label": "AM Fee (financing)",
+              "range": null,
+              "row": 230,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "AM Esc",
+              "range": null,
+              "row": 231,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": null,
+              "expected": 0.00478,
+              "label": "Customer Mgmt Cost",
+              "range": null,
+              "row": 240,
+              "source": "Market: IL/Comed/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/MW"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "Customer Mgmt Esc",
+              "range": null,
+              "row": 241,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.025,
+              "expected": 0.025,
+              "label": "Decom Annual Premium",
+              "range": null,
+              "row": 286,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "% of bond"
+            },
+            {
+              "actual": 4815,
+              "expected": 4815,
+              "label": "P&C Insurance",
+              "range": null,
+              "row": 296,
+              "source": "CS Average [IL override]",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW-dc/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "P&C Insurance Esc",
+              "range": null,
+              "row": 297,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 2500,
+              "expected": 2500,
+              "label": "Internal AM Costs",
+              "range": null,
+              "row": 302,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            }
+          ]
+        },
+        {
+          "category": "System Details",
+          "rows": [
+            {
+              "actual": 2027,
+              "expected": null,
+              "label": "COD Year",
+              "range": [
+                2025,
+                2030
+              ],
+              "row": 15,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "year"
+            },
+            {
+              "actual": 35,
+              "expected": null,
+              "label": "System Life (yrs)",
+              "range": [
+                20,
+                40
+              ],
+              "row": 16,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            }
+          ]
+        }
+      ],
+      "irrPct": 0.0,
+      "kpis": {
+        "activeFmv": "\u2014",
+        "dc": "7.00",
+        "dcSub": "0.01 MW AC",
+        "epc": "$1.75",
+        "epcOff": false,
+        "epcSub": "",
+        "irr": "\u2014",
+        "irrLabel": "Appraisal IRR",
+        "irrSub": "",
+        "itc": "40%",
+        "itcOff": false,
+        "itcSub": "",
+        "levIrr": "\u2014",
+        "npp": "$0.13",
+        "nppSub": ""
+      },
+      "leverageScale": 1.49,
+      "name": "IL FoxWest-1",
+      "nppPerW": 0.0,
+      "program": "Community",
+      "projNumber": null,
+      "propertyTax": {
+        "customToggle": false,
+        "escalator": "\u2014",
+        "yr1": null,
+        "yr1Display": "\u2014"
+      },
+      "rateComp1": {
+        "bibleDiscount": 10.0,
+        "bibleDiscountDisplay": "10.0%",
+        "custDiscount": 0.0,
+        "custDiscountDisplay": "0.0%",
+        "discountMatch": null,
+        "equityOn": false,
+        "ghHaircut": null,
+        "ghHaircutDisplay": "\u2014",
+        "isCustom": false,
+        "name": "\u2014",
+        "rate": null,
+        "rateConfidence": null,
+        "rateDisplay": "\u2014",
+        "rateSource": "Project Inputs"
+      },
+      "references": {
+        "bible": [
+          {
+            "k": "EPC ($/W) \u22655MW",
+            "s": "Tol \u00b1$0.100",
+            "v": "$1.650/W"
+          },
+          {
+            "k": "LNTP ($/W)",
+            "s": "Tol \u00b1$0.020",
+            "v": "$0.100/W"
+          },
+          {
+            "k": "Closing & Legal ($/W)",
+            "s": "Tol \u00b1$0.015",
+            "v": "$0.060/W"
+          },
+          {
+            "k": "Eligible Costs %",
+            "s": "Tol \u00b13.0%",
+            "v": "97.00%"
+          }
+        ],
+        "bibleHeader": "Q1 '26 Pricing Reference",
+        "market": [
+          {
+            "k": "Upfront Incentive ($/W)",
+            "s": "Smart Inverter Rebate",
+            "v": "$0.250/W"
+          },
+          {
+            "k": "REC Rate",
+            "s": "20-yr",
+            "v": "Project Dependent"
+          },
+          {
+            "k": "Post-REC Rate",
+            "s": "20-yr",
+            "v": "$3.00/MWh"
+          },
+          {
+            "k": "Customer Discount",
+            "s": "Applied to rate curve",
+            "v": "10.0%"
+          }
+        ],
+        "marketHeader": "Market \u2014 IL Comed Community",
+        "marketMatched": true,
+        "opex": [
+          {
+            "k": "Insurance ($/MW-yr)",
+            "s": "Exact match",
+            "v": "4,815"
+          },
+          {
+            "k": "Cust Mgmt ($/kWh)",
+            "s": "Market-specific",
+            "v": "$0.0048/kWh"
+          },
+          {
+            "k": "Cust Acquisition (blended)",
+            "s": "",
+            "v": "$0.0334/kWh"
+          }
+        ]
+      },
+      "sponsorFraction": 0.302,
+      "stack": {
+        "assumptions": {
+          "debtFraction": 0.55,
+          "hasModelDscr": true,
+          "teMonetization": 0.85
+        },
+        "bible": [
+          0.448,
+          0.613,
+          0.548,
+          0.25
+        ],
+        "illustrative": true,
+        "model": [
+          0.712,
+          0.778,
+          0.87,
+          0.0
+        ]
+      },
+      "state": "IL",
+      "sub": "fixture_md_bge \u00b7 IL Comed \u00b7 Community",
+      "tornado": {
+        "hi": [
+          -0.175,
+          0.068,
+          -0.018,
+          -0.01,
+          -0.007
+        ],
+        "labels": [
+          "EPC $/W",
+          "ITC %",
+          "OpEx $/MW-yr",
+          "LNTP $/W",
+          "Insurance $/MW-yr"
+        ],
+        "lo": [
+          0.175,
+          -0.068,
+          0.018,
+          0.01,
+          0.007
+        ]
+      },
+      "utility": "Comed",
+      "variance": {
+        "colors": [
+          "miss",
+          "miss",
+          "miss"
+        ],
+        "labels": [
+          "Row 216",
+          "Row 240",
+          "Cust Acquisiti"
+        ],
+        "txt": [
+          "MISSING",
+          "MISSING",
+          "MISSING"
+        ],
+        "x": [
+          0,
+          0,
+          0
+        ]
+      },
+      "verdict": "REVIEW",
+      "wrappedEpcComponents": [
+        {
+          "label": "PV EPC Cost",
+          "value": 1.65
+        },
+        {
+          "label": "PV Module Cost",
+          "value": 0.0
+        },
+        {
+          "label": "PV Contingency",
+          "value": 0.05
+        },
+        {
+          "label": "PV LNTP Cost",
+          "value": 0.1
+        },
+        {
+          "label": "Safe Harbor Costs",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "cashflow": {
+        "opCF": [
+          775,
+          769,
+          763,
+          757,
+          750,
+          744,
+          738,
+          732,
+          725,
+          719,
+          713,
+          706,
+          700,
+          693,
+          687,
+          680,
+          674,
+          667,
+          661,
+          654,
+          647,
+          641,
+          634,
+          627,
+          620
+        ],
+        "taxBn": [
+          5168,
+          663,
+          398,
+          239,
+          239,
+          119,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "terminal": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          661
+        ]
+      },
+      "developer": "Developer A",
+      "equityK": 0,
+      "findings": [
+        {
+          "bible": "$0.250/W",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Row 216",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 216",
+          "source": "Market: IL/Comed/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "0.005",
+          "delta": null,
+          "deltaUnit": "$/MW",
+          "field": "Row 240",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Row 240",
+          "source": "Market: IL/Comed/Community",
+          "status": "MISSING"
+        },
+        {
+          "bible": "\u2014",
+          "delta": null,
+          "deltaUnit": "$/W",
+          "field": "Cust Acquisition ($/W)",
+          "impact": null,
+          "model": "\u2014",
+          "short": "Cust Acquisiti",
+          "source": "Range: CapEx",
+          "status": "MISSING"
+        }
+      ],
+      "fullMapping": [
+        {
+          "category": "CapEx",
+          "rows": [
+            {
+              "actual": 1.75,
+              "expected": 1.65,
+              "label": "PV EPC Cost",
+              "range": [
+                1.55,
+                1.75
+              ],
+              "row": 118,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.1,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "PV LNTP Cost",
+              "range": [
+                0.08,
+                0.12
+              ],
+              "row": 119,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.02,
+              "unit": "$/W"
+            },
+            {
+              "actual": null,
+              "expected": null,
+              "label": "Cust Acquisition ($/W)",
+              "range": [
+                0.0,
+                0.2
+              ],
+              "row": 121,
+              "source": "Range: CapEx",
+              "status": "MISSING",
+              "tol": null,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.06,
+              "expected": 0.06,
+              "label": "Closing and Legal",
+              "range": [
+                0.05,
+                0.075
+              ],
+              "row": 123,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.015,
+              "unit": "$/W"
+            }
+          ]
+        },
+        {
+          "category": "System Sizing",
+          "rows": [
+            {
+              "actual": 7,
+              "expected": null,
+              "label": "Size MWDC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 11,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWdc"
+            },
+            {
+              "actual": 5,
+              "expected": null,
+              "label": "Size MWAC",
+              "range": [
+                0.1,
+                100.0
+              ],
+              "row": 12,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "MWac"
+            },
+            {
+              "actual": 1.55,
+              "expected": null,
+              "label": "Energy Yield (kWh/MWp)",
+              "range": [
+                1.2,
+                2.0
+              ],
+              "row": 14,
+              "source": "Range: System Sizing",
+              "status": "OK",
+              "tol": null,
+              "unit": "kWh/MWp"
+            }
+          ]
+        },
+        {
+          "category": "Revenue",
+          "rows": [
+            {
+              "actual": 1,
+              "expected": null,
+              "label": "Revenue Lag (months)",
+              "range": [
+                0,
+                3
+              ],
+              "row": 143,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "months"
+            },
+            {
+              "actual": 40,
+              "expected": null,
+              "label": "Rate Term (yrs)",
+              "range": [
+                15,
+                40
+              ],
+              "row": 160,
+              "source": "Range: Revenue",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            },
+            {
+              "actual": 0.1,
+              "expected": 0.1,
+              "label": "Rate Discount",
+              "range": null,
+              "row": 161,
+              "source": "Market: IL/Comed/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.01,
+              "expected": 0.01,
+              "label": "Rate UCB Fee",
+              "range": null,
+              "row": 162,
+              "source": "Market: IL/Comed/Community",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "Incentives & Tax",
+          "rows": [
+            {
+              "actual": null,
+              "expected": 0.25,
+              "label": "Upfront Incentive",
+              "range": [
+                0.0,
+                1.0
+              ],
+              "row": 216,
+              "source": "Market: IL/Comed/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/W"
+            },
+            {
+              "actual": 0.97,
+              "expected": 0.97,
+              "label": "Eligible Costs %",
+              "range": [
+                0.8,
+                1.0
+              ],
+              "row": 602,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.03,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "category": "OpEx",
+          "rows": [
+            {
+              "actual": 4750,
+              "expected": 4750,
+              "label": "PV O&M Preventative",
+              "range": null,
+              "row": 225,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 250,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 2000,
+              "expected": 2000,
+              "label": "PV O&M Corrective",
+              "range": null,
+              "row": 226,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 100,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "PV O&M Esc",
+              "range": null,
+              "row": 227,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 3000,
+              "expected": 3000,
+              "label": "AM Fee (financing)",
+              "range": null,
+              "row": 230,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "AM Esc",
+              "range": null,
+              "row": 231,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": null,
+              "expected": 0.00478,
+              "label": "Customer Mgmt Cost",
+              "range": null,
+              "row": 240,
+              "source": "Market: IL/Comed/Community",
+              "status": "MISSING",
+              "tol": 0.0,
+              "unit": "$/MW"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "Customer Mgmt Esc",
+              "range": null,
+              "row": 241,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 0.025,
+              "expected": 0.025,
+              "label": "Decom Annual Premium",
+              "range": null,
+              "row": 286,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "% of bond"
+            },
+            {
+              "actual": 4815,
+              "expected": 4815,
+              "label": "P&C Insurance",
+              "range": null,
+              "row": 296,
+              "source": "CS Average [IL override]",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW-dc/yr"
+            },
+            {
+              "actual": 0.02,
+              "expected": 0.02,
+              "label": "P&C Insurance Esc",
+              "range": null,
+              "row": 297,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0.0,
+              "unit": "%"
+            },
+            {
+              "actual": 2500,
+              "expected": 2500,
+              "label": "Internal AM Costs",
+              "range": null,
+              "row": 302,
+              "source": "CS Average",
+              "status": "OK",
+              "tol": 0,
+              "unit": "$/MW/yr"
+            }
+          ]
+        },
+        {
+          "category": "System Details",
+          "rows": [
+            {
+              "actual": 2027,
+              "expected": null,
+              "label": "COD Year",
+              "range": [
+                2025,
+                2030
+              ],
+              "row": 15,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "year"
+            },
+            {
+              "actual": 35,
+              "expected": null,
+              "label": "System Life (yrs)",
+              "range": [
+                20,
+                40
+              ],
+              "row": 16,
+              "source": "Range: System Details",
+              "status": "OK",
+              "tol": null,
+              "unit": "years"
+            }
+          ]
+        }
+      ],
+      "irrPct": 0.0,
+      "kpis": {
+        "activeFmv": "\u2014",
+        "dc": "7.00",
+        "dcSub": "0.01 MW AC",
+        "epc": "$1.75",
+        "epcOff": false,
+        "epcSub": "",
+        "irr": "\u2014",
+        "irrLabel": "Appraisal IRR",
+        "irrSub": "",
+        "itc": "40%",
+        "itcOff": false,
+        "itcSub": "",
+        "levIrr": "\u2014",
+        "npp": "$0.13",
+        "nppSub": ""
+      },
+      "leverageScale": 1.49,
+      "name": "IL FoxWest-2",
+      "nppPerW": 0.0,
+      "program": "Community",
+      "projNumber": null,
+      "propertyTax": {
+        "customToggle": false,
+        "escalator": "\u2014",
+        "yr1": null,
+        "yr1Display": "\u2014"
+      },
+      "rateComp1": {
+        "bibleDiscount": 10.0,
+        "bibleDiscountDisplay": "10.0%",
+        "custDiscount": 0.0,
+        "custDiscountDisplay": "0.0%",
+        "discountMatch": null,
+        "equityOn": false,
+        "ghHaircut": null,
+        "ghHaircutDisplay": "\u2014",
+        "isCustom": false,
+        "name": "\u2014",
+        "rate": null,
+        "rateConfidence": null,
+        "rateDisplay": "\u2014",
+        "rateSource": "Project Inputs"
+      },
+      "references": {
+        "bible": [
+          {
+            "k": "EPC ($/W) \u22655MW",
+            "s": "Tol \u00b1$0.100",
+            "v": "$1.650/W"
+          },
+          {
+            "k": "LNTP ($/W)",
+            "s": "Tol \u00b1$0.020",
+            "v": "$0.100/W"
+          },
+          {
+            "k": "Closing & Legal ($/W)",
+            "s": "Tol \u00b1$0.015",
+            "v": "$0.060/W"
+          },
+          {
+            "k": "Eligible Costs %",
+            "s": "Tol \u00b13.0%",
+            "v": "97.00%"
+          }
+        ],
+        "bibleHeader": "Q1 '26 Pricing Reference",
+        "market": [
+          {
+            "k": "Upfront Incentive ($/W)",
+            "s": "Smart Inverter Rebate",
+            "v": "$0.250/W"
+          },
+          {
+            "k": "REC Rate",
+            "s": "20-yr",
+            "v": "Project Dependent"
+          },
+          {
+            "k": "Post-REC Rate",
+            "s": "20-yr",
+            "v": "$3.00/MWh"
+          },
+          {
+            "k": "Customer Discount",
+            "s": "Applied to rate curve",
+            "v": "10.0%"
+          }
+        ],
+        "marketHeader": "Market \u2014 IL Comed Community",
+        "marketMatched": true,
+        "opex": [
+          {
+            "k": "Insurance ($/MW-yr)",
+            "s": "Exact match",
+            "v": "4,815"
+          },
+          {
+            "k": "Cust Mgmt ($/kWh)",
+            "s": "Market-specific",
+            "v": "$0.0048/kWh"
+          },
+          {
+            "k": "Cust Acquisition (blended)",
+            "s": "",
+            "v": "$0.0334/kWh"
+          }
+        ]
+      },
+      "sponsorFraction": 0.302,
+      "stack": {
+        "assumptions": {
+          "debtFraction": 0.55,
+          "hasModelDscr": true,
+          "teMonetization": 0.85
+        },
+        "bible": [
+          0.448,
+          0.613,
+          0.548,
+          0.25
+        ],
+        "illustrative": true,
+        "model": [
+          0.712,
+          0.778,
+          0.87,
+          0.0
+        ]
+      },
+      "state": "IL",
+      "sub": "fixture_md_bge \u00b7 IL Comed \u00b7 Community",
+      "tornado": {
+        "hi": [
+          -0.175,
+          0.068,
+          -0.018,
+          -0.01,
+          -0.007
+        ],
+        "labels": [
+          "EPC $/W",
+          "ITC %",
+          "OpEx $/MW-yr",
+          "LNTP $/W",
+          "Insurance $/MW-yr"
+        ],
+        "lo": [
+          0.175,
+          -0.068,
+          0.018,
+          0.01,
+          0.007
+        ]
+      },
+      "utility": "Comed",
+      "variance": {
+        "colors": [
+          "miss",
+          "miss",
+          "miss"
+        ],
+        "labels": [
+          "Row 216",
+          "Row 240",
+          "Cust Acquisiti"
+        ],
+        "txt": [
+          "MISSING",
+          "MISSING",
+          "MISSING"
+        ],
+        "x": [
+          0,
+          0,
+          0
+        ]
+      },
+      "verdict": "REVIEW",
+      "wrappedEpcComponents": [
+        {
+          "label": "PV EPC Cost",
+          "value": 1.65
+        },
+        {
+          "label": "PV Module Cost",
+          "value": 0.0
+        },
+        {
+          "label": "PV Contingency",
+          "value": 0.05
+        },
+        {
+          "label": "PV LNTP Cost",
+          "value": 0.1
+        },
+        {
+          "label": "Safe Harbor Costs",
+          "value": 0.0
+        }
+      ]
+    }
+  ]
+}
